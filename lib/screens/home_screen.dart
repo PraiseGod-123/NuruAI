@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
+import '../utils/nuru_colors.dart'; // FIXED: Added semicolon here
 import 'home_screen_young.dart';
 import 'home_screen_teen.dart';
 import 'home_screen_young_adult.dart';
 
 class HomeScreen extends StatefulWidget {
   final Map<String, dynamic>? userData;
+
   const HomeScreen({Key? key, this.userData}) : super(key: key);
 
   @override

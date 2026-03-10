@@ -2,24 +2,27 @@ import 'package:flutter/material.dart';
 import 'dart:ui';
 import '../utils/nuru_colors.dart';
 
-// HOME SCREEN FOR AGES 20-25
+// ══════════════════════════════════════════════════════════════
+// HOME SCREEN FOR AGES 16-19 - NEW DESIGN
+// Design: Icon-Text-Icon header layout
+// ══════════════════════════════════════════════════════════════
 
-class HomeScreenYoungAdult extends StatefulWidget {
+class HomeScreenTeen extends StatefulWidget {
   final Map<String, dynamic>? userData;
 
-  const HomeScreenYoungAdult({Key? key, this.userData}) : super(key: key);
+  const HomeScreenTeen({Key? key, this.userData}) : super(key: key);
 
   @override
-  State<HomeScreenYoungAdult> createState() => _HomeScreenYoungAdultState();
+  State<HomeScreenTeen> createState() => _HomeScreenTeenState();
 }
 
-class _HomeScreenYoungAdultState extends State<HomeScreenYoungAdult>
+class _HomeScreenTeenState extends State<HomeScreenTeen>
     with TickerProviderStateMixin {
   late AnimationController _floatController1;
   late AnimationController _floatController2;
   late AnimationController _floatController3;
 
-  int _selectedMoodIndex = -1;
+  String? _selectedMood;
   int _currentNavIndex = 0;
 
   @override
@@ -52,27 +55,37 @@ class _HomeScreenYoungAdultState extends State<HomeScreenYoungAdult>
 
   @override
   Widget build(BuildContext context) {
+    // Reset selection to Home whenever this screen is displayed
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _currentNavIndex != 0) {
+        setState(() {
+          _currentNavIndex = 0;
+        });
+      }
+    });
+
     final userName = widget.userData?['name'] ?? 'User';
 
     return Scaffold(
       body: Stack(
         children: [
-          // Background gradient - darker, more professional
+          // Background gradient
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Color(0xFF3A5FA8),
-                  Color(0xFF2D5295),
-                  Color(0xFF1E4A8C),
+                  Color(0xFF4569AD), // Base blue
+                  Color(0xFF4864B5), // Blue with purple hint
+                  Color(0xFF3A5FA8), // Medium blue
+                  Color(0xFF2D5295), // Deeper blue
                 ],
               ),
             ),
           ),
 
-          // Animated background shapes - more subtle
+          // Animated background shapes
           AnimatedBuilder(
             animation: Listenable.merge([
               _floatController1,
@@ -86,7 +99,6 @@ class _HomeScreenYoungAdultState extends State<HomeScreenYoungAdult>
                   animation1: _floatController1.value,
                   animation2: _floatController2.value,
                   animation3: _floatController3.value,
-                  opacity: 0.08,
                 ),
               );
             },
@@ -95,13 +107,15 @@ class _HomeScreenYoungAdultState extends State<HomeScreenYoungAdult>
           // Main content
           SafeArea(
             child: SingleChildScrollView(
-              padding: EdgeInsets.only(bottom: 100), // Only bottom padding
+              physics: ClampingScrollPhysics(),
+              padding: EdgeInsets.only(bottom: 90), // Only bottom padding
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // MAIN HEADER CARD
+                  // MAIN HEADER CARD - Edge-to-edge with curved bottom
                   Container(
-                    margin: EdgeInsets.only(bottom: 24),
+                    margin: EdgeInsets.only(bottom: 20),
                     child: ClipRRect(
                       borderRadius: BorderRadius.only(
                         bottomLeft: Radius.circular(32),
@@ -111,7 +125,7 @@ class _HomeScreenYoungAdultState extends State<HomeScreenYoungAdult>
                         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                         child: Container(
                           padding: EdgeInsets.symmetric(
-                            horizontal: 24,
+                            horizontal: 20,
                             vertical: 24,
                           ),
                           decoration: BoxDecoration(
@@ -132,7 +146,7 @@ class _HomeScreenYoungAdultState extends State<HomeScreenYoungAdult>
                           ),
                           child: Row(
                             children: [
-                              // Left icon - Profile
+                              // Left Profile Icon
                               Container(
                                 padding: EdgeInsets.all(16),
                                 decoration: BoxDecoration(
@@ -152,16 +166,16 @@ class _HomeScreenYoungAdultState extends State<HomeScreenYoungAdult>
 
                               SizedBox(width: 16),
 
-                              // Center text
+                              // Center Text
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'Welcome',
+                                      'Welcome back',
                                       style: TextStyle(
                                         fontSize: 14,
-                                        color: Colors.white.withOpacity(0.8),
+                                        color: Colors.white.withOpacity(0.85),
                                         fontWeight: FontWeight.w400,
                                       ),
                                     ),
@@ -172,7 +186,6 @@ class _HomeScreenYoungAdultState extends State<HomeScreenYoungAdult>
                                         fontSize: 22,
                                         fontWeight: FontWeight.bold,
                                         color: Colors.white,
-                                        letterSpacing: -0.5,
                                       ),
                                       overflow: TextOverflow.ellipsis,
                                     ),
@@ -182,7 +195,7 @@ class _HomeScreenYoungAdultState extends State<HomeScreenYoungAdult>
 
                               SizedBox(width: 16),
 
-                              // Right icon - Notifications with badge
+                              // Right Notification Icon with Badge
                               Stack(
                                 clipBehavior: Clip.none,
                                 children: [
@@ -243,276 +256,125 @@ class _HomeScreenYoungAdultState extends State<HomeScreenYoungAdult>
                     ),
                   ),
 
-                  // Metrics Overview - GLASSMORPHISM
+                  // Stats Row
                   Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 24),
-                    child: _buildGlassContainer(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Weekly Overview',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
-                            ),
-                          ),
-                          SizedBox(height: 20),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildMetricItem(
-                                  'Check-ins',
-                                  '24',
-                                  '↑ 12%',
-                                  Color(0xFF4CAF50),
-                                ),
-                              ),
-                              Container(
-                                width: 1,
-                                height: 40,
-                                color: Colors.white.withOpacity(0.2),
-                              ),
-                              Expanded(
-                                child: _buildMetricItem(
-                                  'Avg. Mood',
-                                  '7.2/10',
-                                  '↑ 0.8',
-                                  Color(0xFF2196F3),
-                                ),
-                              ),
-                              Container(
-                                width: 1,
-                                height: 40,
-                                color: Colors.white.withOpacity(0.2),
-                              ),
-                              Expanded(
-                                child: _buildMetricItem(
-                                  'Streak',
-                                  '7 days',
-                                  '',
-                                  Color(0xFFFF9800),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  SizedBox(height: 24),
-
-                  // Mood Assessment - GLASSMORPHISM
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 24),
-                    child: Text(
-                      'How Are You Feeling?',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 16),
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 24),
-                    child: _buildGlassContainer(
-                      child: Column(
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: List.generate(5, (index) {
-                              final colors = [
-                                Color(0xFFF44336),
-                                Color(0xFFFF9800),
-                                Color(0xFFFFC107),
-                                Color(0xFF8BC34A),
-                                Color(0xFF4CAF50),
-                              ];
-                              final icons = [
-                                Icons.sentiment_very_dissatisfied,
-                                Icons.sentiment_dissatisfied,
-                                Icons.sentiment_neutral,
-                                Icons.sentiment_satisfied,
-                                Icons.sentiment_very_satisfied,
-                              ];
-                              return _buildMoodScale(
-                                index,
-                                colors[index],
-                                icons[index],
-                              );
-                            }),
-                          ),
-                          SizedBox(height: 20),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Container(
-                                  padding: EdgeInsets.symmetric(
-                                    vertical: 14,
-                                    horizontal: 16,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: Colors.white.withOpacity(0.2),
-                                      width: 1,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        Icons.edit_outlined,
-                                        size: 18,
-                                        color: Colors.white70,
-                                      ),
-                                      SizedBox(width: 12),
-                                      Expanded(
-                                        child: Text(
-                                          'Add context or notes...',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: Colors.white60,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  SizedBox(height: 24),
-
-                  // Quick Actions Grid - GLASSMORPHISM
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    padding: EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
                       children: [
-                        Text(
-                          'Quick Actions',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
+                        Expanded(
+                          child: _buildGlassStatCard(
+                            '${widget.userData?['currentStreak'] ?? 0}',
+                            'Day Streak',
+                            Icons.local_fire_department,
+                            Color(0xFFFF9800),
                           ),
                         ),
-                        SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildGlassActionCard(
-                                'Journal Entry',
-                                'Document your thoughts',
-                                Icons.book_outlined,
-                                Color(0xFF9C27B0),
-                              ),
-                            ),
-                            SizedBox(width: 16),
-                            Expanded(
-                              child: _buildGlassActionCard(
-                                'Breathing',
-                                'Guided exercises',
-                                Icons.air,
-                                Color(0xFF00BCD4),
-                              ),
-                            ),
-                          ],
+                        SizedBox(width: 10),
+                        Expanded(
+                          child: _buildGlassStatCard(
+                            '${widget.userData?['totalCheckIns'] ?? 0}',
+                            'Check-ins',
+                            Icons.check_circle,
+                            Color(0xFF4CAF50),
+                          ),
                         ),
-                        SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildGlassActionCard(
-                                'Analytics',
-                                'View detailed insights',
-                                Icons.analytics_outlined,
-                                Color(0xFF3F51B5),
-                              ),
-                            ),
-                            SizedBox(width: 16),
-                            Expanded(
-                              child: _buildGlassActionCard(
-                                'Resources',
-                                'Self-help materials',
-                                Icons.library_books_outlined,
-                                Color(0xFFFF5722),
-                              ),
-                            ),
-                          ],
+                        SizedBox(width: 10),
+                        Expanded(
+                          child: _buildGlassStatCard(
+                            '${widget.userData?['progressPercentage']?.toInt() ?? 0}%',
+                            'Progress',
+                            Icons.trending_up,
+                            Color(0xFF2196F3),
+                          ),
                         ),
                       ],
                     ),
                   ),
 
-                  SizedBox(height: 24),
+                  SizedBox(height: 20),
 
-                  // NuruAI Help Assistant
+                  // Today's Mood
                   Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 24),
-                    child: _buildGlassContainer(
-                      gradient: LinearGradient(
-                        colors: [
-                          Color(0xFF667eea).withOpacity(0.3),
-                          Color(0xFF764ba2).withOpacity(0.3),
-                        ],
+                    padding: EdgeInsets.symmetric(horizontal: 20),
+                    child: Text(
+                      'Today\'s Mood',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
                       ),
-                      child: Row(
+                    ),
+                  ),
+                  SizedBox(height: 12),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20),
+                    child: _buildGlassContainer(
+                      padding: 20,
+                      child: Column(
                         children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              _buildMoodOption(
+                                'Excellent',
+                                Icons.sentiment_very_satisfied,
+                                Color(0xFF4CAF50),
+                              ),
+                              _buildMoodOption(
+                                'Good',
+                                Icons.sentiment_satisfied,
+                                Color(0xFF8BC34A),
+                              ),
+                              _buildMoodOption(
+                                'Neutral',
+                                Icons.sentiment_neutral,
+                                Color(0xFFFFC107),
+                              ),
+                              _buildMoodOption(
+                                'Low',
+                                Icons.sentiment_dissatisfied,
+                                Color(0xFFFF9800),
+                              ),
+                              _buildMoodOption(
+                                'Difficult',
+                                Icons.sentiment_very_dissatisfied,
+                                Color(0xFFF44336),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 14),
                           Container(
-                            padding: EdgeInsets.all(16),
+                            padding: EdgeInsets.symmetric(
+                              vertical: 10,
+                              horizontal: 14,
+                            ),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(14),
+                              color: Colors.white.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: Colors.white.withOpacity(0.3),
-                                width: 1.5,
+                                color: Colors.white.withOpacity(0.2),
+                                width: 1,
                               ),
                             ),
-                            child: Icon(
-                              Icons.support_agent,
-                              color: Colors.white,
-                              size: 28,
-                            ),
-                          ),
-                          SizedBox(width: 20),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            child: Row(
                               children: [
-                                Text(
-                                  'Need Help?',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
+                                Icon(
+                                  Icons.notes,
+                                  size: 16,
+                                  color: Colors.white70,
                                 ),
-                                SizedBox(height: 4),
-                                Text(
-                                  'Chat with NuruAI anytime',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.white.withOpacity(0.9),
+                                SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Add a note about your day...',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.white60,
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
-                          ),
-                          Icon(
-                            Icons.arrow_forward_ios,
-                            color: Colors.white,
-                            size: 20,
                           ),
                         ],
                       ),
@@ -520,49 +382,139 @@ class _HomeScreenYoungAdultState extends State<HomeScreenYoungAdult>
                   ),
 
                   SizedBox(height: 20),
+
+                  // Tools & Resources
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20),
+                    child: Text(
+                      'Tools & Resources',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 12),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20),
+                    child: GridView.count(
+                      shrinkWrap: true,
+                      physics: NeverScrollableScrollPhysics(),
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 12,
+                      crossAxisSpacing: 12,
+                      childAspectRatio: 1.4,
+                      children: [
+                        _buildGlassToolCard(
+                          'Breathing',
+                          'Calm your mind',
+                          Icons.air,
+                          Color(0xFF2196F3),
+                        ),
+                        _buildGlassToolCard(
+                          'Journal',
+                          'Express yourself',
+                          Icons.book_outlined,
+                          Color(0xFF9C27B0),
+                        ),
+                        _buildGlassToolCard(
+                          'Guidance',
+                          'Get support',
+                          Icons.psychology,
+                          Color(0xFF00BCD4),
+                        ),
+                        _buildGlassToolCard(
+                          'Insights',
+                          'Track patterns',
+                          Icons.insights,
+                          Color(0xFFFF9800),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  SizedBox(height: 20),
+
+                  // AI Chat Card
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20),
+                    child: _buildGlassContainer(
+                      gradient: LinearGradient(
+                        colors: [
+                          Color(0xFF667eea).withOpacity(0.3),
+                          Color(0xFF764ba2).withOpacity(0.3),
+                        ],
+                      ),
+                      padding: 20,
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Icon(
+                              Icons.chat_bubble_outline,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                          ),
+                          SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Talk to NuruAI',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                SizedBox(height: 3),
+                                Text(
+                                  'I\'m here to listen and support you',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.white.withOpacity(0.9),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.arrow_forward,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
           ),
         ],
       ),
-
-      // BOTTOM NAVIGATION BAR WITH GLASSMORPHISM
       bottomNavigationBar: _buildGlassBottomNav(),
     );
   }
 
-  // Glassmorphism icon button
-  Widget _buildGlassIconButton(IconData icon) {
-    return Container(
-      padding: EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.2), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Icon(icon, color: Colors.white, size: 22),
-    );
-  }
-
-  // Glassmorphism container
   Widget _buildGlassContainer({
     required Widget child,
     LinearGradient? gradient,
+    double padding = 24,
   }) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(18),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: Container(
-          padding: EdgeInsets.all(24),
+          padding: EdgeInsets.all(padding),
           decoration: BoxDecoration(
             gradient:
                 gradient ??
@@ -574,7 +526,7 @@ class _HomeScreenYoungAdultState extends State<HomeScreenYoungAdult>
                     Colors.white.withOpacity(0.1),
                   ],
                 ),
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(18),
             border: Border.all(
               color: Colors.white.withOpacity(0.3),
               width: 1.5,
@@ -593,88 +545,18 @@ class _HomeScreenYoungAdultState extends State<HomeScreenYoungAdult>
     );
   }
 
-  Widget _buildMetricItem(
-    String label,
+  Widget _buildGlassStatCard(
     String value,
-    String change,
-    Color color,
-  ) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-        SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            color: Colors.white.withOpacity(0.7),
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        if (change.isNotEmpty) ...[
-          SizedBox(height: 4),
-          Text(
-            change,
-            style: TextStyle(
-              fontSize: 11,
-              color: color,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildMoodScale(int index, Color color, IconData icon) {
-    final isSelected = _selectedMoodIndex == index;
-
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedMoodIndex = index;
-        });
-      },
-      child: Container(
-        padding: EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? color.withOpacity(0.3)
-              : Colors.white.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected ? color : Colors.white.withOpacity(0.2),
-            width: 2,
-          ),
-        ),
-        child: Icon(
-          icon,
-          color: isSelected ? color : Colors.white.withOpacity(0.6),
-          size: 28,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildGlassActionCard(
-    String title,
-    String subtitle,
+    String label,
     IconData icon,
     Color color,
   ) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(14),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: Container(
-          padding: EdgeInsets.all(20),
+          padding: EdgeInsets.symmetric(vertical: 14, horizontal: 12),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
@@ -684,47 +566,55 @@ class _HomeScreenYoungAdultState extends State<HomeScreenYoungAdult>
                 Colors.white.withOpacity(0.1),
               ],
             ),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: Colors.white.withOpacity(0.3),
               width: 1.5,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
+                color: Colors.black.withOpacity(0.08),
                 blurRadius: 15,
                 offset: Offset(0, 8),
               ),
             ],
           ),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                padding: EdgeInsets.all(12),
+                padding: EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: color.withOpacity(0.3), width: 1),
+                  color: color.withOpacity(0.25),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: color.withOpacity(0.4),
+                      blurRadius: 8,
+                      spreadRadius: 1,
+                    ),
+                  ],
                 ),
-                child: Icon(icon, color: color, size: 24),
+                child: Icon(icon, color: Colors.white, size: 24),
               ),
-              SizedBox(height: 14),
+              SizedBox(height: 6),
               Text(
-                title,
+                value,
                 style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
                   color: Colors.white,
                 ),
               ),
-              SizedBox(height: 4),
+              SizedBox(height: 3),
               Text(
-                subtitle,
+                label,
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 10,
                   color: Colors.white.withOpacity(0.7),
+                  fontWeight: FontWeight.w500,
                 ),
+                textAlign: TextAlign.center,
               ),
             ],
           ),
@@ -733,13 +623,142 @@ class _HomeScreenYoungAdultState extends State<HomeScreenYoungAdult>
     );
   }
 
-  // GLASSMORPHISM BOTTOM NAVIGATION BAR
+  Widget _buildMoodOption(String label, IconData icon, Color color) {
+    final isSelected = _selectedMood == label;
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedMood = label;
+        });
+      },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: EdgeInsets.all(9),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? color.withOpacity(0.3)
+                  : Colors.white.withOpacity(0.15),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isSelected ? color : Colors.white.withOpacity(0.3),
+                width: 2,
+              ),
+            ),
+            child: Icon(
+              icon,
+              color: isSelected ? Colors.white : Colors.white.withOpacity(0.6),
+              size: 22,
+            ),
+          ),
+          SizedBox(height: 5),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+              color: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGlassToolCard(
+    String title,
+    String subtitle,
+    IconData icon,
+    Color color,
+  ) {
+    return GestureDetector(
+      onTap: () {
+        if (title == 'Journal') {
+          Navigator.pushNamed(context, '/journal');
+        } else {
+          print('Navigate to: $title');
+        }
+      },
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.white.withOpacity(0.2),
+                  Colors.white.withOpacity(0.1),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.3),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 15,
+                  offset: Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.25),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: color.withOpacity(0.5), width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: color.withOpacity(0.4),
+                        blurRadius: 8,
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  ),
+                  child: Icon(icon, color: Colors.white, size: 22),
+                ),
+                SizedBox(height: 10),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.white.withOpacity(0.7),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildGlassBottomNav() {
     return LayoutBuilder(
       builder: (context, constraints) {
         return Stack(
           children: [
-            // Background matching screen gradient
             Container(
               height: 75,
               decoration: BoxDecoration(
@@ -747,15 +766,14 @@ class _HomeScreenYoungAdultState extends State<HomeScreenYoungAdult>
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
+                    Color(0xFF4569AD),
+                    Color(0xFF4864B5),
                     Color(0xFF3A5FA8),
                     Color(0xFF2D5295),
-                    Color(0xFF1E4A8C),
                   ],
                 ),
               ),
             ),
-
-            // Organic shape 1 - Bottom left
             Positioned(
               left: -40,
               bottom: -20,
@@ -774,8 +792,6 @@ class _HomeScreenYoungAdultState extends State<HomeScreenYoungAdult>
                 ),
               ),
             ),
-
-            // Organic shape 2 - Top right
             Positioned(
               right: -30,
               top: -40,
@@ -794,8 +810,6 @@ class _HomeScreenYoungAdultState extends State<HomeScreenYoungAdult>
                 ),
               ),
             ),
-
-            // Organic shape 3 - Center
             Positioned(
               left: constraints.maxWidth * 0.45,
               bottom: -10,
@@ -814,8 +828,6 @@ class _HomeScreenYoungAdultState extends State<HomeScreenYoungAdult>
                 ),
               ),
             ),
-
-            // Top border gradient
             Positioned(
               top: 0,
               left: 0,
@@ -833,8 +845,6 @@ class _HomeScreenYoungAdultState extends State<HomeScreenYoungAdult>
                 ),
               ),
             ),
-
-            // Navigation items
             Container(
               height: 75,
               child: Row(
@@ -858,18 +868,23 @@ class _HomeScreenYoungAdultState extends State<HomeScreenYoungAdult>
 
     return GestureDetector(
       onTap: () {
+        // Update selection to where user tapped
         setState(() {
           _currentNavIndex = index;
         });
 
         // Navigate to different screens
         if (index == 1) {
+          // Navigate to CalmMe screen
           Navigator.pushNamed(context, '/calmme');
         } else if (index == 2) {
+          // Navigate to Analytics screen (future)
           print('Navigate to Analytics');
         } else if (index == 3) {
+          // Navigate to Profile screen (future)
           print('Navigate to Profile');
         }
+        // If index == 0 (Home), we're already here, do nothing
       },
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -902,25 +917,22 @@ class _HomeScreenYoungAdultState extends State<HomeScreenYoungAdult>
   }
 }
 
-// Background shapes painter - more subtle for professional look
 class FloatingShapesPainter extends CustomPainter {
   final double animation1;
   final double animation2;
   final double animation3;
-  final double opacity;
 
   FloatingShapesPainter({
     required this.animation1,
     required this.animation2,
     required this.animation3,
-    this.opacity = 0.08,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..style = PaintingStyle.fill;
 
-    paint.color = Color(0xFFB7C3E8).withOpacity(opacity);
+    paint.color = Color(0xFFB7C3E8).withOpacity(0.12);
     final offsetY1 = animation1 * 40 - 20;
     canvas.drawPath(
       Path()
@@ -947,7 +959,7 @@ class FloatingShapesPainter extends CustomPainter {
       paint,
     );
 
-    paint.color = Color(0xFF081F44).withOpacity(opacity + 0.04);
+    paint.color = Color(0xFF081F44).withOpacity(0.18);
     final offsetX2 = animation2 * 35 - 17;
     canvas.drawPath(
       Path()

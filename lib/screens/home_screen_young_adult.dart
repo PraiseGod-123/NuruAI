@@ -55,21 +55,31 @@ class _HomeScreenYoungAdultState extends State<HomeScreenYoungAdult>
 
   @override
   Widget build(BuildContext context) {
+    // Reset selection to Home whenever this screen is displayed
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _currentNavIndex != 0) {
+        setState(() {
+          _currentNavIndex = 0;
+        });
+      }
+    });
+
     final userName = widget.userData?['name'] ?? 'User';
 
     return Scaffold(
       body: Stack(
         children: [
-          // Background gradient - darker, more professional
+          // Background gradient - same as teen for consistency
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Color(0xFF3A5FA8),
-                  Color(0xFF2D5295),
-                  Color(0xFF1E4A8C),
+                  Color(0xFF4569AD), // Base blue
+                  Color(0xFF4864B5), // Blue with purple hint
+                  Color(0xFF3A5FA8), // Medium blue
+                  Color(0xFF2D5295), // Deeper blue
                 ],
               ),
             ),
@@ -267,8 +277,8 @@ class _HomeScreenYoungAdultState extends State<HomeScreenYoungAdult>
                               Expanded(
                                 child: _buildMetricItem(
                                   'Check-ins',
-                                  '24',
-                                  '↑ 12%',
+                                  '${widget.userData?['totalCheckIns'] ?? 0}',
+                                  widget.userData?['checkInTrend'] ?? '',
                                   Color(0xFF4CAF50),
                                 ),
                               ),
@@ -280,8 +290,8 @@ class _HomeScreenYoungAdultState extends State<HomeScreenYoungAdult>
                               Expanded(
                                 child: _buildMetricItem(
                                   'Avg. Mood',
-                                  '7.2/10',
-                                  '↑ 0.8',
+                                  '${widget.userData?['avgMood']?.toStringAsFixed(1) ?? '0.0'}/10',
+                                  widget.userData?['moodTrend'] ?? '',
                                   Color(0xFF2196F3),
                                 ),
                               ),
@@ -293,7 +303,7 @@ class _HomeScreenYoungAdultState extends State<HomeScreenYoungAdult>
                               Expanded(
                                 child: _buildMetricItem(
                                   'Streak',
-                                  '7 days',
+                                  '${widget.userData?['currentStreak'] ?? 0} days',
                                   '',
                                   Color(0xFFFF9800),
                                 ),
@@ -672,64 +682,80 @@ class _HomeScreenYoungAdultState extends State<HomeScreenYoungAdult>
     IconData icon,
     Color color,
   ) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
-          padding: EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.white.withOpacity(0.2),
-                Colors.white.withOpacity(0.1),
+    return GestureDetector(
+      onTap: () {
+        if (title == 'Journal Entry') {
+          Navigator.pushNamed(context, '/journal');
+        } else {
+          print('Navigate to: $title');
+        }
+      },
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            padding: EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.white.withOpacity(0.2),
+                  Colors.white.withOpacity(0.1),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.3),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 15,
+                  offset: Offset(0, 8),
+                ),
               ],
             ),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: Colors.white.withOpacity(0.3),
-              width: 1.5,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.25),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: color.withOpacity(0.5), width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: color.withOpacity(0.4),
+                        blurRadius: 8,
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  ),
+                  child: Icon(icon, color: Colors.white, size: 24),
+                ),
+                SizedBox(height: 14),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.white.withOpacity(0.7),
+                  ),
+                ),
+              ],
             ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 15,
-                offset: Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: color.withOpacity(0.3), width: 1),
-                ),
-                child: Icon(icon, color: color, size: 24),
-              ),
-              SizedBox(height: 14),
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
-              SizedBox(height: 4),
-              Text(
-                subtitle,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.white.withOpacity(0.7),
-                ),
-              ),
-            ],
           ),
         ),
       ),
@@ -751,9 +777,10 @@ class _HomeScreenYoungAdultState extends State<HomeScreenYoungAdult>
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    Color(0xFF3A5FA8), // Same as screen background
+                    Color(0xFF4569AD),
+                    Color(0xFF4864B5),
+                    Color(0xFF3A5FA8),
                     Color(0xFF2D5295),
-                    Color(0xFF1E4A8C),
                   ],
                 ),
               ),
@@ -862,10 +889,20 @@ class _HomeScreenYoungAdultState extends State<HomeScreenYoungAdult>
 
     return GestureDetector(
       onTap: () {
+        // Update selection to where user tapped
         setState(() {
           _currentNavIndex = index;
         });
-        print('Navigating to: $label');
+
+        // Navigate to different screens
+        if (index == 1) {
+          Navigator.pushNamed(context, '/calmme');
+        } else if (index == 2) {
+          print('Navigate to Analytics');
+        } else if (index == 3) {
+          print('Navigate to Profile');
+        }
+        // If index == 0 (Home), we're already here, do nothing
       },
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
