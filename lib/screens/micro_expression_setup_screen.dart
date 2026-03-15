@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'dart:async';
 import '../utils/nuru_colors.dart';
 
@@ -60,10 +61,27 @@ class _MicroExpressionSetupScreenState
   @override
   void initState() {
     super.initState();
-    _initializeCamera();
+    // Delay camera init to after first frame so permission dialog renders properly
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeCamera();
+    });
   }
 
   Future<void> _initializeCamera() async {
+    // Check permission status first, only request if not already granted
+    PermissionStatus status = await Permission.camera.status;
+    if (!status.isGranted) {
+      status = await Permission.camera.request();
+    }
+    if (!status.isGranted) {
+      if (mounted) {
+        _showError(
+          'Camera permission is required. Please enable it in your device Settings > Apps > NuruAI > Permissions.',
+        );
+      }
+      return;
+    }
+
     try {
       _cameras = await availableCameras();
       if (_cameras != null && _cameras!.isNotEmpty) {
@@ -74,9 +92,8 @@ class _MicroExpressionSetupScreenState
 
         _cameraController = CameraController(
           frontCamera,
-          ResolutionPreset.high,
+          ResolutionPreset.medium,
           enableAudio: false,
-          imageFormatGroup: ImageFormatGroup.jpeg,
         );
 
         await _cameraController!.initialize();
@@ -85,9 +102,11 @@ class _MicroExpressionSetupScreenState
             _isCameraInitialized = true;
           });
         }
+      } else {
+        if (mounted) _showError('No camera found on this device.');
       }
     } catch (e) {
-      _showError('Failed to initialize camera: $e');
+      _showError('Failed to initialize camera. Please try again.');
     }
   }
 
@@ -519,10 +538,35 @@ class _MicroExpressionSetupScreenState
                         : Container(
                             color: NuruColors.dive,
                             child: Center(
-                              child: CircularProgressIndicator(
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  NuruColors.sailingBlue,
-                                ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  CircularProgressIndicator(
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      NuruColors.sailingBlue,
+                                    ),
+                                  ),
+                                  SizedBox(height: 20),
+                                  Text(
+                                    'Opening camera...',
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  SizedBox(height: 16),
+                                  TextButton(
+                                    onPressed: _initializeCamera,
+                                    child: Text(
+                                      'Tap to retry',
+                                      style: TextStyle(
+                                        color: NuruColors.lilacBlue,
+                                        fontSize: 14,
+                                        decoration: TextDecoration.underline,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),

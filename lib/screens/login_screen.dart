@@ -14,617 +14,454 @@ class _LoginScreenState extends State<LoginScreen>
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+
   bool _obscurePassword = true;
-  bool _isLoading = false;
+  bool _isUnlocking = false;
+  bool _isUnlocked = false;
 
   late AnimationController _floatController1;
   late AnimationController _floatController2;
+  late AnimationController _floatController3;
+  late AnimationController _unlockController;
 
   @override
   void initState() {
     super.initState();
 
-    // Initialize floating animations (same as onboarding)
     _floatController1 = AnimationController(
-      duration: Duration(seconds: 5),
+      duration: Duration(seconds: 4),
       vsync: this,
     )..repeat(reverse: true);
 
     _floatController2 = AnimationController(
+      duration: Duration(seconds: 5),
+      vsync: this,
+    )..repeat(reverse: true);
+
+    _floatController3 = AnimationController(
       duration: Duration(seconds: 6),
       vsync: this,
     )..repeat(reverse: true);
+
+    _unlockController = AnimationController(
+      duration: Duration(milliseconds: 600),
+      vsync: this,
+    );
   }
 
   @override
   void dispose() {
     _floatController1.dispose();
     _floatController2.dispose();
+    _floatController3.dispose();
+    _unlockController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
-  Future<void> _handleEmailLogin() async {
-    if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-      });
-
-      // TODO: Implement actual authentication
-      await Future.delayed(Duration(seconds: 2));
-
-      setState(() {
-        _isLoading = false;
-      });
-
-      // TODO: Get user data and navigate to appropriate home screen
-      Navigator.pushReplacementNamed(
-        context,
-        '/home',
-        arguments: {
-          'name': 'User', // Replace with actual user data
-          'age': 20, // Replace with actual user age
-        },
-      );
+  void _handleLogin() {
+    if (!_formKey.currentState!.validate()) {
+      return;
     }
+
+    // TODO: Implement actual login logic
+    Navigator.pushReplacementNamed(
+      context,
+      '/home',
+      arguments: {'email': _emailController.text},
+    );
   }
 
-  Future<void> _handleFacialLogin() async {
-    // TODO: Implement facial recognition login
+  void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Facial recognition login coming soon!'),
-        backgroundColor: NuruColors.info,
+        content: Text(message),
+        backgroundColor: NuruColors.error,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
+  }
+
+  void _handleForgotPassword() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('Reset Password'),
+        content: Text('Password reset functionality coming soon!'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _handleFacialRecognitionLogin() async {
+    setState(() {
+      _isUnlocking = true;
+    });
+
+    // Start unlock animation
+    await _unlockController.forward();
+
+    // Simulate facial recognition process
+    await Future.delayed(Duration(milliseconds: 500));
+
+    setState(() {
+      _isUnlocked = true;
+    });
+
+    // Wait a moment to show unlocked state
+    await Future.delayed(Duration(milliseconds: 800));
+
+    // Navigate to home
+    Navigator.pushReplacementNamed(context, '/home');
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Color(0xFF4569AD),
       body: Stack(
         children: [
-          // Gradient Background (matching onboarding/age verification)
+          // FIXED BACKGROUND
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xFF4569AD), Color(0xFF1F3F74)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF4569AD), Color(0xFF14366D)],
               ),
             ),
           ),
 
-          // Animated background shapes (matching onboarding)
-          AnimatedBuilder(
-            animation: Listenable.merge([_floatController1, _floatController2]),
-            builder: (context, child) {
-              return CustomPaint(
-                size: Size.infinite,
-                painter: SimpleBackgroundPainter(
-                  animation1: _floatController1.value,
-                  animation2: _floatController2.value,
-                ),
-              );
-            },
+          // Stars layer
+          IgnorePointer(
+            child: AnimatedBuilder(
+              animation: _floatController1,
+              builder: (context, child) {
+                return CustomPaint(
+                  size: Size.infinite,
+                  painter: SubtleStarsPainter(twinkle: _floatController1.value),
+                );
+              },
+            ),
           ),
 
+          // 3D shapes
+          IgnorePointer(
+            child: AnimatedBuilder(
+              animation: Listenable.merge([
+                _floatController1,
+                _floatController2,
+                _floatController3,
+              ]),
+              builder: (context, child) {
+                return CustomPaint(
+                  size: Size.infinite,
+                  painter: Animated3DShapesPainter(
+                    animation1: _floatController1.value,
+                    animation2: _floatController2.value,
+                    animation3: _floatController3.value,
+                  ),
+                );
+              },
+            ),
+          ),
+
+          // CONTENT
           SafeArea(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.all(24),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(height: 40),
+            child: NotificationListener<OverscrollIndicatorNotification>(
+              onNotification: (OverscrollIndicatorNotification overscroll) {
+                overscroll.disallowIndicator();
+                return true;
+              },
+              child: SingleChildScrollView(
+                physics: ClampingScrollPhysics(),
+                child: Container(
+                  height:
+                      MediaQuery.of(context).size.height -
+                      MediaQuery.of(context).padding.top,
+                  padding: EdgeInsets.all(24),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Spacer(flex: 2),
 
-                    // Logo and Welcome Text
-                    Center(
-                      child: Column(
-                        children: [
-                          // Glass morphism icon container
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(30),
-                            child: BackdropFilter(
-                              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                              child: Container(
-                                width: 120,
-                                height: 120,
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.15),
-                                  borderRadius: BorderRadius.circular(30),
-                                  border: Border.all(
-                                    color: Colors.white.withOpacity(0.3),
-                                    width: 2,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.2),
-                                      blurRadius: 20,
-                                      offset: Offset(0, 10),
-                                    ),
-                                  ],
-                                ),
-                                child: Icon(
-                                  Icons.psychology_rounded,
-                                  size: 60,
-                                  color: Colors.white,
-                                ),
+                        // Welcome Back Title
+                        Text(
+                          'Welcome Back',
+                          style: TextStyle(
+                            fontSize: 42,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            height: 1.2,
+                          ),
+                        ),
+
+                        SizedBox(height: 12),
+
+                        Text(
+                          'Sign in to continue your journey',
+                          style: TextStyle(
+                            fontSize: 17,
+                            color: Colors.white.withOpacity(0.85),
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+
+                        SizedBox(height: 60),
+
+                        // Email Field
+                        _buildTextField(
+                          controller: _emailController,
+                          label: 'Email Address',
+                          hint: 'Enter your email',
+                          icon: Icons.email_rounded,
+                          keyboardType: TextInputType.emailAddress,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter your email';
+                            }
+                            if (!value.contains('@')) {
+                              return 'Please enter a valid email';
+                            }
+                            return null;
+                          },
+                        ),
+
+                        SizedBox(height: 24),
+
+                        // Password Field
+                        _buildTextField(
+                          controller: _passwordController,
+                          label: 'Password',
+                          hint: 'Enter your password',
+                          icon: Icons.lock_rounded,
+                          obscureText: _obscurePassword,
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_off_rounded
+                                  : Icons.visibility_rounded,
+                              color: Color(0xFF4569AD),
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _obscurePassword = !_obscurePassword;
+                              });
+                            },
+                          ),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter your password';
+                            }
+                            return null;
+                          },
+                        ),
+
+                        SizedBox(height: 16),
+
+                        // Forgot Password
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: _handleForgotPassword,
+                            child: Text(
+                              'Forgot Password?',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                decoration: TextDecoration.underline,
                               ),
                             ),
                           ),
-                          SizedBox(height: 24),
+                        ),
 
-                          // NuruAI Text
-                          Text(
-                            'NuruAI',
-                            style: TextStyle(
-                              fontSize: 42,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                              letterSpacing: 1,
+                        SizedBox(height: 32),
+
+                        // Login Button
+                        SizedBox(
+                          width: double.infinity,
+                          height: 56,
+                          child: ElevatedButton(
+                            onPressed: _handleLogin,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: Color(0xFF4569AD),
+                              elevation: 8,
+                              shadowColor: Colors.black.withOpacity(0.3),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                            child: Text(
+                              'Sign In',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.5,
+                              ),
                             ),
                           ),
-                          SizedBox(height: 8),
+                        ),
 
-                          // Welcome back text
-                          Text(
-                            'Welcome back! 👋',
-                            style: TextStyle(
-                              fontSize: 18,
-                              color: Colors.white.withOpacity(0.9),
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                        SizedBox(height: 32),
 
-                    SizedBox(height: 48),
-
-                    // Face ID Login Card
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(25),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                        child: Container(
-                          padding: EdgeInsets.all(24),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                Colors.white.withOpacity(0.25),
-                                Colors.white.withOpacity(0.15),
-                              ],
-                            ),
-                            borderRadius: BorderRadius.circular(25),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.3),
-                              width: 2,
-                            ),
-                          ),
-                          child: Column(
-                            children: [
-                              Container(
-                                width: 70,
-                                height: 70,
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.2),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  Icons.face_rounded,
-                                  size: 40,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              SizedBox(height: 16),
-                              Text(
-                                'Login with Face ID',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              SizedBox(height: 8),
-                              Text(
-                                'Quick and secure access',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.white.withOpacity(0.85),
-                                ),
-                              ),
-                              SizedBox(height: 20),
-                              Container(
-                                width: double.infinity,
-                                height: 56,
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(16),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.2),
-                                      blurRadius: 15,
-                                      offset: Offset(0, 8),
-                                    ),
-                                  ],
-                                ),
-                                child: ElevatedButton(
-                                  onPressed: _handleFacialLogin,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.white,
-                                    foregroundColor: Color(0xFF4569AD),
-                                    elevation: 0,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(Icons.face_rounded, size: 24),
-                                      SizedBox(width: 12),
-                                      Text(
-                                        'Use Face Recognition',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
+                        // Apple-style Padlock Unlock
+                        Center(
+                          child: GestureDetector(
+                            onTap: _isUnlocking
+                                ? null
+                                : _handleFacialRecognitionLogin,
+                            child: AnimatedBuilder(
+                              animation: _unlockController,
+                              builder: (context, child) {
+                                return Column(
+                                  children: [
+                                    Container(
+                                      width: 80,
+                                      height: 80,
+                                      decoration: BoxDecoration(
+                                        color: _isUnlocked
+                                            ? Colors.green.withOpacity(0.2)
+                                            : Colors.white.withOpacity(0.15),
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: _isUnlocked
+                                              ? Colors.green
+                                              : Colors.white.withOpacity(0.4),
+                                          width: 2,
+                                        ),
+                                        boxShadow: _isUnlocked
+                                            ? [
+                                                BoxShadow(
+                                                  color: Colors.green
+                                                      .withOpacity(0.4),
+                                                  blurRadius: 20,
+                                                  spreadRadius: 5,
+                                                ),
+                                              ]
+                                            : null,
+                                      ),
+                                      child: Transform.translate(
+                                        offset: Offset(
+                                          0,
+                                          _unlockController.value * -8,
+                                        ),
+                                        child: Transform.rotate(
+                                          angle: _unlockController.value * 0.3,
+                                          child: Icon(
+                                            _isUnlocked
+                                                ? Icons.lock_open_rounded
+                                                : Icons.lock_rounded,
+                                            color: _isUnlocked
+                                                ? Colors.green
+                                                : Colors.white,
+                                            size: 40,
+                                          ),
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    SizedBox(height: 32),
-
-                    // Divider
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            height: 1.5,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  Colors.transparent,
-                                  Colors.white.withOpacity(0.5),
-                                ],
-                              ),
+                                    ),
+                                    SizedBox(height: 16),
+                                    Text(
+                                      _isUnlocking
+                                          ? 'Unlocking...'
+                                          : _isUnlocked
+                                          ? 'Unlocked!'
+                                          : 'Tap to unlock with Face ID',
+                                      style: TextStyle(
+                                        color: _isUnlocked
+                                            ? Colors.green
+                                            : Colors.white.withOpacity(0.9),
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
                             ),
                           ),
                         ),
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 16),
-                          child: Text(
-                            'or',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.9),
-                              fontWeight: FontWeight.w600,
-                              fontSize: 15,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Container(
-                            height: 1.5,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  Colors.white.withOpacity(0.5),
-                                  Colors.transparent,
-                                ],
+
+                        Spacer(flex: 3),
+
+                        // Divider with "OR"
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Container(
+                                height: 1,
+                                color: Colors.white.withOpacity(0.3),
                               ),
                             ),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    SizedBox(height: 32),
-
-                    // Email Field
-                    Text(
-                      'Email',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    SizedBox(height: 10),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.2),
-                                blurRadius: 10,
-                                offset: Offset(0, 5),
-                              ),
-                            ],
-                          ),
-                          child: TextFormField(
-                            controller: _emailController,
-                            keyboardType: TextInputType.emailAddress,
-                            style: TextStyle(
-                              color: Color(0xFF1F3F74),
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            decoration: InputDecoration(
-                              hintText: 'your.email@example.com',
-                              hintStyle: TextStyle(
-                                color: Colors.grey[400],
-                                fontSize: 15,
-                              ),
-                              prefixIcon: Icon(
-                                Icons.email_outlined,
-                                color: Color(0xFF4569AD),
-                              ),
-                              filled: true,
-                              fillColor: Colors.white,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                borderSide: BorderSide.none,
-                              ),
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 18,
-                              ),
-                            ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter your email';
-                              }
-                              if (!value.contains('@') ||
-                                  !value.contains('.')) {
-                                return 'Please enter a valid email';
-                              }
-                              return null;
-                            },
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    SizedBox(height: 20),
-
-                    // Password Field
-                    Text(
-                      'Password',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    SizedBox(height: 10),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.2),
-                                blurRadius: 10,
-                                offset: Offset(0, 5),
-                              ),
-                            ],
-                          ),
-                          child: TextFormField(
-                            controller: _passwordController,
-                            obscureText: _obscurePassword,
-                            style: TextStyle(
-                              color: Color(0xFF1F3F74),
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            decoration: InputDecoration(
-                              hintText: 'Enter your password',
-                              hintStyle: TextStyle(
-                                color: Colors.grey[400],
-                                fontSize: 15,
-                              ),
-                              prefixIcon: Icon(
-                                Icons.lock_outline,
-                                color: Color(0xFF4569AD),
-                              ),
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  _obscurePassword
-                                      ? Icons.visibility_off_outlined
-                                      : Icons.visibility_outlined,
-                                  color: Color(0xFF4569AD),
-                                ),
-                                onPressed: () {
-                                  setState(() {
-                                    _obscurePassword = !_obscurePassword;
-                                  });
-                                },
-                              ),
-                              filled: true,
-                              fillColor: Colors.white,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                borderSide: BorderSide.none,
-                              ),
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 18,
-                              ),
-                            ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter your password';
-                              }
-                              return null;
-                            },
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    SizedBox(height: 12),
-
-                    // Forgot Password
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () {
-                          // TODO: Implement forgot password
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'Password reset feature coming soon!',
-                              ),
-                              backgroundColor: NuruColors.info,
-                              behavior: SnackBarBehavior.floating,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                          );
-                        },
-                        child: Text(
-                          'Forgot Password?',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    SizedBox(height: 24),
-
-                    // Login Button
-                    Container(
-                      width: double.infinity,
-                      height: 60,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.2),
-                            blurRadius: 20,
-                            offset: Offset(0, 10),
-                          ),
-                        ],
-                      ),
-                      child: ElevatedButton(
-                        onPressed: _isLoading ? null : _handleEmailLogin,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Color(0xFF4569AD),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        child: _isLoading
-                            ? SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    Color(0xFF4569AD),
-                                  ),
-                                  strokeWidth: 3,
-                                ),
-                              )
-                            : Text(
-                                'Login',
+                            Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 16),
+                              child: Text(
+                                'OR',
                                 style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white.withOpacity(0.7),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
-                      ),
-                    ),
-
-                    SizedBox(height: 32),
-
-                    // Sign up link
-                    Center(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(20),
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                          child: Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 12,
                             ),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.2),
-                                width: 1.5,
+                            Expanded(
+                              child: Container(
+                                height: 1,
+                                color: Colors.white.withOpacity(0.3),
                               ),
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  "Don't have an account? ",
-                                  style: TextStyle(
-                                    color: Colors.white.withOpacity(0.9),
-                                    fontSize: 15,
-                                  ),
+                          ],
+                        ),
+
+                        SizedBox(height: 24),
+
+                        // Sign Up Link
+                        Center(
+                          child: TextButton(
+                            onPressed: () {
+                              Navigator.pushReplacementNamed(
+                                context,
+                                '/signup',
+                              );
+                            },
+                            child: RichText(
+                              text: TextSpan(
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.white.withOpacity(0.85),
                                 ),
-                                GestureDetector(
-                                  onTap: () {
-                                    Navigator.pushReplacementNamed(
-                                      context,
-                                      '/age-verification',
-                                    );
-                                  },
-                                  child: Text(
-                                    'Sign Up',
+                                children: [
+                                  TextSpan(text: "Don't have an account? "),
+                                  TextSpan(
+                                    text: 'Sign Up',
                                     style: TextStyle(
-                                      color: Colors.white,
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 15,
+                                      color: Colors.white,
                                       decoration: TextDecoration.underline,
+                                      fontSize: 17,
                                     ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ),
 
-                    SizedBox(height: 20),
-                  ],
+                        SizedBox(height: 20),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -633,70 +470,264 @@ class _LoginScreenState extends State<LoginScreen>
       ),
     );
   }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required IconData icon,
+    bool obscureText = false,
+    Widget? suffixIcon,
+    TextInputType? keyboardType,
+    String? Function(String?)? validator,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
+        ),
+        SizedBox(height: 10),
+        Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.15),
+                blurRadius: 12,
+                offset: Offset(0, 5),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: TextFormField(
+                  controller: controller,
+                  obscureText: obscureText,
+                  keyboardType: keyboardType,
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Color(0xFF1F3F74),
+                    fontWeight: FontWeight.w500,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: hint,
+                    hintStyle: TextStyle(color: Colors.grey[400], fontSize: 15),
+                    prefixIcon: Icon(icon, color: Color(0xFF4569AD), size: 22),
+                    suffixIcon: suffixIcon,
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 18,
+                    ),
+                    errorStyle: TextStyle(color: Colors.red[300], fontSize: 12),
+                  ),
+                  validator: validator,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
-// Simple background painter (same as age verification and signup)
-class SimpleBackgroundPainter extends CustomPainter {
-  final double animation1;
-  final double animation2;
+// Stars Painter
+class SubtleStarsPainter extends CustomPainter {
+  final double twinkle;
 
-  SimpleBackgroundPainter({required this.animation1, required this.animation2});
+  SubtleStarsPainter({required this.twinkle});
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..style = PaintingStyle.fill;
 
-    // Large gentle circle - top left
-    final offset1 = animation1 * 40 - 20;
-    paint.color = Colors.white.withOpacity(0.08);
-    canvas.drawCircle(
-      Offset(
-        size.width * 0.2 + offset1,
-        size.height * 0.15 + (animation2 * 30 - 15),
-      ),
-      120,
-      paint,
-    );
+    final stars = [
+      [0.08, 0.05],
+      [0.18, 0.15],
+      [0.25, 0.08],
+      [0.35, 0.20],
+      [0.42, 0.12],
+      [0.52, 0.18],
+      [0.62, 0.08],
+      [0.72, 0.22],
+      [0.78, 0.14],
+      [0.88, 0.10],
+      [0.12, 0.48],
+      [0.28, 0.55],
+      [0.38, 0.62],
+      [0.50, 0.58],
+      [0.65, 0.52],
+      [0.75, 0.65],
+      [0.85, 0.58],
+      [0.15, 0.82],
+      [0.45, 0.88],
+      [0.92, 0.85],
+    ];
 
-    // Medium circle - bottom right
-    final offset2 = animation2 * 50 - 25;
-    paint.color = Color(0xFF081F44).withOpacity(0.15);
-    canvas.drawCircle(
-      Offset(
-        size.width * 0.8 + (animation1 * 25 - 12),
-        size.height * 0.75 + offset2,
-      ),
-      100,
-      paint,
-    );
+    for (final star in stars) {
+      final x = size.width * star[0];
+      final y = size.height * star[1];
+      final opacity = 0.4 + (twinkle * 0.3);
 
-    // Small accent circle - center
-    paint.color = Colors.white.withOpacity(0.05);
-    canvas.drawCircle(
-      Offset(
-        size.width * 0.5 + (animation2 * 30 - 15),
-        size.height * 0.45 + (animation1 * 35 - 17),
-      ),
-      80,
-      paint,
-    );
+      paint.color = Colors.white.withOpacity(opacity * 0.4);
+      canvas.drawCircle(Offset(x, y), 3.5, paint);
 
-    // Soft wave at bottom
-    paint.color = Color(0xFF14366D).withOpacity(0.12);
-    final wavePath = Path()
-      ..moveTo(0, size.height * 0.85 + (animation1 * 20 - 10))
-      ..quadraticBezierTo(
-        size.width * 0.5,
-        size.height * 0.8 + (animation2 * 25 - 12),
-        size.width,
-        size.height * 0.85 + (animation1 * 15 - 7),
-      )
-      ..lineTo(size.width, size.height)
-      ..lineTo(0, size.height)
-      ..close();
-    canvas.drawPath(wavePath, paint);
+      paint.color = Colors.white.withOpacity(opacity * 0.6);
+      canvas.drawCircle(Offset(x, y), 2.0, paint);
+
+      paint.color = Colors.white.withOpacity(opacity);
+      canvas.drawCircle(Offset(x, y), 1.3, paint);
+    }
   }
 
   @override
-  bool shouldRepaint(SimpleBackgroundPainter oldDelegate) => true;
+  bool shouldRepaint(SubtleStarsPainter oldDelegate) {
+    return oldDelegate.twinkle != twinkle;
+  }
+}
+
+// Animated 3D Shapes Painter
+class Animated3DShapesPainter extends CustomPainter {
+  final double animation1;
+  final double animation2;
+  final double animation3;
+
+  Animated3DShapesPainter({
+    required this.animation1,
+    required this.animation2,
+    required this.animation3,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..style = PaintingStyle.fill;
+
+    paint.color = Color(0xFFB7C3E8).withOpacity(0.25);
+    final offsetY1 = animation1 * 40 - 20;
+    final path1 = Path()
+      ..moveTo(0, offsetY1)
+      ..quadraticBezierTo(
+        size.width * 0.3,
+        size.height * 0.1 + offsetY1,
+        size.width * 0.4,
+        size.height * 0.25 + offsetY1,
+      )
+      ..quadraticBezierTo(
+        size.width * 0.5,
+        size.height * 0.4 + offsetY1,
+        size.width * 0.3,
+        size.height * 0.5 + offsetY1,
+      )
+      ..quadraticBezierTo(
+        size.width * 0.1,
+        size.height * 0.6 + offsetY1,
+        0,
+        size.height * 0.4 + offsetY1,
+      )
+      ..close();
+    canvas.drawPath(path1, paint);
+
+    paint.color = Color(0xFF081F44).withOpacity(0.2);
+    final offsetX2 = animation2 * 35 - 17;
+    final path2 = Path()
+      ..moveTo(size.width, size.height * 0.2 + offsetX2)
+      ..quadraticBezierTo(
+        size.width * 0.7,
+        size.height * 0.3 + offsetX2,
+        size.width * 0.6,
+        size.height * 0.5 + offsetX2,
+      )
+      ..quadraticBezierTo(
+        size.width * 0.5,
+        size.height * 0.7 + offsetX2,
+        size.width * 0.7,
+        size.height * 0.8 + offsetX2,
+      )
+      ..quadraticBezierTo(
+        size.width * 0.9,
+        size.height * 0.9 + offsetX2,
+        size.width,
+        size.height * 0.7 + offsetX2,
+      )
+      ..close();
+    canvas.drawPath(path2, paint);
+
+    final spherePaint1 = Paint()
+      ..shader =
+          RadialGradient(
+            colors: [
+              Colors.white.withOpacity(0.25),
+              Colors.white.withOpacity(0.05),
+            ],
+          ).createShader(
+            Rect.fromCircle(
+              center: Offset(
+                size.width * 0.75 + (animation1 * 25 - 12),
+                size.height * 0.15 + (animation2 * 20 - 10),
+              ),
+              radius: 90,
+            ),
+          );
+    canvas.drawCircle(
+      Offset(
+        size.width * 0.75 + (animation1 * 25 - 12),
+        size.height * 0.15 + (animation2 * 20 - 10),
+      ),
+      90,
+      spherePaint1,
+    );
+
+    final spherePaint2 = Paint()
+      ..shader =
+          RadialGradient(
+            colors: [
+              Color(0xFF14366D).withOpacity(0.35),
+              Color(0xFF14366D).withOpacity(0.1),
+              Colors.transparent,
+            ],
+            stops: [0.0, 0.6, 1.0],
+          ).createShader(
+            Rect.fromCircle(
+              center: Offset(
+                size.width * 0.3 + (animation3 * 30 - 15),
+                size.height * 0.85 + (animation1 * 20 - 10),
+              ),
+              radius: 110,
+            ),
+          );
+    canvas.drawCircle(
+      Offset(
+        size.width * 0.3 + (animation3 * 30 - 15),
+        size.height * 0.85 + (animation1 * 20 - 10),
+      ),
+      110,
+      spherePaint2,
+    );
+  }
+
+  @override
+  bool shouldRepaint(Animated3DShapesPainter oldDelegate) {
+    return oldDelegate.animation1 != animation1 ||
+        oldDelegate.animation2 != animation2 ||
+        oldDelegate.animation3 != animation3;
+  }
 }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'dart:async';
 import '../utils/nuru_colors.dart';
 
@@ -16,7 +18,7 @@ class FacialRecognitionSetupScreen extends StatefulWidget {
 
 class _FacialRecognitionSetupScreenState
     extends State<FacialRecognitionSetupScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   CameraController? _cameraController;
   List<CameraDescription>? _cameras;
   bool _isCameraInitialized = false;
@@ -54,7 +56,11 @@ class _FacialRecognitionSetupScreenState
   @override
   void initState() {
     super.initState();
-    _initializeCamera();
+    WidgetsBinding.instance.addObserver(this);
+    // Delay camera init so permission dialog renders properly
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeCamera();
+    });
 
     _floatController1 = AnimationController(
       duration: Duration(seconds: 4),
@@ -67,7 +73,35 @@ class _FacialRecognitionSetupScreenState
     )..repeat(reverse: true);
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (_cameraController == null || !_cameraController!.value.isInitialized)
+      return;
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused) {
+      _cameraController?.dispose();
+      if (mounted) setState(() => _isCameraInitialized = false);
+    } else if (state == AppLifecycleState.resumed) {
+      _initializeCamera();
+    }
+  }
+
   Future<void> _initializeCamera() async {
+    // Prevent re-entry if already initialized
+    if (_isCameraInitialized &&
+        _cameraController != null &&
+        _cameraController!.value.isInitialized)
+      return;
+
+    // Request camera permission first
+    final status = await Permission.camera.request();
+    if (!status.isGranted) {
+      _showError(
+        'Camera permission is required for Face ID setup. Please allow camera access in your device settings.',
+      );
+      return;
+    }
+
     try {
       _cameras = await availableCameras();
       if (_cameras != null && _cameras!.isNotEmpty) {
@@ -78,7 +112,7 @@ class _FacialRecognitionSetupScreenState
 
         _cameraController = CameraController(
           frontCamera,
-          ResolutionPreset.high,
+          ResolutionPreset.medium,
           enableAudio: false,
         );
 
@@ -88,14 +122,17 @@ class _FacialRecognitionSetupScreenState
             _isCameraInitialized = true;
           });
         }
+      } else {
+        _showError('No camera found on this device.');
       }
     } catch (e) {
-      _showError('Failed to initialize camera: $e');
+      _showError('Failed to initialize camera. Please try again.');
     }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _cameraController?.dispose();
     _floatController1.dispose();
     _floatController2.dispose();
@@ -214,7 +251,8 @@ class _FacialRecognitionSetupScreenState
             ),
             child: ElevatedButton(
               onPressed: () {
-                Navigator.pop(context);
+                // Dispose camera before navigating
+                _cameraController?.dispose();
                 // Now go to baseline setup for micro-expressions
                 Navigator.pushReplacementNamed(
                   context,
@@ -479,10 +517,37 @@ class _FacialRecognitionSetupScreenState
                             : Container(
                                 color: NuruColors.dive,
                                 child: Center(
-                                  child: CircularProgressIndicator(
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      NuruColors.sailingBlue,
-                                    ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      CircularProgressIndicator(
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                              NuruColors.sailingBlue,
+                                            ),
+                                      ),
+                                      SizedBox(height: 20),
+                                      Text(
+                                        'Opening camera...',
+                                        style: TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      SizedBox(height: 16),
+                                      TextButton(
+                                        onPressed: _initializeCamera,
+                                        child: Text(
+                                          'Tap to retry',
+                                          style: TextStyle(
+                                            color: NuruColors.lilacBlue,
+                                            fontSize: 14,
+                                            decoration:
+                                                TextDecoration.underline,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),

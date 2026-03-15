@@ -26,17 +26,20 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           'Your personal companion for understanding and supporting your journey',
       imagePath: 'assets/images/pic 1.jpg',
       gradientColors: [
-        Color(0xFF7B9FD8),
-        Color(0xFF5782C9),
-      ], // Lighter blue gradient
+        Color(0xFF4569AD),
+        Color(0xFF14366D),
+      ], // Same as third screen
     ),
     OnboardingContent(
       title: 'Track Your Emotions',
       subtitle: 'Micro-Expression Analysis',
       description:
           'Advanced AI technology that understands your unique expressions and mood patterns',
-      imagePath: 'assets/images/pic 2.jpg',
-      gradientColors: [Color(0xFF8EA2D7), Color(0xFF4569AD)],
+      imagePath: 'assets/images/analytics 3.jpg',
+      gradientColors: [
+        Color(0xFF4569AD),
+        Color(0xFF14366D),
+      ], // Same as third screen
     ),
     OnboardingContent(
       title: 'Get Personalized Support',
@@ -53,9 +56,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           'Complete privacy guaranteed. Your data stays on your device, always under your control',
       imagePath: 'assets/images/pic 4.jpg',
       gradientColors: [
-        Color(0xFF3A5FA8),
-        Color(0xFF1E4A8C),
-      ], // Deeper rich blue gradient
+        Color(0xFF4569AD),
+        Color(0xFF14366D),
+      ], // Same as third screen
     ),
   ];
 
@@ -142,6 +145,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Color(0xFF4569AD), // Prevent white flash
       body: Stack(
         children: [
           // Animated gradient background
@@ -154,6 +158,17 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                 colors: _pages[_currentPage].gradientColors,
               ),
             ),
+          ),
+
+          // Subtle stars layer - just a few
+          AnimatedBuilder(
+            animation: _floatController1,
+            builder: (context, child) {
+              return CustomPaint(
+                size: Size.infinite,
+                painter: SubtleStarsPainter(twinkle: _floatController1.value),
+              );
+            },
           ),
 
           // Animated 3D flowing shapes - changes design per page
@@ -765,5 +780,67 @@ class Animated3DShapesPainter extends CustomPainter {
         oldDelegate.animation1 != animation1 ||
         oldDelegate.animation2 != animation2 ||
         oldDelegate.animation3 != animation3;
+  }
+}
+
+// Subtle Stars Painter - 20 stars all over the screen
+class SubtleStarsPainter extends CustomPainter {
+  final double twinkle;
+
+  SubtleStarsPainter({required this.twinkle});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..style = PaintingStyle.fill;
+
+    // 20 stars scattered all over the screen [x%, y%]
+    final stars = [
+      [0.08, 0.05],
+      [0.18, 0.15],
+      [0.25, 0.08],
+      [0.35, 0.20],
+      [0.42, 0.12],
+      [0.52, 0.18],
+      [0.62, 0.08],
+      [0.72, 0.22],
+      [0.78, 0.14],
+      [0.88, 0.10],
+      [0.12, 0.48],
+      [0.28, 0.55],
+      [0.38, 0.62],
+      [0.50, 0.58],
+      [0.65, 0.52],
+      [0.75, 0.65],
+      [0.85, 0.58],
+      [0.15, 0.82],
+      [0.45, 0.88],
+      [0.92, 0.85],
+    ];
+
+    // Draw each star - more visible
+    for (final star in stars) {
+      final x = size.width * star[0];
+      final y = size.height * star[1];
+
+      // More visible twinkling: opacity varies between 0.4 and 0.7
+      final opacity = 0.4 + (twinkle * 0.3);
+
+      // Outer glow - more visible
+      paint.color = Colors.white.withOpacity(opacity * 0.4);
+      canvas.drawCircle(Offset(x, y), 3.5, paint);
+
+      // Middle glow
+      paint.color = Colors.white.withOpacity(opacity * 0.6);
+      canvas.drawCircle(Offset(x, y), 2.0, paint);
+
+      // Star core - brighter
+      paint.color = Colors.white.withOpacity(opacity);
+      canvas.drawCircle(Offset(x, y), 1.3, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(SubtleStarsPainter oldDelegate) {
+    return oldDelegate.twinkle != twinkle;
   }
 }

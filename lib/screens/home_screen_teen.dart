@@ -55,53 +55,55 @@ class _HomeScreenTeenState extends State<HomeScreenTeen>
 
   @override
   Widget build(BuildContext context) {
-    // Reset selection to Home whenever this screen is displayed
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _currentNavIndex != 0) {
-        setState(() {
-          _currentNavIndex = 0;
-        });
-      }
-    });
-
     final userName = widget.userData?['name'] ?? 'User';
 
     return Scaffold(
+      backgroundColor: Color(0xFF4569AD),
       body: Stack(
         children: [
-          // Background gradient
+          // Background gradient - SAME AS ONBOARDING
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF4569AD), // Base blue
-                  Color(0xFF4864B5), // Blue with purple hint
-                  Color(0xFF3A5FA8), // Medium blue
-                  Color(0xFF2D5295), // Deeper blue
-                ],
+                colors: [Color(0xFF4569AD), Color(0xFF14366D)],
               ),
             ),
           ),
 
-          // Animated background shapes
-          AnimatedBuilder(
-            animation: Listenable.merge([
-              _floatController1,
-              _floatController2,
-              _floatController3,
-            ]),
-            builder: (context, child) {
-              return CustomPaint(
-                size: Size.infinite,
-                painter: FloatingShapesPainter(
-                  animation1: _floatController1.value,
-                  animation2: _floatController2.value,
-                  animation3: _floatController3.value,
-                ),
-              );
-            },
+          // Stars layer - SAME AS ONBOARDING
+          IgnorePointer(
+            child: AnimatedBuilder(
+              animation: _floatController1,
+              builder: (context, child) {
+                return CustomPaint(
+                  size: Size.infinite,
+                  painter: SubtleStarsPainter(twinkle: _floatController1.value),
+                );
+              },
+            ),
+          ),
+
+          // Animated 3D shapes - SAME AS ONBOARDING
+          IgnorePointer(
+            child: AnimatedBuilder(
+              animation: Listenable.merge([
+                _floatController1,
+                _floatController2,
+                _floatController3,
+              ]),
+              builder: (context, child) {
+                return CustomPaint(
+                  size: Size.infinite,
+                  painter: Animated3DShapesPainter(
+                    animation1: _floatController1.value,
+                    animation2: _floatController2.value,
+                    animation3: _floatController3.value,
+                  ),
+                );
+              },
+            ),
           ),
 
           // Main content
@@ -133,13 +135,13 @@ class _HomeScreenTeenState extends State<HomeScreenTeen>
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                               colors: [
-                                Colors.white.withOpacity(0.2),
-                                Colors.white.withOpacity(0.1),
+                                Color(0xFF1F3F74).withOpacity(0.5),
+                                Color(0xFF081F44).withOpacity(0.6),
                               ],
                             ),
                             border: Border(
                               bottom: BorderSide(
-                                color: Colors.white.withOpacity(0.3),
+                                color: Color(0xFF4569AD).withOpacity(0.4),
                                 width: 1.5,
                               ),
                             ),
@@ -150,10 +152,10 @@ class _HomeScreenTeenState extends State<HomeScreenTeen>
                               Container(
                                 padding: EdgeInsets.all(16),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.2),
+                                  color: Color(0xFF081F44).withOpacity(0.6),
                                   borderRadius: BorderRadius.circular(16),
                                   border: Border.all(
-                                    color: Colors.white.withOpacity(0.3),
+                                    color: Color(0xFF4569AD).withOpacity(0.5),
                                     width: 1.5,
                                   ),
                                 ),
@@ -202,10 +204,12 @@ class _HomeScreenTeenState extends State<HomeScreenTeen>
                                   Container(
                                     padding: EdgeInsets.all(16),
                                     decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.2),
+                                      color: Color(0xFF081F44).withOpacity(0.6),
                                       borderRadius: BorderRadius.circular(16),
                                       border: Border.all(
-                                        color: Colors.white.withOpacity(0.3),
+                                        color: Color(
+                                          0xFF4569AD,
+                                        ).withOpacity(0.5),
                                         width: 1.5,
                                       ),
                                     ),
@@ -404,7 +408,7 @@ class _HomeScreenTeenState extends State<HomeScreenTeen>
                       crossAxisCount: 2,
                       mainAxisSpacing: 12,
                       crossAxisSpacing: 12,
-                      childAspectRatio: 1.4,
+                      childAspectRatio: 1.0,
                       children: [
                         _buildGlassToolCard(
                           'Breathing',
@@ -452,7 +456,7 @@ class _HomeScreenTeenState extends State<HomeScreenTeen>
                           Container(
                             padding: EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
+                              color: Color(0xFF081F44).withOpacity(0.4),
                               borderRadius: BorderRadius.circular(14),
                             ),
                             child: Icon(
@@ -522,20 +526,25 @@ class _HomeScreenTeenState extends State<HomeScreenTeen>
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    Colors.white.withOpacity(0.2),
-                    Colors.white.withOpacity(0.1),
+                    Color(0xFF1F3F74).withOpacity(0.75),
+                    Color(0xFF081F44).withOpacity(0.80),
                   ],
                 ),
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color: Colors.white.withOpacity(0.3),
+              color: Color(0xFF4569AD).withOpacity(0.5),
               width: 1.5,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
+                color: Color(0xFF081F44).withOpacity(0.5),
                 blurRadius: 20,
                 offset: Offset(0, 10),
+              ),
+              BoxShadow(
+                color: Colors.white.withOpacity(0.08),
+                blurRadius: 8,
+                offset: Offset(0, -2),
               ),
             ],
           ),
@@ -692,20 +701,25 @@ class _HomeScreenTeenState extends State<HomeScreenTeen>
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Colors.white.withOpacity(0.2),
-                  Colors.white.withOpacity(0.1),
+                  Color(0xFF1F3F74).withOpacity(0.75),
+                  Color(0xFF081F44).withOpacity(0.80),
                 ],
               ),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: Colors.white.withOpacity(0.3),
+                color: Color(0xFF4569AD).withOpacity(0.5),
                 width: 1.5,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
-                  blurRadius: 15,
-                  offset: Offset(0, 8),
+                  color: Color(0xFF081F44).withOpacity(0.5),
+                  blurRadius: 20,
+                  offset: Offset(0, 10),
+                ),
+                BoxShadow(
+                  color: Colors.white.withOpacity(0.08),
+                  blurRadius: 8,
+                  offset: Offset(0, -2),
                 ),
               ],
             ),
@@ -732,6 +746,8 @@ class _HomeScreenTeenState extends State<HomeScreenTeen>
                 SizedBox(height: 10),
                 Text(
                   title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -741,6 +757,8 @@ class _HomeScreenTeenState extends State<HomeScreenTeen>
                 SizedBox(height: 2),
                 Text(
                   subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 10,
                     color: Colors.white.withOpacity(0.7),
@@ -868,23 +886,21 @@ class _HomeScreenTeenState extends State<HomeScreenTeen>
 
     return GestureDetector(
       onTap: () {
-        // Update selection to where user tapped
-        setState(() {
-          _currentNavIndex = index;
-        });
-
-        // Navigate to different screens
+        if (index == 0) return; // already on home
+        setState(() => _currentNavIndex = index);
         if (index == 1) {
-          // Navigate to CalmMe screen
-          Navigator.pushNamed(context, '/calmme');
+          Navigator.pushNamed(context, '/calmme').then((_) {
+            if (mounted) setState(() => _currentNavIndex = 0);
+          });
         } else if (index == 2) {
-          // Navigate to Analytics screen (future)
-          print('Navigate to Analytics');
+          Navigator.pushNamed(context, '/analytics').then((_) {
+            if (mounted) setState(() => _currentNavIndex = 0);
+          });
         } else if (index == 3) {
-          // Navigate to Profile screen (future)
-          print('Navigate to Profile');
+          Navigator.pushNamed(context, '/profile').then((_) {
+            if (mounted) setState(() => _currentNavIndex = 0);
+          });
         }
-        // If index == 0 (Home), we're already here, do nothing
       },
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -917,12 +933,68 @@ class _HomeScreenTeenState extends State<HomeScreenTeen>
   }
 }
 
-class FloatingShapesPainter extends CustomPainter {
+// Stars Painter - same as onboarding
+class SubtleStarsPainter extends CustomPainter {
+  final double twinkle;
+
+  SubtleStarsPainter({required this.twinkle});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..style = PaintingStyle.fill;
+
+    final stars = [
+      [0.08, 0.05],
+      [0.18, 0.15],
+      [0.25, 0.08],
+      [0.35, 0.20],
+      [0.42, 0.12],
+      [0.52, 0.18],
+      [0.62, 0.08],
+      [0.72, 0.22],
+      [0.78, 0.14],
+      [0.88, 0.10],
+      [0.12, 0.48],
+      [0.28, 0.55],
+      [0.38, 0.62],
+      [0.50, 0.58],
+      [0.65, 0.52],
+      [0.75, 0.65],
+      [0.85, 0.58],
+      [0.15, 0.82],
+      [0.45, 0.88],
+      [0.92, 0.85],
+    ];
+
+    for (final star in stars) {
+      final x = size.width * star[0];
+      final y = size.height * star[1];
+      final opacity = 0.4 + (twinkle * 0.3);
+
+      paint.color = Colors.white.withOpacity(opacity * 0.4);
+      canvas.drawCircle(Offset(x, y), 3.5, paint);
+
+      paint.color = Colors.white.withOpacity(opacity * 0.6);
+      canvas.drawCircle(Offset(x, y), 2.0, paint);
+
+      paint.color = Colors.white.withOpacity(opacity);
+      canvas.drawCircle(Offset(x, y), 1.3, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(SubtleStarsPainter oldDelegate) {
+    return oldDelegate.twinkle != twinkle;
+  }
+}
+
+// Animated 3D Shapes Painter - same as onboarding
+class Animated3DShapesPainter extends CustomPainter {
   final double animation1;
   final double animation2;
   final double animation3;
 
-  FloatingShapesPainter({
+  Animated3DShapesPainter({
     required this.animation1,
     required this.animation2,
     required this.animation3,
@@ -932,63 +1004,111 @@ class FloatingShapesPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..style = PaintingStyle.fill;
 
-    paint.color = Color(0xFFB7C3E8).withOpacity(0.12);
+    paint.color = Color(0xFFB7C3E8).withOpacity(0.25);
     final offsetY1 = animation1 * 40 - 20;
-    canvas.drawPath(
-      Path()
-        ..moveTo(0, offsetY1)
-        ..quadraticBezierTo(
-          size.width * 0.3,
-          size.height * 0.1 + offsetY1,
-          size.width * 0.4,
-          size.height * 0.25 + offsetY1,
-        )
-        ..quadraticBezierTo(
-          size.width * 0.5,
-          size.height * 0.4 + offsetY1,
-          size.width * 0.3,
-          size.height * 0.5 + offsetY1,
-        )
-        ..quadraticBezierTo(
-          size.width * 0.1,
-          size.height * 0.6 + offsetY1,
-          0,
-          size.height * 0.4 + offsetY1,
-        )
-        ..close(),
-      paint,
+    final path1 = Path()
+      ..moveTo(0, offsetY1)
+      ..quadraticBezierTo(
+        size.width * 0.3,
+        size.height * 0.1 + offsetY1,
+        size.width * 0.4,
+        size.height * 0.25 + offsetY1,
+      )
+      ..quadraticBezierTo(
+        size.width * 0.5,
+        size.height * 0.4 + offsetY1,
+        size.width * 0.3,
+        size.height * 0.5 + offsetY1,
+      )
+      ..quadraticBezierTo(
+        size.width * 0.1,
+        size.height * 0.6 + offsetY1,
+        0,
+        size.height * 0.4 + offsetY1,
+      )
+      ..close();
+    canvas.drawPath(path1, paint);
+
+    paint.color = Color(0xFF081F44).withOpacity(0.2);
+    final offsetX2 = animation2 * 35 - 17;
+    final path2 = Path()
+      ..moveTo(size.width, size.height * 0.2 + offsetX2)
+      ..quadraticBezierTo(
+        size.width * 0.7,
+        size.height * 0.3 + offsetX2,
+        size.width * 0.6,
+        size.height * 0.5 + offsetX2,
+      )
+      ..quadraticBezierTo(
+        size.width * 0.5,
+        size.height * 0.7 + offsetX2,
+        size.width * 0.7,
+        size.height * 0.8 + offsetX2,
+      )
+      ..quadraticBezierTo(
+        size.width * 0.9,
+        size.height * 0.9 + offsetX2,
+        size.width,
+        size.height * 0.7 + offsetX2,
+      )
+      ..close();
+    canvas.drawPath(path2, paint);
+
+    final spherePaint1 = Paint()
+      ..shader =
+          RadialGradient(
+            colors: [
+              Colors.white.withOpacity(0.25),
+              Colors.white.withOpacity(0.05),
+            ],
+          ).createShader(
+            Rect.fromCircle(
+              center: Offset(
+                size.width * 0.75 + (animation1 * 25 - 12),
+                size.height * 0.15 + (animation2 * 20 - 10),
+              ),
+              radius: 90,
+            ),
+          );
+    canvas.drawCircle(
+      Offset(
+        size.width * 0.75 + (animation1 * 25 - 12),
+        size.height * 0.15 + (animation2 * 20 - 10),
+      ),
+      90,
+      spherePaint1,
     );
 
-    paint.color = Color(0xFF081F44).withOpacity(0.18);
-    final offsetX2 = animation2 * 35 - 17;
-    canvas.drawPath(
-      Path()
-        ..moveTo(size.width, size.height * 0.2 + offsetX2)
-        ..quadraticBezierTo(
-          size.width * 0.7,
-          size.height * 0.3 + offsetX2,
-          size.width * 0.6,
-          size.height * 0.5 + offsetX2,
-        )
-        ..quadraticBezierTo(
-          size.width * 0.5,
-          size.height * 0.7 + offsetX2,
-          size.width * 0.7,
-          size.height * 0.8 + offsetX2,
-        )
-        ..quadraticBezierTo(
-          size.width * 0.9,
-          size.height * 0.9 + offsetX2,
-          size.width,
-          size.height * 0.7 + offsetX2,
-        )
-        ..close(),
-      paint,
+    final spherePaint2 = Paint()
+      ..shader =
+          RadialGradient(
+            colors: [
+              Color(0xFF14366D).withOpacity(0.35),
+              Color(0xFF14366D).withOpacity(0.1),
+              Colors.transparent,
+            ],
+            stops: [0.0, 0.6, 1.0],
+          ).createShader(
+            Rect.fromCircle(
+              center: Offset(
+                size.width * 0.3 + (animation3 * 30 - 15),
+                size.height * 0.85 + (animation1 * 20 - 10),
+              ),
+              radius: 110,
+            ),
+          );
+    canvas.drawCircle(
+      Offset(
+        size.width * 0.3 + (animation3 * 30 - 15),
+        size.height * 0.85 + (animation1 * 20 - 10),
+      ),
+      110,
+      spherePaint2,
     );
   }
 
   @override
-  bool shouldRepaint(FloatingShapesPainter oldDelegate) {
+  bool shouldRepaint(Animated3DShapesPainter oldDelegate) {
     return oldDelegate.animation1 != animation1 ||
         oldDelegate.animation2 != animation2 ||
         oldDelegate.animation3 != animation3;

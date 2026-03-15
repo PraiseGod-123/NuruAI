@@ -1,18 +1,24 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:math' as math;
-import 'package:lottie/lottie.dart';
+import '../services/breathing_service.dart';
 import '../utils/nuru_colors.dart';
-import '../utils/nuru_theme.dart';
 
 // ══════════════════════════════════════════════════════════════
-// BREATHING EXERCISE SCREEN - TIIMO INSPIRED
-// Colorful, playful, engaging design with Lottie animations
+// BREATHING EXERCISE SCREEN
+//
+// Design language: NuruAI Night Blue — same stars + glassmorphism
+// as journal and home screens. No bright coloured gradients.
+//
+// Flow:
+//   1. Technique grid → tap to open detail sheet
+//   2. Detail sheet: description, autism note, pattern, research
+//   3. Start → full-screen breathing animation with animated circle
+//   4. Complete → celebration + option to repeat or go back
 // ══════════════════════════════════════════════════════════════
 
 class BreathingExerciseScreen extends StatefulWidget {
   final Map<String, dynamic>? userData;
-
   const BreathingExerciseScreen({Key? key, this.userData}) : super(key: key);
 
   @override
@@ -22,349 +28,746 @@ class BreathingExerciseScreen extends StatefulWidget {
 
 class _BreathingExerciseScreenState extends State<BreathingExerciseScreen>
     with TickerProviderStateMixin {
-  late AnimationController _breathingController;
-  late AnimationController _backgroundController;
+  // ── Animation controllers ────────────────────────────────
+  late final AnimationController _starController;
+  late final AnimationController _shapeController;
+  late final AnimationController _circleController; // breathing orb
+  late final AnimationController _pulseController; // outer ring pulse
 
+  // ── Breathing state ──────────────────────────────────────
+  BreathingTechnique? _active; // currently running technique
+  int _phase = 0; // 0=inhale 1=hold 2=exhale 3=hold
+  int _countdown = 0;
+  int _cycle = 0;
+  bool _running = false;
   Timer? _timer;
-  int _currentCycle = 0;
-  int _currentPhase = 0; // 0: Inhale, 1: Hold, 2: Exhale, 3: Hold
-  int _secondsRemaining = 0;
-  bool _isExercising = false;
 
-  // Lottie breathing animations - Free from LottieFiles
-  final List<String> breathingAnimations = [
-    'https://lottie.host/4f0d5ec7-63f9-4d7b-9c85-6b5c38e5e0e6/EKHNENGCsT.json', // Breathing meditation
-    'https://lottie.host/embed/d5989b3b-8431-4c0e-8b5e-8c6d0f5e3c8a/7K9jK3G2VH.json', // Yoga breathing
-    'https://lottie.host/embed/a2b8c3d4-1234-5678-90ab-cdef12345678/AbCdEfGhIj.json', // Calm breathing circle
-  ];
-
-  // Tiimo-inspired breathing techniques with vibrant colors
-  final List<Map<String, dynamic>> breathingTechniques = [
-    {
-      'name': '4-7-8 Breathing',
-      'subtitle': 'Perfect for Sleep',
-      'description':
-          'Dr. Andrew Weil\'s relaxation technique. Promotes calmness and deep sleep.',
-      'icon': '😴',
-      'gradient': [Color(0xFF6B4CE6), Color(0xFF9D6EFF)], // Purple gradient
-      'pattern': [4, 7, 8, 0],
-      'cycles': 4,
-      'benefits': ['Reduces anxiety', 'Aids sleep', 'Controls stress response'],
-      'source': 'Dr. Andrew Weil, Harvard Medical School',
-      'difficulty': 'Beginner',
-    },
-    {
-      'name': 'Box Breathing',
-      'subtitle': 'Navy SEAL Technique',
-      'description':
-          'Used by elite forces for stress management and laser focus.',
-      'icon': '🎯',
-      'gradient': [Color(0xFF00C9FF), Color(0xFF92FE9D)], // Blue-green gradient
-      'pattern': [4, 4, 4, 4],
-      'cycles': 5,
-      'benefits': [
-        'Reduces stress',
-        'Improves focus',
-        'Regulates nervous system',
-      ],
-      'source': 'Navy SEAL training program',
-      'difficulty': 'Intermediate',
-    },
-    {
-      'name': 'Deep Belly Breathing',
-      'subtitle': 'Oxygen Boost',
-      'description':
-          'Deep diaphragmatic breathing for maximum relaxation and oxygen flow.',
-      'icon': '🌊',
-      'gradient': [Color(0xFF43E97B), Color(0xFF38F9D7)], // Teal gradient
-      'pattern': [4, 2, 6, 0],
-      'cycles': 6,
-      'benefits': [
-        'Lowers heart rate',
-        'Reduces muscle tension',
-        'Improves oxygen',
-      ],
-      'source': 'American Lung Association',
-      'difficulty': 'Beginner',
-    },
-    {
-      'name': '4-4-6 Breathing',
-      'subtitle': 'Extended Exhale',
-      'description':
-          'Calming technique with longer exhale to activate relaxation response.',
-      'icon': '🌙',
-      'gradient': [
-        Color(0xFFFA709A),
-        Color(0xFFFFE985),
-      ], // Pink-yellow gradient
-      'pattern': [4, 4, 6, 0],
-      'cycles': 5,
-      'benefits': [
-        'Activates parasympathetic',
-        'Reduces anxiety',
-        'Promotes calm',
-      ],
-      'source': 'Mindfulness-Based Stress Reduction',
-      'difficulty': 'Beginner',
-    },
-    {
-      'name': 'Resonant Breathing',
-      'subtitle': 'Heart Coherence',
-      'description':
-          'Breathe at 5-6 breaths per minute for optimal heart rate variability.',
-      'icon': '💚',
-      'gradient': [Color(0xFF56CCF2), Color(0xFF2F80ED)], // Blue gradient
-      'pattern': [5, 0, 5, 0],
-      'cycles': 6,
-      'benefits': ['Maximizes HRV', 'Balances nervous system', 'Reduces BP'],
-      'source': 'HeartMath Institute',
-      'difficulty': 'Advanced',
-    },
-    {
-      'name': 'Calm Breathing',
-      'subtitle': 'Quick Relief',
-      'description':
-          'Simple calming breath for immediate anxiety relief anywhere, anytime.',
-      'icon': '☮️',
-      'gradient': [
-        Color(0xFFFFA751),
-        Color(0xFFFFE259),
-      ], // Orange-yellow gradient
-      'pattern': [3, 0, 6, 0],
-      'cycles': 8,
-      'benefits': ['Quick stress relief', 'Easy anywhere', 'Immediate calming'],
-      'source': 'Cognitive Behavioral Therapy',
-      'difficulty': 'Beginner',
-    },
-  ];
-
-  Map<String, dynamic>? selectedTechnique;
+  // ── Star painter data ────────────────────────────────────
+  final List<_Star> _stars = [];
+  final math.Random _rng = math.Random(42);
 
   @override
   void initState() {
     super.initState();
-    _breathingController = AnimationController(
-      duration: Duration(seconds: 4),
+
+    _starController = AnimationController(
       vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat(reverse: true);
+
+    _shapeController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 10),
+    )..repeat(reverse: true);
+
+    _circleController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 4),
     );
 
-    _backgroundController = AnimationController(
-      duration: Duration(seconds: 8),
+    _pulseController = AnimationController(
       vsync: this,
+      duration: const Duration(seconds: 2),
     )..repeat(reverse: true);
+
+    // Generate 63 stars
+    for (int i = 0; i < 63; i++) {
+      _stars.add(
+        _Star(
+          x: _rng.nextDouble(),
+          y: _rng.nextDouble(),
+          size: _rng.nextDouble() < 0.5
+              ? 1.2
+              : (_rng.nextDouble() < 0.7 ? 1.8 : 2.6),
+          phase: _rng.nextDouble() * math.pi * 2,
+          speed: 0.6 + _rng.nextDouble() * 0.8,
+        ),
+      );
+    }
   }
 
   @override
   void dispose() {
+    _starController.dispose();
+    _shapeController.dispose();
+    _circleController.dispose();
+    _pulseController.dispose();
     _timer?.cancel();
-    _breathingController.dispose();
-    _backgroundController.dispose();
     super.dispose();
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // FIREBASE INTEGRATION (TO BE IMPLEMENTED)
-  // ═══════════════════════════════════════════════════════════
+  // ── Breathing engine ─────────────────────────────────────
 
-  // Future<void> _saveSessionToFirebase(Map<String, dynamic> sessionData) async {
-  //   // TODO: Implement Firebase session saving
-  //   // await FirebaseFirestore.instance
-  //   //   .collection('breathing_sessions')
-  //   //   .add(sessionData);
-  // }
-  //
-  // Future<Map<String, dynamic>> _getUserStats() async {
-  //   // TODO: Fetch user breathing stats from Firebase
-  //   // - Total sessions
-  //   // - Total minutes
-  //   // - Current streak
-  //   // - Favorite technique
-  //   return {};
-  // }
-  //
-  // Future<void> _trackProgress() async {
-  //   // TODO: Update user progress in Firebase
-  //   // - Increment session count
-  //   // - Update streak
-  //   // - Award achievements
-  // }
-
-  // ═══════════════════════════════════════════════════════════
-
-  void _startExercise(Map<String, dynamic> technique) {
+  void _start(BreathingTechnique t) {
+    _timer?.cancel();
     setState(() {
-      selectedTechnique = technique;
-      _currentCycle = 0;
-      _currentPhase = 0;
-      _isExercising = true;
-      _secondsRemaining = technique['pattern'][0] as int;
+      _active = t;
+      _phase = 0;
+      _cycle = 0;
+      _running = true;
+      _countdown = _firstNonZeroPhase(t.pattern);
     });
-
-    _startBreathingCycle();
+    _animatePhase();
+    _tick();
   }
 
-  void _startBreathingCycle() {
-    if (selectedTechnique == null) return;
-
-    final pattern = selectedTechnique!['pattern'] as List<int>;
-    final totalCycles = selectedTechnique!['cycles'] as int;
-
-    _breathingController.duration = Duration(seconds: pattern[_currentPhase]);
-
-    if (pattern[_currentPhase] > 0) {
-      _breathingController.forward(from: 0);
-
-      _timer?.cancel();
-      _timer = Timer.periodic(Duration(seconds: 1), (timer) {
-        setState(() {
-          _secondsRemaining--;
-        });
-
-        if (_secondsRemaining <= 0) {
-          timer.cancel();
-          _nextPhase(pattern, totalCycles);
-        }
-      });
-    } else {
-      _nextPhase(pattern, totalCycles);
+  int _firstNonZeroPhase(List<int> pattern) {
+    for (int i = 0; i < pattern.length; i++) {
+      if (pattern[i] > 0) return pattern[i];
     }
+    return 4;
   }
 
-  void _nextPhase(List<int> pattern, int totalCycles) {
-    _currentPhase++;
+  void _animatePhase() {
+    if (_active == null) return;
+    final secs = _active!.pattern[_phase];
+    if (secs == 0) return;
 
-    if (_currentPhase >= 4) {
-      _currentPhase = 0;
-      _currentCycle++;
+    _circleController.stop();
+    _circleController.duration = Duration(seconds: secs);
 
-      if (_currentCycle >= totalCycles) {
-        _completeExercise();
+    if (_phase == 0) {
+      // Inhale → expand
+      _circleController.forward(from: _circleController.value);
+    } else if (_phase == 2) {
+      // Exhale → contract
+      _circleController.reverse(from: _circleController.value);
+    }
+    // Hold → keep value
+  }
+
+  void _tick() {
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() => _countdown--);
+      if (_countdown <= 0) _advance();
+    });
+  }
+
+  void _advance() {
+    if (_active == null) return;
+    final pattern = _active!.pattern;
+
+    // Move to next non-zero phase
+    int next = _phase + 1;
+    while (next < 4 && pattern[next] == 0) next++;
+
+    if (next >= 4) {
+      // Completed one full cycle
+      final newCycle = _cycle + 1;
+      if (newCycle >= _active!.cycles) {
+        _complete();
         return;
       }
+      setState(() {
+        _cycle = newCycle;
+        _phase = 0;
+      });
+    } else {
+      setState(() => _phase = next);
     }
 
-    while (_currentPhase < 4 && pattern[_currentPhase] == 0) {
-      _currentPhase++;
-      if (_currentPhase >= 4) {
-        _currentPhase = 0;
-        _currentCycle++;
-        if (_currentCycle >= totalCycles) {
-          _completeExercise();
-          return;
-        }
-      }
-    }
-
-    setState(() {
-      _secondsRemaining = pattern[_currentPhase];
-    });
-
-    _startBreathingCycle();
+    setState(() => _countdown = _active!.pattern[_phase]);
+    _animatePhase();
   }
 
-  void _completeExercise() {
-    setState(() {
-      _isExercising = false;
-    });
+  void _complete() {
     _timer?.cancel();
-    _breathingController.reset();
+    _circleController.stop();
+    setState(() => _running = false);
+    _showCompletionSheet();
+  }
 
-    // TODO: Firebase Integration - Save breathing session
-    // _saveSessionToFirebase({
-    //   'technique': selectedTechnique!['name'],
-    //   'cycles_completed': _currentCycle,
-    //   'duration': _calculateDuration(),
-    //   'timestamp': DateTime.now(),
-    //   'user_id': widget.userData?['id'],
-    // });
+  void _stop() {
+    _timer?.cancel();
+    _circleController.stop();
+    setState(() {
+      _running = false;
+      _active = null;
+    });
+  }
 
-    showDialog(
+  // ── Phase helpers ────────────────────────────────────────
+
+  static const _phaseLabels = ['Breathe In', 'Hold', 'Breathe Out', 'Hold'];
+  static const _phaseIcons = [
+    Icons.arrow_upward_rounded,
+    Icons.pause_rounded,
+    Icons.arrow_downward_rounded,
+    Icons.pause_rounded,
+  ];
+
+  String get _phaseLabel => _phaseLabels[_phase];
+  IconData get _phaseIcon => _phaseIcons[_phase];
+
+  Color get _phaseColour {
+    switch (_phase) {
+      case 0:
+        return const Color(0xFF8EA2D7); // solidBlue — inhale
+      case 1:
+        return const Color(0xFFB7C3E8); // lilacBlue — hold
+      case 2:
+        return const Color(0xFF4569AD); // sailingBlue — exhale
+      case 3:
+        return const Color(0xFF6E7D95); // muted — hold
+      default:
+        return Colors.white;
+    }
+  }
+
+  // ── Sheets ───────────────────────────────────────────────
+
+  void _showDetailSheet(BreathingTechnique technique) {
+    // Kick off API enrichment in background
+    BreathingService.instance.enrichTechnique(technique).then((_) {
+      if (mounted) setState(() {});
+    });
+
+    showModalBottomSheet(
       context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: Container(
-          padding: EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: selectedTechnique!['gradient'] as List<Color>,
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _DetailSheet(
+        technique: technique,
+        onStart: () {
+          Navigator.pop(context);
+          _start(technique);
+        },
+      ),
+    );
+  }
+
+  void _showCompletionSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      isDismissible: false,
+      builder: (_) => _CompletionSheet(
+        technique: _active!,
+        cyclesCompleted: _cycle + 1,
+        onDone: () {
+          Navigator.pop(context);
+          setState(() => _active = null);
+        },
+        onRepeat: () {
+          Navigator.pop(context);
+          _start(_active!);
+        },
+      ),
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════
+  // BUILD
+  // ══════════════════════════════════════════════════════════
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF081F44),
+      body: Stack(
+        children: [
+          // ── Background gradient ──
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF4569AD), Color(0xFF14366D)],
+              ),
             ),
-            borderRadius: BorderRadius.circular(28),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+
+          // ── Stars ──
+          AnimatedBuilder(
+            animation: _starController,
+            builder: (_, __) => CustomPaint(
+              size: Size.infinite,
+              painter: _StarsPainter(_stars, _starController.value),
+            ),
+          ),
+
+          // ── Organic shapes ──
+          AnimatedBuilder(
+            animation: _shapeController,
+            builder: (_, __) => CustomPaint(
+              size: Size.infinite,
+              painter: _ShapesPainter(_shapeController.value),
+            ),
+          ),
+
+          // ── Content ──
+          SafeArea(
+            child: _running ? _buildExerciseView() : _buildSelectorView(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════
+  // TECHNIQUE SELECTOR
+  // ══════════════════════════════════════════════════════════
+
+  Widget _buildSelectorView() {
+    final techniques = BreathingService.techniques;
+
+    return Column(
+      children: [
+        // Header
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+          child: Row(
             children: [
-              Text('🎉', style: TextStyle(fontSize: 64)),
-              SizedBox(height: 16),
-              Text(
-                'Well Done!',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
+              _GlassButton(
+                icon: Icons.arrow_back_ios_new_rounded,
+                onTap: () => Navigator.pop(context),
               ),
-              SizedBox(height: 8),
-              Text(
-                'You completed ${selectedTechnique!['name']}',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.white.withOpacity(0.9),
-                ),
-              ),
-              SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        setState(() => selectedTechnique = null);
-                      },
-                      style: TextButton.styleFrom(
-                        backgroundColor: Colors.white.withOpacity(0.2),
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      child: Text(
-                        'Done',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text(
+                      'Breathing',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
                       ),
                     ),
+                    Text(
+                      'Evidence-based • Autism-adapted',
+                      style: TextStyle(fontSize: 13, color: Color(0xFFB7C3E8)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 8),
+
+        // Category legend
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: BreathingCategory.values
+                  .map(
+                    (c) => Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: _CategoryChip(category: c),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        // Technique cards
+        Expanded(
+          child: ListView.separated(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+            itemCount: techniques.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 14),
+            itemBuilder: (_, i) => _TechniqueCard(
+              technique: techniques[i],
+              onTap: () => _showDetailSheet(techniques[i]),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════
+  // EXERCISE VIEW
+  // ══════════════════════════════════════════════════════════
+
+  Widget _buildExerciseView() {
+    final t = _active!;
+    return Column(
+      children: [
+        // Header
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+          child: Row(
+            children: [
+              _GlassButton(icon: Icons.close_rounded, onTap: _stop),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  t.name,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
                   ),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: TextButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _startExercise(selectedTechnique!);
-                      },
-                      style: TextButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      child: Text(
-                        'Repeat',
-                        style: TextStyle(
-                          color: selectedTechnique!['gradient'][0] as Color,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                ),
+              ),
+              // Cycle pill
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.white.withOpacity(0.2)),
+                ),
+                child: Text(
+                  '${_cycle + 1} / ${t.cycles}',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Pattern dots
+        const SizedBox(height: 24),
+        _buildPatternDots(t.pattern),
+
+        // Breathing orb
+        Expanded(
+          child: Center(
+            child: AnimatedBuilder(
+              animation: Listenable.merge([
+                _circleController,
+                _pulseController,
+              ]),
+              builder: (_, __) => _buildBreathingOrb(),
+            ),
+          ),
+        ),
+
+        // Phase + countdown
+        _buildPhaseLabel(),
+
+        const SizedBox(height: 40),
+
+        // Stop button
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+          child: SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: GestureDetector(
+              onTap: _stop,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: const Color(0xFF4569AD).withOpacity(0.5),
+                    width: 1.5,
+                  ),
+                ),
+                alignment: Alignment.center,
+                child: const Text(
+                  'Stop Session',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white70,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPatternDots(List<int> pattern) {
+    final labels = ['In', 'Hold', 'Out', 'Hold'];
+    final active = _phase;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(4, (i) {
+        if (pattern[i] == 0) return const SizedBox.shrink();
+        final isActive = i == active;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          margin: const EdgeInsets.symmetric(horizontal: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: isActive
+                ? const Color(0xFF4569AD).withOpacity(0.6)
+                : Colors.white.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isActive
+                  ? const Color(0xFF8EA2D7)
+                  : Colors.white.withOpacity(0.15),
+              width: isActive ? 1.5 : 1,
+            ),
+          ),
+          child: Column(
+            children: [
+              Text(
+                '${pattern[i]}s',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: isActive ? Colors.white : Colors.white54,
+                ),
+              ),
+              Text(
+                labels[i],
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isActive ? const Color(0xFFB7C3E8) : Colors.white38,
+                ),
+              ),
+            ],
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildBreathingOrb() {
+    final t = _circleController.value;
+    final pulse = _pulseController.value;
+
+    // Orb scales from 120 (exhale) to 220 (inhale)
+    final orbSize = 120.0 + t * 100.0;
+
+    // Outer ring pulses gently during hold
+    final ringSize = orbSize + 20 + pulse * 12;
+
+    return SizedBox(
+      width: 260,
+      height: 260,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Outer glow ring
+          Container(
+            width: ringSize,
+            height: ringSize,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.transparent,
+              border: Border.all(
+                color: const Color(0xFF4569AD).withOpacity(0.25 + pulse * 0.15),
+                width: 2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF4569AD).withOpacity(0.12),
+                  blurRadius: 30,
+                  spreadRadius: 10,
+                ),
+              ],
+            ),
+          ),
+
+          // Main orb
+          Container(
+            width: orbSize,
+            height: orbSize,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  const Color(0xFF8EA2D7).withOpacity(0.9),
+                  const Color(0xFF4569AD).withOpacity(0.7),
+                  const Color(0xFF1F3F74).withOpacity(0.6),
+                ],
+                stops: const [0.0, 0.5, 1.0],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF4569AD).withOpacity(0.4 + t * 0.3),
+                  blurRadius: 40 + t * 20,
+                  spreadRadius: 5 + t * 10,
+                ),
+              ],
+            ),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(_phaseIcon, color: Colors.white, size: 28),
+                  const SizedBox(height: 6),
+                  Text(
+                    '$_countdown',
+                    style: const TextStyle(
+                      fontSize: 48,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
                     ),
                   ),
                 ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPhaseLabel() {
+    return Column(
+      children: [
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 400),
+          child: Text(
+            _phaseLabel,
+            key: ValueKey(_phase),
+            style: const TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          width: 48,
+          height: 3,
+          decoration: BoxDecoration(
+            color: _phaseColour,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// TECHNIQUE CARD
+// ══════════════════════════════════════════════════════════════
+
+class _TechniqueCard extends StatelessWidget {
+  final BreathingTechnique technique;
+  final VoidCallback onTap;
+  const _TechniqueCard({required this.technique, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(22),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF1F3F74), Color(0xFF081F44)],
+            ),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(
+              color: const Color(0xFF4569AD).withOpacity(0.4),
+              width: 1.5,
+            ),
+          ),
+          child: Stack(
+            children: [
+              // Subtle category colour strip on left
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                child: Container(
+                  width: 4,
+                  decoration: BoxDecoration(
+                    color: _categoryColour(technique.category),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(22),
+                      bottomLeft: Radius.circular(22),
+                    ),
+                  ),
+                ),
+              ),
+
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 18, 16, 18),
+                child: Row(
+                  children: [
+                    // Emoji circle
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.06),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: const Color(0xFF4569AD).withOpacity(0.3),
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(
+                          technique.emoji,
+                          style: const TextStyle(fontSize: 24),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+
+                    // Text
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            technique.name,
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            technique.subtitle,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF8EA2D7),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          // Pattern preview
+                          _PatternPreview(pattern: technique.pattern),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(width: 8),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        _DifficultyBadge(difficulty: technique.difficulty),
+                        const SizedBox(height: 8),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          color: Colors.white.withOpacity(0.4),
+                          size: 20,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -373,746 +776,612 @@ class _BreathingExerciseScreenState extends State<BreathingExerciseScreen>
     );
   }
 
-  void _stopExercise() {
-    setState(() {
-      _isExercising = false;
-      selectedTechnique = null;
-    });
-    _timer?.cancel();
-    _breathingController.reset();
-  }
-
-  String _getPhaseText() {
-    switch (_currentPhase) {
-      case 0:
-        return 'Breathe In';
-      case 1:
-        return 'Hold';
-      case 2:
-        return 'Breathe Out';
-      case 3:
-        return 'Hold';
-      default:
-        return '';
+  Color _categoryColour(BreathingCategory cat) {
+    switch (cat) {
+      case BreathingCategory.regulation:
+        return const Color(0xFF4569AD);
+      case BreathingCategory.anxiety:
+        return const Color(0xFF5C6BC0);
+      case BreathingCategory.focus:
+        return const Color(0xFF0277BD);
+      case BreathingCategory.sleep:
+        return const Color(0xFF1A237E);
+      case BreathingCategory.grounding:
+        return const Color(0xFF558B2F);
     }
   }
+}
 
-  Color _getDifficultyColor(String difficulty) {
-    switch (difficulty) {
-      case 'Beginner':
-        return Color(0xFF43E97B);
-      case 'Intermediate':
-        return Color(0xFFFFA751);
-      case 'Advanced':
-        return Color(0xFFFA709A);
-      default:
-        return Colors.grey;
-    }
-  }
+class _PatternPreview extends StatelessWidget {
+  final List<int> pattern;
+  const _PatternPreview({required this.pattern});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        children: [
-          // Calming gradient background
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF4569AD),
-                  Color(0xFF4864B5),
-                  Color(0xFF3A5FA8),
-                  Color(0xFF2D5295),
-                ],
-              ),
-            ),
-          ),
-
-          // Animated floating shapes
-          AnimatedBuilder(
-            animation: _backgroundController,
-            builder: (context, child) {
-              return CustomPaint(
-                size: Size.infinite,
-                painter: FloatingShapesPainter(
-                  animation1: _backgroundController.value,
-                  animation2: _backgroundController.value * 0.8,
-                  animation3: _backgroundController.value * 1.2,
-                ),
-              );
-            },
-          ),
-
-          SafeArea(
-            child: selectedTechnique == null
-                ? _buildTechniqueSelector()
-                : _buildBreathingExercise(),
-          ),
-        ],
-      ),
+    final parts = <String>[];
+    final labels = ['In', 'Hold', 'Out', 'Hold'];
+    for (int i = 0; i < 4; i++) {
+      if (pattern[i] > 0) parts.add('${pattern[i]}s ${labels[i]}');
+    }
+    return Text(
+      parts.join(' · '),
+      style: const TextStyle(fontSize: 11.5, color: Color(0xFF6E7D95)),
     );
   }
+}
 
-  Widget _buildTechniqueSelector() {
-    return Column(
-      children: [
-        _buildHeader(),
-        Expanded(
-          child: SingleChildScrollView(
-            padding: EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Choose Your Breathing',
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                SizedBox(height: 8),
-                Text(
-                  'All techniques are scientifically proven',
-                  style: TextStyle(fontSize: 16, color: Colors.white70),
-                ),
-                SizedBox(height: 24),
-                ...breathingTechniques.map(
-                  (technique) => _buildTechniqueCard(technique),
-                ),
-              ],
-            ),
+// ══════════════════════════════════════════════════════════════
+// DETAIL SHEET
+// ══════════════════════════════════════════════════════════════
+
+class _DetailSheet extends StatefulWidget {
+  final BreathingTechnique technique;
+  final VoidCallback onStart;
+  const _DetailSheet({required this.technique, required this.onStart});
+
+  @override
+  State<_DetailSheet> createState() => _DetailSheetState();
+}
+
+class _DetailSheetState extends State<_DetailSheet> {
+  @override
+  Widget build(BuildContext context) {
+    final t = widget.technique;
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.88,
+      minChildSize: 0.5,
+      maxChildSize: 0.96,
+      builder: (_, controller) => Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFF1F3F74), Color(0xFF081F44)],
           ),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         ),
-      ],
-    );
-  }
-
-  Widget _buildTechniqueCard(Map<String, dynamic> technique) {
-    return Container(
-      margin: EdgeInsets.only(bottom: 16),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => _showTechniqueDetails(technique),
-          borderRadius: BorderRadius.circular(24),
-          child: Ink(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: technique['gradient'] as List<Color>,
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+        child: Column(
+          children: [
+            // Drag handle
+            Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 8),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(2),
               ),
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: (technique['gradient'][0] as Color).withOpacity(0.3),
-                  blurRadius: 20,
-                  offset: Offset(0, 10),
-                ),
-              ],
             ),
-            child: Padding(
-              padding: EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+
+            Expanded(
+              child: ListView(
+                controller: controller,
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
                 children: [
+                  // Title row
                   Row(
                     children: [
-                      // Icon container
-                      Container(
-                        padding: EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Text(
-                          technique['icon'],
-                          style: TextStyle(fontSize: 32),
-                        ),
-                      ),
-                      SizedBox(width: 16),
+                      Text(t.emoji, style: const TextStyle(fontSize: 36)),
+                      const SizedBox(width: 16),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              technique['name'],
-                              style: TextStyle(
-                                fontSize: 20,
+                              t.name,
+                              style: const TextStyle(
+                                fontSize: 24,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white,
                               ),
                             ),
-                            SizedBox(height: 4),
                             Text(
-                              technique['subtitle'],
-                              style: TextStyle(
+                              t.subtitle,
+                              style: const TextStyle(
                                 fontSize: 14,
-                                color: Colors.white.withOpacity(0.9),
+                                color: Color(0xFF8EA2D7),
                               ),
                             ),
                           ],
                         ),
                       ),
-                      // Difficulty badge
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.25),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          technique['difficulty'],
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
+                      _DifficultyBadge(difficulty: t.difficulty),
                     ],
                   ),
-                  SizedBox(height: 16),
-                  Text(
-                    technique['description'],
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: Colors.white.withOpacity(0.95),
-                      height: 1.4,
+
+                  const SizedBox(height: 24),
+
+                  // Breathing pattern visual
+                  _buildPatternRow(t.pattern),
+                  const SizedBox(height: 24),
+
+                  // About
+                  _SheetSection(
+                    title: 'About',
+                    child: Text(
+                      t.description,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        color: Color(0xFFB7C3E8),
+                        height: 1.6,
+                      ),
                     ),
                   ),
-                  SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.sync,
-                        color: Colors.white.withOpacity(0.8),
-                        size: 16,
-                      ),
-                      SizedBox(width: 6),
-                      Text(
-                        '${technique['cycles']} cycles',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.white.withOpacity(0.9),
+                  const SizedBox(height: 20),
+
+                  // Why it helps autistic individuals
+                  _SheetSection(
+                    title: '🧩 Why it helps autistic individuals',
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF4569AD).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: const Color(0xFF4569AD).withOpacity(0.3),
                         ),
                       ),
-                      Spacer(),
-                      Icon(
-                        Icons.arrow_forward_ios,
-                        color: Colors.white,
-                        size: 16,
+                      child: Text(
+                        t.autismNote,
+                        style: const TextStyle(
+                          fontSize: 14.5,
+                          color: Color(0xFFB7C3E8),
+                          height: 1.6,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Benefits
+                  _SheetSection(
+                    title: 'Benefits',
+                    child: Column(
+                      children: t.benefits
+                          .map(
+                            (b) => Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    margin: const EdgeInsets.only(top: 4),
+                                    width: 6,
+                                    height: 6,
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFF8EA2D7),
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      b,
+                                      style: const TextStyle(
+                                        fontSize: 14.5,
+                                        color: Color(0xFFB7C3E8),
+                                        height: 1.5,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Wikipedia background (if loaded)
+                  if (t.wikiSummary != null && t.wikiSummary!.isNotEmpty) ...[
+                    _SheetSection(
+                      title: '📖 Background',
+                      child: Text(
+                        t.wikiSummary!,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFF8EA2D7),
+                          height: 1.6,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+
+                  // Research (if loaded)
+                  if (t.research.isNotEmpty) ...[
+                    _SheetSection(
+                      title: '🔬 Clinical Research',
+                      child: Column(
+                        children: t.research
+                            .map(
+                              (r) => Container(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.04),
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: const Color(
+                                      0xFF4569AD,
+                                    ).withOpacity(0.2),
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      r.title,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.white,
+                                        height: 1.4,
+                                      ),
+                                    ),
+                                    if (r.authors.isNotEmpty) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        r.authors,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Color(0xFF6E7D95),
+                                        ),
+                                      ),
+                                    ],
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        if (r.journal.isNotEmpty)
+                                          Expanded(
+                                            child: Text(
+                                              r.journal,
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                color: Color(0xFF4569AD),
+                                                fontStyle: FontStyle.italic,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        Text(
+                                          r.pubDate,
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            color: Color(0xFF6E7D95),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                            .toList(),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+
+                  // Cycles + source
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _InfoChip(
+                          icon: Icons.repeat_rounded,
+                          label: '${t.cycles} cycles',
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _InfoChip(
+                          icon: Icons.timer_outlined,
+                          label: _totalTime(t),
+                        ),
                       ),
                     ],
                   ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showTechniqueDetails(Map<String, dynamic> technique) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) {
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.8,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: technique['gradient'] as List<Color>,
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-          ),
-          child: Column(
-            children: [
-              // Handle
-              Container(
-                margin: EdgeInsets.only(top: 12),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.5),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.all(24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Header
-                      Row(
-                        children: [
-                          Container(
-                            padding: EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              technique['icon'],
-                              style: TextStyle(fontSize: 48),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.04),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: const Color(0xFF4569AD).withOpacity(0.2),
+                      ),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(
+                          Icons.verified_outlined,
+                          color: Color(0xFF4569AD),
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            t.source,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF6E7D95),
+                              height: 1.4,
                             ),
                           ),
-                          SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  technique['name'],
-                                  style: TextStyle(
-                                    fontSize: 28,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                Text(
-                                  technique['subtitle'],
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: Colors.white.withOpacity(0.9),
-                                  ),
-                                ),
-                              ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 32),
+
+                  // Start button
+                  GestureDetector(
+                    onTap: widget.onStart,
+                    child: Container(
+                      height: 58,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF4569AD), Color(0xFF1F3F74)],
+                        ),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: const Color(0xFF8EA2D7).withOpacity(0.4),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF4569AD).withOpacity(0.4),
+                            blurRadius: 20,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      alignment: Alignment.center,
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.play_circle_rounded,
+                            color: Colors.white,
+                            size: 26,
+                          ),
+                          SizedBox(width: 10),
+                          Text(
+                            'Begin Session',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
                             ),
                           ),
                         ],
                       ),
-                      SizedBox(height: 32),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
-                      // Description
-                      _buildSectionTitle('About'),
-                      SizedBox(height: 12),
+  Widget _buildPatternRow(List<int> pattern) {
+    final labels = ['Inhale', 'Hold', 'Exhale', 'Hold'];
+    final icons = [
+      Icons.arrow_upward_rounded,
+      Icons.pause_circle_outline_rounded,
+      Icons.arrow_downward_rounded,
+      Icons.pause_circle_outline_rounded,
+    ];
+
+    final activeSteps = <int>[];
+    for (int i = 0; i < 4; i++) {
+      if (pattern[i] > 0) activeSteps.add(i);
+    }
+
+    return Row(
+      children: activeSteps.asMap().entries.map((e) {
+        final i = e.value;
+        final isLast = e.key == activeSteps.length - 1;
+        return Expanded(
+          child: Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: const Color(0xFF4569AD).withOpacity(0.3),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(icons[i], color: const Color(0xFF8EA2D7), size: 20),
+                      const SizedBox(height: 6),
                       Text(
-                        technique['description'],
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.white.withOpacity(0.95),
-                          height: 1.5,
+                        '${pattern[i]}s',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
                         ),
                       ),
-                      SizedBox(height: 24),
-
-                      // Pattern
-                      _buildSectionTitle('Breathing Pattern'),
-                      SizedBox(height: 12),
-                      _buildPatternVisual(technique['pattern']),
-                      SizedBox(height: 24),
-
-                      // Benefits
-                      _buildSectionTitle('Benefits'),
-                      SizedBox(height: 12),
-                      ...(technique['benefits'] as List<String>).map(
-                        (benefit) => Padding(
-                          padding: EdgeInsets.only(bottom: 12),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: EdgeInsets.all(6),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.2),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  Icons.check,
-                                  color: Colors.white,
-                                  size: 16,
-                                ),
-                              ),
-                              SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  benefit,
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    color: Colors.white.withOpacity(0.95),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: 24),
-
-                      // Source
-                      _buildSectionTitle('Source'),
-                      SizedBox(height: 12),
+                      const SizedBox(height: 2),
                       Text(
-                        technique['source'],
-                        style: TextStyle(
-                          fontSize: 15,
-                          color: Colors.white.withOpacity(0.9),
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                      SizedBox(height: 40),
-
-                      // Start button
-                      SizedBox(
-                        width: double.infinity,
-                        height: 60,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            Navigator.pop(context);
-                            _startExercise(technique);
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: technique['gradient'][0] as Color,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.play_circle_filled, size: 28),
-                              SizedBox(width: 12),
-                              Text(
-                                'Start Breathing',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
+                        labels[i],
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF6E7D95),
                         ),
                       ),
                     ],
                   ),
                 ),
               ),
+              if (!isLast)
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 6),
+                  child: Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    color: Color(0xFF4569AD),
+                    size: 12,
+                  ),
+                ),
             ],
           ),
         );
-      },
+      }).toList(),
     );
   }
 
-  Widget _buildSectionTitle(String title) {
-    return Text(
-      title,
-      style: TextStyle(
-        fontSize: 20,
-        fontWeight: FontWeight.bold,
-        color: Colors.white,
-      ),
-    );
+  String _totalTime(BreathingTechnique t) {
+    final secs = t.pattern.fold<int>(0, (a, b) => a + b) * t.cycles;
+    if (secs < 60) return '${secs}s';
+    return '${(secs / 60).ceil()} min';
   }
+}
 
-  Widget _buildPatternVisual(List<int> pattern) {
-    final labels = ['Inhale', 'Hold', 'Exhale', 'Hold'];
-    final icons = [
-      Icons.arrow_upward,
-      Icons.pause,
-      Icons.arrow_downward,
-      Icons.pause,
-    ];
+// ══════════════════════════════════════════════════════════════
+// COMPLETION SHEET
+// ══════════════════════════════════════════════════════════════
 
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      children: List.generate(4, (index) {
-        if (pattern[index] == 0) return SizedBox.shrink();
-        return Container(
-          width: (MediaQuery.of(context).size.width - 72) / 2,
-          padding: EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withOpacity(0.3), width: 2),
-          ),
-          child: Column(
-            children: [
-              Icon(icons[index], color: Colors.white, size: 28),
-              SizedBox(height: 8),
-              Text(
-                labels[index],
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.white.withOpacity(0.9),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              SizedBox(height: 4),
-              Text(
-                '${pattern[index]}s',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-            ],
-          ),
-        );
-      }).where((w) => w is! SizedBox || (w as SizedBox).width != null).toList(),
-    );
-  }
+class _CompletionSheet extends StatelessWidget {
+  final BreathingTechnique technique;
+  final int cyclesCompleted;
+  final VoidCallback onDone;
+  final VoidCallback onRepeat;
 
-  Widget _buildBreathingExercise() {
+  const _CompletionSheet({
+    required this.technique,
+    required this.cyclesCompleted,
+    required this.onDone,
+    required this.onRepeat,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
+      padding: const EdgeInsets.fromLTRB(24, 32, 24, 40),
+      decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: selectedTechnique!['gradient'] as List<Color>,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFF1F3F74), Color(0xFF081F44)],
         ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          _buildExerciseHeader(),
-          Expanded(
-            child: SingleChildScrollView(
-              child: Container(
-                height: MediaQuery.of(context).size.height - 200,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Cycle counter
-                    Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        'Cycle ${_currentCycle + 1} of ${selectedTechnique!['cycles']}',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: 40),
-
-                    // Breathing animation circle
-                    AnimatedBuilder(
-                      animation: _breathingController,
-                      builder: (context, child) {
-                        return _buildBreathingCircle();
-                      },
-                    ),
-                    SizedBox(height: 40),
-
-                    // Phase text
-                    Text(
-                      _getPhaseText(),
-                      style: TextStyle(
-                        fontSize: 36,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                    SizedBox(height: 16),
-
-                    // Countdown
-                    Text(
-                      '$_secondsRemaining',
-                      style: TextStyle(
-                        fontSize: 80,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          // Stop button
-          SafeArea(
-            child: Padding(
-              padding: EdgeInsets.all(20),
-              child: SizedBox(
-                width: double.infinity,
-                height: 60,
-                child: ElevatedButton(
-                  onPressed: _stopExercise,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white.withOpacity(0.2),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                      side: BorderSide(
-                        color: Colors.white.withOpacity(0.5),
-                        width: 2,
-                      ),
-                    ),
-                  ),
-                  child: Text(
-                    'Stop',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBreathingCircle() {
-    final progress = _breathingController.value;
-
-    // Use Lottie animation for breathing with fallback
-    return Container(
-      width: 300,
-      height: 300,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // Pulsing glow effect
-          AnimatedContainer(
-            duration: Duration(milliseconds: 500),
-            width: _currentPhase == 0 ? 280 : (_currentPhase == 2 ? 120 : 200),
-            height: _currentPhase == 0 ? 280 : (_currentPhase == 2 ? 120 : 200),
+          // Glow circle
+          Container(
+            width: 90,
+            height: 90,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.white.withOpacity(0.15),
+              color: const Color(0xFF4569AD).withOpacity(0.15),
+              border: Border.all(
+                color: const Color(0xFF8EA2D7).withOpacity(0.4),
+                width: 2,
+              ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.white.withOpacity(0.4),
-                  blurRadius: 60,
-                  spreadRadius: 20,
+                  color: const Color(0xFF4569AD).withOpacity(0.3),
+                  blurRadius: 30,
+                  spreadRadius: 8,
                 ),
               ],
             ),
+            child: const Center(
+              child: Text('🌟', style: TextStyle(fontSize: 40)),
+            ),
           ),
-
-          // Lottie breathing animation with error handling
-          Lottie.network(
-            breathingAnimations[0],
-            width: 300,
-            height: 300,
-            fit: BoxFit.contain,
-            animate: true,
-            repeat: true,
-            errorBuilder: (context, error, stackTrace) {
-              // Fallback: Beautiful animated circle if Lottie fails
-              return AnimatedContainer(
-                duration: Duration(milliseconds: 500),
-                width: _currentPhase == 0
-                    ? 250
-                    : (_currentPhase == 2 ? 150 : 200),
-                height: _currentPhase == 0
-                    ? 250
-                    : (_currentPhase == 2 ? 150 : 200),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      Colors.white.withOpacity(0.8),
-                      Colors.white.withOpacity(0.4),
-                      Colors.white.withOpacity(0.1),
-                    ],
+          const SizedBox(height: 20),
+          const Text(
+            'Session Complete',
+            style: TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '${technique.name} • $cyclesCompleted cycle${cyclesCompleted > 1 ? "s" : ""}',
+            style: const TextStyle(fontSize: 15, color: Color(0xFF8EA2D7)),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Well done. Your nervous system is grateful.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.white.withOpacity(0.5),
+            ),
+          ),
+          const SizedBox(height: 32),
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: onDone,
+                  child: Container(
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.07),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: const Color(0xFF4569AD).withOpacity(0.3),
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: const Text(
+                      'Done',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white70,
+                      ),
+                    ),
                   ),
                 ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Padding(
-      padding: EdgeInsets.all(20),
-      child: Row(
-        children: [
-          GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Container(
-              padding: EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.3),
-                  width: 1.5,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: GestureDetector(
+                  onTap: onRepeat,
+                  child: Container(
+                    height: 52,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF4569AD), Color(0xFF1F3F74)],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: const Color(0xFF8EA2D7).withOpacity(0.3),
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: const Text(
+                      'Repeat',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
                 ),
               ),
-              child: Icon(
-                Icons.arrow_back_ios_new,
-                color: Colors.white,
-                size: 20,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildExerciseHeader() {
-    return Padding(
-      padding: EdgeInsets.all(20),
-      child: Row(
-        children: [
-          GestureDetector(
-            onTap: _stopExercise,
-            child: Container(
-              padding: EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.3),
-                  width: 1.5,
-                ),
-              ),
-              child: Icon(Icons.close, color: Colors.white, size: 24),
-            ),
-          ),
-          SizedBox(width: 16),
-          Container(
-            padding: EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              selectedTechnique!['icon'],
-              style: TextStyle(fontSize: 24),
-            ),
-          ),
-          SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              selectedTechnique!['name'],
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
+            ],
           ),
         ],
       ),
@@ -1120,71 +1389,230 @@ class _BreathingExerciseScreenState extends State<BreathingExerciseScreen>
   }
 }
 
-// Floating shapes painter (same as CalmMe)
-class FloatingShapesPainter extends CustomPainter {
-  final double animation1;
-  final double animation2;
-  final double animation3;
+// ══════════════════════════════════════════════════════════════
+// SMALL WIDGETS
+// ══════════════════════════════════════════════════════════════
 
-  FloatingShapesPainter({
-    required this.animation1,
-    required this.animation2,
-    required this.animation3,
+class _GlassButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  const _GlassButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: onTap,
+    child: Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF4569AD).withOpacity(0.4)),
+      ),
+      child: Icon(icon, color: Colors.white, size: 20),
+    ),
+  );
+}
+
+class _DifficultyBadge extends StatelessWidget {
+  final String difficulty;
+  const _DifficultyBadge({required this.difficulty});
+
+  @override
+  Widget build(BuildContext context) {
+    final colour = difficulty == 'Beginner'
+        ? const Color(0xFF2E7D32)
+        : difficulty == 'Intermediate'
+        ? const Color(0xFFF57F17)
+        : const Color(0xFF6A1B9A);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: colour.withOpacity(0.18),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: colour.withOpacity(0.4)),
+      ),
+      child: Text(
+        difficulty,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: colour,
+        ),
+      ),
+    );
+  }
+}
+
+class _CategoryChip extends StatelessWidget {
+  final BreathingCategory category;
+  const _CategoryChip({required this.category});
+
+  @override
+  Widget build(BuildContext context) {
+    final label = category.name[0].toUpperCase() + category.name.substring(1);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFF4569AD).withOpacity(0.3)),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(fontSize: 12, color: Color(0xFF8EA2D7)),
+      ),
+    );
+  }
+}
+
+class _InfoChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  const _InfoChip({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    decoration: BoxDecoration(
+      color: Colors.white.withOpacity(0.04),
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: const Color(0xFF4569AD).withOpacity(0.2)),
+    ),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(icon, color: const Color(0xFF4569AD), size: 16),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 13, color: Color(0xFF8EA2D7)),
+        ),
+      ],
+    ),
+  );
+}
+
+class _SheetSection extends StatelessWidget {
+  final String title;
+  final Widget child;
+  const _SheetSection({required this.title, required this.child});
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        title,
+        style: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+        ),
+      ),
+      const SizedBox(height: 10),
+      child,
+    ],
+  );
+}
+
+// ══════════════════════════════════════════════════════════════
+// PAINTERS
+// ══════════════════════════════════════════════════════════════
+
+class _Star {
+  final double x, y, size, phase, speed;
+  const _Star({
+    required this.x,
+    required this.y,
+    required this.size,
+    required this.phase,
+    required this.speed,
   });
+}
+
+class _StarsPainter extends CustomPainter {
+  final List<_Star> stars;
+  final double t;
+  const _StarsPainter(this.stars, this.t);
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..style = PaintingStyle.fill;
+    for (final s in stars) {
+      final flicker =
+          0.4 +
+          0.6 * (0.5 + 0.5 * math.sin(s.phase + t * s.speed * math.pi * 2));
+      paint.color = Colors.white.withOpacity(flicker * 0.85);
+      canvas.drawCircle(
+        Offset(s.x * size.width, s.y * size.height),
+        s.size,
+        paint,
+      );
+    }
+  }
 
-    paint.color = Color(0xFFB7C3E8).withOpacity(0.12);
-    final offsetY1 = animation1 * 40 - 20;
+  @override
+  bool shouldRepaint(_StarsPainter o) => o.t != t;
+}
+
+class _ShapesPainter extends CustomPainter {
+  final double t;
+  const _ShapesPainter(this.t);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..style = PaintingStyle.fill;
+    final dy = math.sin(t * math.pi) * 30;
+
+    paint.color = const Color(0xFFB7C3E8).withOpacity(0.07);
     canvas.drawPath(
       Path()
-        ..moveTo(0, offsetY1)
+        ..moveTo(0, dy)
         ..quadraticBezierTo(
-          size.width * 0.3,
-          size.height * 0.1 + offsetY1,
-          size.width * 0.4,
-          size.height * 0.25 + offsetY1,
+          size.width * 0.35,
+          size.height * 0.15 + dy,
+          size.width * 0.45,
+          size.height * 0.28 + dy,
         )
         ..quadraticBezierTo(
-          size.width * 0.5,
-          size.height * 0.4 + offsetY1,
-          size.width * 0.3,
-          size.height * 0.5 + offsetY1,
+          size.width * 0.55,
+          size.height * 0.42 + dy,
+          size.width * 0.32,
+          size.height * 0.52 + dy,
         )
         ..quadraticBezierTo(
           size.width * 0.1,
-          size.height * 0.6 + offsetY1,
+          size.height * 0.62 + dy,
           0,
-          size.height * 0.4 + offsetY1,
+          size.height * 0.42 + dy,
         )
         ..close(),
       paint,
     );
 
-    paint.color = Color(0xFF3A4FA8).withOpacity(0.15);
-    final offsetX2 = animation2 * 35 - 17;
+    final dx = math.cos(t * math.pi) * 25;
+    paint.color = const Color(0xFF3A4FA8).withOpacity(0.1);
     canvas.drawPath(
       Path()
-        ..moveTo(size.width, size.height * 0.2 + offsetX2)
+        ..moveTo(size.width + dx, size.height * 0.25)
         ..quadraticBezierTo(
-          size.width * 0.7,
-          size.height * 0.3 + offsetX2,
-          size.width * 0.6,
-          size.height * 0.5 + offsetX2,
+          size.width * 0.65 + dx,
+          size.height * 0.35,
+          size.width * 0.55 + dx,
+          size.height * 0.55,
         )
         ..quadraticBezierTo(
-          size.width * 0.5,
-          size.height * 0.7 + offsetX2,
-          size.width * 0.7,
-          size.height * 0.8 + offsetX2,
+          size.width * 0.45 + dx,
+          size.height * 0.72,
+          size.width * 0.7 + dx,
+          size.height * 0.8,
         )
         ..quadraticBezierTo(
-          size.width * 0.9,
-          size.height * 0.9 + offsetX2,
-          size.width,
-          size.height * 0.7 + offsetX2,
+          size.width * 0.9 + dx,
+          size.height * 0.9,
+          size.width + dx,
+          size.height * 0.7,
         )
         ..close(),
       paint,
@@ -1192,9 +1620,5 @@ class FloatingShapesPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(FloatingShapesPainter oldDelegate) {
-    return oldDelegate.animation1 != animation1 ||
-        oldDelegate.animation2 != animation2 ||
-        oldDelegate.animation3 != animation3;
-  }
+  bool shouldRepaint(_ShapesPainter o) => o.t != t;
 }

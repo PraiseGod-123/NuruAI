@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'dart:ui';
 import 'dart:math' as math;
 import '../utils/nuru_colors.dart';
-import '../utils/nuru_theme.dart';
 import 'journal_entry_screen.dart';
 
 class JournalListScreen extends StatefulWidget {
@@ -15,149 +16,43 @@ class JournalListScreen extends StatefulWidget {
 
 class _JournalListScreenState extends State<JournalListScreen>
     with TickerProviderStateMixin {
-  late AnimationController _animationController;
+  late AnimationController _starController;
+  late AnimationController _entryController;
 
   List<Map<String, dynamic>> journalEntries = [];
 
-  String themeMode = 'auto';
-  bool isDarkMode = false;
+  // ── Colours ──────────────────────────────────────────────
+  static const Color _bgTop = Color(0xFF4569AD);
+  static const Color _bgBottom = Color(0xFF14366D);
+  static const Color _cardTop = Color(0xFF1F3F74);
+  static const Color _cardBot = Color(0xFF081F44);
+  static const Color _border = Color(0xFF4569AD);
 
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
-      duration: Duration(seconds: 8),
+    _starController = AnimationController(
+      duration: const Duration(seconds: 6),
       vsync: this,
     )..repeat(reverse: true);
 
-    _updateTheme();
+    _entryController = AnimationController(
+      duration: const Duration(milliseconds: 700),
+      vsync: this,
+    )..forward();
   }
 
   @override
   void dispose() {
-    _animationController.dispose();
+    _starController.dispose();
+    _entryController.dispose();
     super.dispose();
   }
 
-  bool _isNightTime() {
-    final hour = DateTime.now().hour;
-    return hour >= 18 || hour < 6;
-  }
-
-  void _updateTheme() {
-    setState(() {
-      if (themeMode == 'auto') {
-        isDarkMode = _isNightTime();
-      } else if (themeMode == 'night') {
-        isDarkMode = true;
-      } else {
-        isDarkMode = false;
-      }
-    });
-  }
-
-  void _showThemeSelector() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return Container(
-          padding: EdgeInsets.all(NuruTheme.spacingL),
-          decoration: BoxDecoration(
-            color: isDarkMode ? NuruColors.nightCard : Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                margin: EdgeInsets.only(bottom: 16),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDarkMode
-                      ? Colors.white.withOpacity(0.3)
-                      : Colors.black.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Text(
-                'Theme Mode',
-                style: isDarkMode ? NuruTheme.darkH2 : NuruTheme.lightH2,
-              ),
-              SizedBox(height: NuruTheme.spacingL),
-              _buildThemeOption('🌓 Auto', 'auto', 'Switches based on time'),
-              _buildThemeOption('☀️ Day', 'day', 'Always light theme'),
-              _buildThemeOption('🌙 Night', 'night', 'Always dark theme'),
-              SizedBox(height: NuruTheme.spacingL),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildThemeOption(String title, String mode, String subtitle) {
-    final isSelected = themeMode == mode;
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          themeMode = mode;
-          _updateTheme();
-        });
-        Navigator.pop(context);
-      },
-      child: Container(
-        margin: EdgeInsets.only(bottom: 12),
-        padding: EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? (isDarkMode
-                    ? NuruColors.softBlue.withOpacity(0.2)
-                    : NuruColors.softBlue.withOpacity(0.1))
-              : (isDarkMode
-                    ? NuruColors.nightElevated
-                    : NuruColors.morningCard),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? NuruColors.softBlue : Colors.transparent,
-            width: 2,
-          ),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style:
-                        (isDarkMode
-                                ? NuruTheme.darkBody1
-                                : NuruTheme.lightBody1)
-                            .copyWith(fontWeight: FontWeight.w600),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: isDarkMode
-                        ? NuruTheme.darkCaption
-                        : NuruTheme.lightCaption,
-                  ),
-                ],
-              ),
-            ),
-            if (isSelected)
-              Icon(Icons.check_circle, color: NuruColors.softBlue, size: 24),
-          ],
-        ),
-      ),
-    );
-  }
+  // ── Helpers ───────────────────────────────────────────────
 
   String _getMoodEmoji(String mood) {
-    const moodEmojis = {
+    const map = {
       'happy': '😊',
       'sad': '😢',
       'angry': '😠',
@@ -165,272 +60,182 @@ class _JournalListScreenState extends State<JournalListScreen>
       'calm': '😌',
       'tired': '😴',
     };
-    return moodEmojis[mood] ?? '😊';
+    return map[mood] ?? '😊';
   }
 
   Color _getMoodColor(String mood) {
-    return NuruColors.moodColors[mood] ?? NuruColors.softBlue;
+    return NuruColors.moodColors[mood] ?? const Color(0xFF8EA2D7);
   }
 
   String _formatDate(DateTime date) {
     final now = DateTime.now();
-    final difference = now.difference(date);
-
-    if (difference.inHours < 1) {
-      return 'Just now';
-    } else if (difference.inHours < 24) {
-      return '${difference.inHours}h ago';
-    } else if (difference.inDays == 1) {
-      return 'Yesterday';
-    } else if (difference.inDays < 7) {
-      return '${difference.inDays}d ago';
-    } else {
-      return '${date.day}/${date.month}/${date.year}';
-    }
+    final diff = now.difference(date);
+    if (diff.inHours < 1) return 'Just now';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays == 1) return 'Yesterday';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    return '${date.day}/${date.month}/${date.year}';
   }
+
+  // ── Navigation ────────────────────────────────────────────
 
   void _navigateToNewEntry() async {
     final result = await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => JournalEntryScreen(userData: widget.userData),
+      PageRouteBuilder(
+        opaque: false,
+        barrierColor: const Color(0xFF081F44),
+        pageBuilder: (_, __, ___) =>
+            JournalEntryScreen(userData: widget.userData),
+        transitionsBuilder: (_, animation, __, child) => FadeTransition(
+          opacity: CurvedAnimation(parent: animation, curve: Curves.easeInOut),
+          child: child,
+        ),
+        transitionDuration: const Duration(milliseconds: 280),
+        reverseTransitionDuration: const Duration(milliseconds: 220),
       ),
     );
-
     if (result != null && result is Map<String, dynamic>) {
-      setState(() {
-        journalEntries.insert(0, result);
-      });
+      setState(() => journalEntries.insert(0, result));
     }
   }
 
+  // ── Build ─────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: isDarkMode
-              ? NuruColors.nightBackgroundGradient
-              : LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color(0xFF4569AD),
-                    Color(0xFF597DD4),
-                    Color(0xFF7EA9E8),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Color(0xFF1F3F74),
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+      ),
+      child: Scaffold(
+        backgroundColor: _bgBottom,
+        floatingActionButton: _buildFAB(),
+        body: Stack(
+          children: [
+            // ── Background gradient ──
+            Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [_bgTop, _bgBottom],
+                ),
+              ),
+            ),
+
+            // ── Stars ──
+            IgnorePointer(
+              child: AnimatedBuilder(
+                animation: _starController,
+                builder: (_, __) => CustomPaint(
+                  size: Size.infinite,
+                  painter: _JournalStarsPainter(twinkle: _starController.value),
+                ),
+              ),
+            ),
+
+            // ── Content ──
+            SafeArea(
+              child: AnimatedBuilder(
+                animation: _entryController,
+                builder: (_, child) => FadeTransition(
+                  opacity: CurvedAnimation(
+                    parent: _entryController,
+                    curve: Curves.easeOut,
+                  ),
+                  child: SlideTransition(
+                    position:
+                        Tween<Offset>(
+                          begin: const Offset(0, 0.04),
+                          end: Offset.zero,
+                        ).animate(
+                          CurvedAnimation(
+                            parent: _entryController,
+                            curve: Curves.easeOutCubic,
+                          ),
+                        ),
+                    child: child,
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    _buildHeader(),
+                    Expanded(
+                      child: journalEntries.isEmpty
+                          ? _buildEmptyState()
+                          : _buildJournalList(),
+                    ),
                   ],
                 ),
-        ),
-        child: Stack(
-          children: [
-            AnimatedBuilder(
-              animation: _animationController,
-              builder: (context, child) {
-                return CustomPaint(
-                  size: Size.infinite,
-                  painter: isDarkMode
-                      ? NightSkyPainter(animation: _animationController.value)
-                      : DaySkyPainter(animation: _animationController.value),
-                );
-              },
-            ),
-            SafeArea(
-              child: Column(
-                children: [
-                  _buildHeader(),
-                  Expanded(
-                    child: journalEntries.isEmpty
-                        ? _buildEmptyState()
-                        : _buildJournalList(),
-                  ),
-                ],
               ),
             ),
           ],
         ),
       ),
-      floatingActionButton: _buildFloatingActionButton(),
     );
   }
+
+  // ── Header ────────────────────────────────────────────────
 
   Widget _buildHeader() {
-    return Padding(
-      padding: EdgeInsets.all(NuruTheme.spacingL),
-      child: Row(
-        children: [
-          GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Container(
-              padding: EdgeInsets.all(12),
-              decoration: isDarkMode
-                  ? NuruTheme.darkGlassCard()
-                  : NuruTheme.lightGlassCard(),
-              child: Icon(
-                Icons.arrow_back_ios_new,
-                color: Colors.white,
-                size: 20,
-              ),
-            ),
-          ),
-          SizedBox(width: NuruTheme.spacingM),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('My Journal', style: NuruTheme.darkH2),
-                Text(
-                  '${journalEntries.length} entries',
-                  style: NuruTheme.darkCaption.copyWith(color: Colors.white70),
-                ),
-              ],
-            ),
-          ),
-          GestureDetector(
-            onTap: _showThemeSelector,
-            child: Container(
-              padding: EdgeInsets.all(12),
-              decoration: isDarkMode
-                  ? NuruTheme.darkGlassCard()
-                  : NuruTheme.lightGlassCard(),
-              child: Text(
-                isDarkMode ? '🌙' : '☀️',
-                style: TextStyle(fontSize: 20),
-              ),
-            ),
-          ),
-        ],
+    return ClipRRect(
+      borderRadius: const BorderRadius.only(
+        bottomLeft: Radius.circular(30),
+        bottomRight: Radius.circular(30),
       ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: EdgeInsets.all(NuruTheme.spacingXL),
-            decoration: BoxDecoration(
-              color: NuruColors.softBlue.withOpacity(0.15),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.book_outlined,
-              size: 64,
-              color: NuruColors.softBlue,
-            ),
-          ),
-          SizedBox(height: NuruTheme.spacingL),
-          Text('No entries yet', style: NuruTheme.darkH3),
-          SizedBox(height: NuruTheme.spacingS),
-          Text(
-            'Tap the + button to start journaling',
-            style: TextStyle(fontSize: 14, color: Colors.white70),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildJournalList() {
-    return ListView.builder(
-      padding: EdgeInsets.symmetric(
-        horizontal: NuruTheme.spacingL,
-        vertical: NuruTheme.spacingM,
-      ),
-      itemCount: journalEntries.length,
-      itemBuilder: (context, index) {
-        final entry = journalEntries[index];
-        return _buildJournalCard(entry);
-      },
-    );
-  }
-
-  Widget _buildJournalCard(Map<String, dynamic> entry) {
-    final moodColor = _getMoodColor(entry['mood'] ?? 'happy');
-
-    return Container(
-      margin: EdgeInsets.only(bottom: NuruTheme.spacingL),
-      child: GestureDetector(
-        onTap: () {
-          print('Open entry: ${entry['title']}');
-        },
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Container(
-          padding: EdgeInsets.all(NuruTheme.spacingL),
-          decoration: isDarkMode ? NuruTheme.darkCard() : NuruTheme.lightCard(),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 22),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [_cardTop.withOpacity(0.65), _cardBot.withOpacity(0.55)],
+            ),
+            border: Border(bottom: BorderSide(color: _border.withOpacity(0.3))),
+          ),
+          child: Row(
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: moodColor.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      _getMoodEmoji(entry['mood'] ?? 'happy'),
-                      style: TextStyle(fontSize: 24),
-                    ),
-                  ),
-                  SizedBox(width: NuruTheme.spacingM),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          entry['title'] ?? 'Untitled',
-                          style:
-                              (isDarkMode
-                                      ? NuruTheme.darkBody1
-                                      : NuruTheme.lightBody1)
-                                  .copyWith(fontWeight: FontWeight.w600),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          _formatDate(entry['date'] ?? DateTime.now()),
-                          style: isDarkMode
-                              ? NuruTheme.darkCaption
-                              : NuruTheme.lightCaption,
-                        ),
-                      ],
-                    ),
-                  ),
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    color: isDarkMode
-                        ? NuruColors.nightTextMuted
-                        : NuruColors.morningTextMuted,
-                    size: 16,
-                  ),
-                ],
+              // Back
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: _iconButton(Icons.arrow_back_ios_new_rounded),
               ),
-              Container(
-                margin: EdgeInsets.symmetric(vertical: NuruTheme.spacingM),
-                height: 1,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.transparent,
-                      (isDarkMode
-                              ? NuruColors.nightTextMuted
-                              : NuruColors.morningTextMuted)
-                          .withOpacity(0.1),
-                      Colors.transparent,
-                    ],
-                  ),
+              const SizedBox(width: 16),
+
+              // Title
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'My Journal',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                        letterSpacing: -0.4,
+                      ),
+                    ),
+                    Text(
+                      journalEntries.isEmpty
+                          ? 'No entries yet'
+                          : '${journalEntries.length} entr${journalEntries.length == 1 ? 'y' : 'ies'}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.white.withOpacity(0.5),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              Text(
-                entry['content'] ?? '',
-                style: isDarkMode ? NuruTheme.darkBody2 : NuruTheme.lightBody2,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
+
+              // Search (placeholder — wire up in a later sprint)
+              _iconButton(Icons.search_rounded),
             ],
           ),
         ),
@@ -438,265 +243,356 @@ class _JournalListScreenState extends State<JournalListScreen>
     );
   }
 
-  Widget _buildFloatingActionButton() {
+  Widget _iconButton(IconData icon) {
+    return Container(
+      width: 42,
+      height: 42,
+      decoration: BoxDecoration(
+        color: _cardBot.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _border.withOpacity(0.45), width: 1.2),
+      ),
+      child: Icon(icon, color: Colors.white, size: 18),
+    );
+  }
+
+  // ── Empty state ───────────────────────────────────────────
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Glowing book icon
+          Container(
+            width: 96,
+            height: 96,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: _border.withOpacity(0.12),
+              border: Border.all(color: _border.withOpacity(0.3), width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: _border.withOpacity(0.15),
+                  blurRadius: 28,
+                  spreadRadius: 4,
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.book_outlined,
+              size: 44,
+              color: Color(0xFF8EA2D7),
+            ),
+          ),
+          const SizedBox(height: 22),
+          const Text(
+            'No entries yet',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+              letterSpacing: -0.2,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Tap ✦ to write your first entry',
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.white.withOpacity(0.45),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Journal list ──────────────────────────────────────────
+
+  Widget _buildJournalList() {
+    return ScrollConfiguration(
+      behavior: ScrollConfiguration.of(context).copyWith(overscroll: false),
+      child: ListView.builder(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 100),
+        itemCount: journalEntries.length,
+        itemBuilder: (_, i) => _buildJournalCard(journalEntries[i], i),
+      ),
+    );
+  }
+
+  Widget _buildJournalCard(Map<String, dynamic> entry, int index) {
+    final mood = entry['mood'] as String? ?? 'happy';
+    final moodColor = _getMoodColor(mood);
+    final title = entry['title'] as String? ?? 'Untitled';
+    final content = entry['content'] as String? ?? '';
+    final date = entry['date'] as DateTime? ?? DateTime.now();
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(22),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [_cardTop.withOpacity(0.75), _cardBot.withOpacity(0.88)],
+            ),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: _border.withOpacity(0.35), width: 1.2),
+            boxShadow: [
+              BoxShadow(
+                color: _cardBot.withOpacity(0.45),
+                blurRadius: 18,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(22),
+              onTap: () {},
+              splashColor: _border.withOpacity(0.08),
+              child: Padding(
+                padding: const EdgeInsets.all(18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ── Top row: mood + title + date ──
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Mood badge
+                        Container(
+                          width: 50,
+                          height: 50,
+                          decoration: BoxDecoration(
+                            color: moodColor.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: moodColor.withOpacity(0.4),
+                              width: 1.2,
+                            ),
+                          ),
+                          child: Center(
+                            child: Text(
+                              _getMoodEmoji(mood),
+                              style: const TextStyle(fontSize: 24),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                title,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                  letterSpacing: -0.2,
+                                  height: 1.2,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.access_time_rounded,
+                                    size: 11,
+                                    color: Colors.white.withOpacity(0.38),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _formatDate(date),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.white.withOpacity(0.45),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // Mood colour dot
+                        Container(
+                          width: 8,
+                          height: 8,
+                          margin: const EdgeInsets.only(top: 4),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: moodColor,
+                            boxShadow: [
+                              BoxShadow(
+                                color: moodColor.withOpacity(0.5),
+                                blurRadius: 6,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    // ── Divider ──
+                    Container(
+                      margin: const EdgeInsets.symmetric(vertical: 12),
+                      height: 1,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.transparent,
+                            _border.withOpacity(0.22),
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // ── Content preview ──
+                    Text(
+                      content,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.white.withOpacity(0.58),
+                        height: 1.55,
+                      ),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── FAB ───────────────────────────────────────────────────
+
+  Widget _buildFAB() {
     return GestureDetector(
       onTap: _navigateToNewEntry,
       child: Container(
-        width: 64,
-        height: 64,
-        decoration: NuruTheme.button(isDark: isDarkMode),
-        child: Icon(Icons.add, color: Colors.white, size: 28),
+        width: 62,
+        height: 62,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF4569AD), Color(0xFF1F3F74)],
+          ),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: const Color(0xFF8EA2D7).withOpacity(0.5),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF4569AD).withOpacity(0.45),
+              blurRadius: 20,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
       ),
     );
   }
 }
 
-// Night Sky Painter
-class NightSkyPainter extends CustomPainter {
-  final double animation;
-  NightSkyPainter({required this.animation});
+// ── Stars painter ─────────────────────────────────────────────
+// 3 sizes × multiple bands covering the full screen height.
+// Each star twinkles at its own independent phase.
+
+class _JournalStarsPainter extends CustomPainter {
+  final double twinkle;
+
+  const _JournalStarsPainter({required this.twinkle});
+
+  // [x_fraction, y_fraction, size_type(0=tiny,1=small,2=medium)]
+  static const List<List<double>> _stars = [
+    // Band 1 — top
+    [0.05, 0.04, 0], [0.14, 0.07, 1], [0.27, 0.03, 2],
+    [0.38, 0.09, 0], [0.50, 0.05, 1], [0.63, 0.02, 0],
+    [0.74, 0.08, 2], [0.83, 0.04, 1], [0.92, 0.10, 0],
+    // Band 2
+    [0.08, 0.16, 1], [0.20, 0.20, 0], [0.33, 0.15, 2],
+    [0.46, 0.19, 0], [0.57, 0.13, 1], [0.68, 0.21, 0],
+    [0.79, 0.17, 2], [0.88, 0.23, 0], [0.97, 0.14, 1],
+    // Band 3
+    [0.03, 0.30, 0], [0.16, 0.34, 2], [0.29, 0.28, 0],
+    [0.42, 0.36, 1], [0.54, 0.31, 0], [0.66, 0.38, 2],
+    [0.77, 0.29, 0], [0.86, 0.35, 1], [0.94, 0.32, 0],
+    // Band 4
+    [0.07, 0.46, 1], [0.19, 0.50, 0], [0.31, 0.44, 2],
+    [0.44, 0.52, 0], [0.56, 0.47, 1], [0.69, 0.54, 0],
+    [0.80, 0.48, 2], [0.90, 0.55, 0], [0.98, 0.43, 1],
+    // Band 5
+    [0.04, 0.62, 0], [0.15, 0.67, 2], [0.26, 0.60, 1],
+    [0.39, 0.65, 0], [0.52, 0.70, 2], [0.64, 0.63, 0],
+    [0.75, 0.68, 1], [0.85, 0.62, 0], [0.95, 0.71, 2],
+    // Band 6
+    [0.09, 0.78, 1], [0.21, 0.82, 0], [0.34, 0.76, 2],
+    [0.47, 0.80, 0], [0.59, 0.84, 1], [0.71, 0.77, 0],
+    [0.82, 0.83, 2], [0.91, 0.79, 1], [0.99, 0.86, 0],
+    // Band 7 — bottom
+    [0.06, 0.91, 0], [0.18, 0.94, 2], [0.30, 0.89, 1],
+    [0.43, 0.96, 0], [0.55, 0.92, 2], [0.67, 0.97, 0],
+    [0.78, 0.90, 1], [0.87, 0.95, 2], [0.96, 0.93, 0],
+  ];
 
   @override
   void paint(Canvas canvas, Size size) {
-    _drawStars(canvas, size);
-    _drawMoon(canvas, size);
-  }
+    final paint = Paint()..style = PaintingStyle.fill;
 
-  void _drawStars(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.fill;
-    final stars = [
-      {'x': 0.1, 'y': 0.15, 'size': 2.0},
-      {'x': 0.25, 'y': 0.08, 'size': 1.5},
-      {'x': 0.4, 'y': 0.12, 'size': 2.5},
-      {'x': 0.6, 'y': 0.18, 'size': 1.8},
-      {'x': 0.75, 'y': 0.1, 'size': 2.2},
-      {'x': 0.85, 'y': 0.2, 'size': 1.6},
-      {'x': 0.15, 'y': 0.35, 'size': 1.4},
-      {'x': 0.3, 'y': 0.28, 'size': 2.0},
-      {'x': 0.5, 'y': 0.32, 'size': 1.7},
-      {'x': 0.7, 'y': 0.38, 'size': 2.3},
-      {'x': 0.9, 'y': 0.42, 'size': 1.5},
-    ];
+    for (final s in _stars) {
+      final x = size.width * s[0];
+      final y = size.height * s[1];
+      final type = s[2];
 
-    for (var star in stars) {
-      final x = (star['x'] as double) * size.width;
-      final y = (star['y'] as double) * size.height;
-      final baseSize = star['size'] as double;
-      final twinkle = (math.sin(animation * math.pi * 2 + x) + 1) / 2;
-      final starSize = baseSize * (0.5 + twinkle * 0.5);
-      paint.color = Colors.white.withOpacity(0.6 + twinkle * 0.4);
-      canvas.drawCircle(Offset(x, y), starSize, paint);
+      // Each star has a unique phase offset
+      final phase = (s[0] * 3.7 + s[1] * 5.3) % 1.0;
+      final t = ((twinkle + phase) % 1.0);
+      final op = 0.25 + t * 0.55;
+
+      if (type == 0) {
+        // Tiny — single dot
+        paint.color = Colors.white.withOpacity(op * 0.7);
+        canvas.drawCircle(Offset(x, y), 1.0, paint);
+      } else if (type == 1) {
+        // Small — soft glow + core
+        paint.color = Colors.white.withOpacity(op * 0.2);
+        canvas.drawCircle(Offset(x, y), 3.0, paint);
+        paint.color = Colors.white.withOpacity(op * 0.6);
+        canvas.drawCircle(Offset(x, y), 1.5, paint);
+        paint.color = Colors.white.withOpacity(op);
+        canvas.drawCircle(Offset(x, y), 0.8, paint);
+      } else {
+        // Medium — 3-layer glow
+        paint.color = Colors.white.withOpacity(op * 0.12);
+        canvas.drawCircle(Offset(x, y), 5.0, paint);
+        paint.color = Colors.white.withOpacity(op * 0.28);
+        canvas.drawCircle(Offset(x, y), 3.0, paint);
+        paint.color = Colors.white.withOpacity(op * 0.7);
+        canvas.drawCircle(Offset(x, y), 1.6, paint);
+        paint.color = Colors.white.withOpacity(op);
+        canvas.drawCircle(Offset(x, y), 0.9, paint);
+      }
     }
   }
 
-  void _drawMoon(Canvas canvas, Size size) {
-    final moonX = size.width * 0.85;
-    final moonY = size.height * 0.08;
-    final moonRadius = 25.0;
-    canvas.drawCircle(
-      Offset(moonX, moonY),
-      moonRadius * 1.8,
-      Paint()..color = NuruColors.softYellow.withOpacity(0.1),
-    );
-    canvas.drawCircle(
-      Offset(moonX, moonY),
-      moonRadius,
-      Paint()..color = NuruColors.softYellow,
-    );
-    canvas.drawCircle(
-      Offset(moonX + moonRadius * 0.5, moonY),
-      moonRadius * 0.95,
-      Paint()..color = NuruColors.nightBackground,
-    );
-  }
-
   @override
-  bool shouldRepaint(NightSkyPainter oldDelegate) =>
-      oldDelegate.animation != animation;
-}
-
-// Day Sky Painter
-class DaySkyPainter extends CustomPainter {
-  final double animation;
-  DaySkyPainter({required this.animation});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    _drawSun(canvas, size);
-    _drawClouds(canvas, size);
-  }
-
-  void _drawSun(Canvas canvas, Size size) {
-    final sunX = size.width * 0.85;
-    final sunY = size.height * 0.08;
-    final sunRadius = 32.0;
-
-    final outerGlowPaint = Paint()
-      ..color = Color(0xFFFFE5B4).withOpacity(0.04)
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 30);
-    canvas.drawCircle(Offset(sunX, sunY), sunRadius * 2.5, outerGlowPaint);
-
-    final middleGlowPaint = Paint()
-      ..color = Color(0xFFFFF4D6).withOpacity(0.08)
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 18);
-    canvas.drawCircle(Offset(sunX, sunY), sunRadius * 1.8, middleGlowPaint);
-
-    final innerGlowPaint = Paint()
-      ..color = NuruColors.softYellow.withOpacity(0.15)
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 8);
-    canvas.drawCircle(Offset(sunX, sunY), sunRadius * 1.3, innerGlowPaint);
-
-    final rect = Rect.fromCircle(center: Offset(sunX, sunY), radius: sunRadius);
-    final sunGradient = Paint()
-      ..shader = RadialGradient(
-        colors: [Color(0xFFFFF9E6), Color(0xFFFED98B), Color(0xFFFDC870)],
-        stops: [0.0, 0.7, 1.0],
-      ).createShader(rect);
-    canvas.drawCircle(Offset(sunX, sunY), sunRadius, sunGradient);
-
-    final highlightPaint = Paint()
-      ..color = Colors.white.withOpacity(0.3)
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 3);
-    canvas.drawCircle(
-      Offset(sunX - sunRadius * 0.3, sunY - sunRadius * 0.3),
-      sunRadius * 0.35,
-      highlightPaint,
-    );
-
-    final rayPaint = Paint()
-      ..strokeWidth = 2.0
-      ..strokeCap = StrokeCap.round
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 1);
-
-    for (int i = 0; i < 12; i++) {
-      final angle = (i * math.pi / 6) + (animation * math.pi / 6);
-      final rayLength = (i % 2 == 0) ? sunRadius + 16 : sunRadius + 12;
-      final opacity = (i % 3 == 0) ? 0.5 : 0.35;
-      rayPaint.color = NuruColors.softYellow.withOpacity(opacity);
-      final startX = sunX + math.cos(angle) * (sunRadius + 5);
-      final startY = sunY + math.sin(angle) * (sunRadius + 5);
-      final endX = sunX + math.cos(angle) * rayLength;
-      final endY = sunY + math.sin(angle) * rayLength;
-      canvas.drawLine(Offset(startX, startY), Offset(endX, endY), rayPaint);
-    }
-
-    final sparklePaint = Paint()
-      ..color = Colors.white.withOpacity(0.4)
-      ..strokeWidth = 1.2
-      ..strokeCap = StrokeCap.round;
-
-    for (int i = 0; i < 8; i++) {
-      final angle = (i * math.pi / 4) + (animation * math.pi / 2);
-      final sparkleLength =
-          sunRadius + 18 + (math.sin(animation * math.pi * 2 + i) * 4);
-      final startX = sunX + math.cos(angle) * (sunRadius + 8);
-      final startY = sunY + math.sin(angle) * (sunRadius + 8);
-      final endX = sunX + math.cos(angle) * sparkleLength;
-      final endY = sunY + math.sin(angle) * sparkleLength;
-      canvas.drawLine(Offset(startX, startY), Offset(endX, endY), sparklePaint);
-    }
-  }
-
-  void _drawClouds(Canvas canvas, Size size) {
-    final offset1 = (animation * 30).remainder(size.width + 200) - 100;
-    _drawRealisticCloud(
-      canvas,
-      size.width * 0.2 + offset1,
-      size.height * 0.15,
-      1.2,
-    );
-    final offset2 = (animation * 20).remainder(size.width + 200) - 100;
-    _drawRealisticCloud(
-      canvas,
-      size.width * 0.6 - offset2,
-      size.height * 0.25,
-      0.9,
-    );
-    final offset3 = (animation * 25).remainder(size.width + 200) - 100;
-    _drawRealisticCloud(
-      canvas,
-      size.width * 0.4 + offset3,
-      size.height * 0.35,
-      0.7,
-    );
-    final offset4 = (animation * 15).remainder(size.width + 200) - 100;
-    _drawRealisticCloud(
-      canvas,
-      size.width * 0.1 - offset4,
-      size.height * 0.45,
-      1.0,
-    );
-  }
-
-  void _drawRealisticCloud(Canvas canvas, double x, double y, double scale) {
-    final shadowPaint = Paint()
-      ..color = Colors.white.withOpacity(0.25)
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 6);
-    _drawCloudShape(canvas, x + 2, y + 3, scale, shadowPaint);
-
-    final cloudPaint = Paint()
-      ..color = Colors.white.withOpacity(0.7)
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 3);
-    _drawCloudShape(canvas, x, y, scale, cloudPaint);
-
-    final highlightPaint = Paint()..color = Colors.white.withOpacity(0.85);
-    canvas.drawCircle(
-      Offset(x + (30 * scale), y - (8 * scale)),
-      10 * scale,
-      highlightPaint,
-    );
-    canvas.drawCircle(
-      Offset(x + (50 * scale), y - (5 * scale)),
-      8 * scale,
-      highlightPaint,
-    );
-  }
-
-  void _drawCloudShape(
-    Canvas canvas,
-    double x,
-    double y,
-    double scale,
-    Paint paint,
-  ) {
-    canvas.drawCircle(Offset(x, y + (8 * scale)), 18 * scale, paint);
-    canvas.drawCircle(
-      Offset(x + (25 * scale), y + (12 * scale)),
-      20 * scale,
-      paint,
-    );
-    canvas.drawCircle(
-      Offset(x + (50 * scale), y + (10 * scale)),
-      18 * scale,
-      paint,
-    );
-    canvas.drawCircle(
-      Offset(x + (70 * scale), y + (8 * scale)),
-      16 * scale,
-      paint,
-    );
-    canvas.drawCircle(Offset(x + (15 * scale), y), 22 * scale, paint);
-    canvas.drawCircle(
-      Offset(x + (40 * scale), y - (5 * scale)),
-      25 * scale,
-      paint,
-    );
-    canvas.drawCircle(Offset(x + (60 * scale), y), 20 * scale, paint);
-    canvas.drawCircle(
-      Offset(x + (30 * scale), y - (10 * scale)),
-      28 * scale,
-      paint,
-    );
-    canvas.drawCircle(
-      Offset(x + (50 * scale), y - (8 * scale)),
-      24 * scale,
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(DaySkyPainter oldDelegate) =>
-      oldDelegate.animation != animation;
+  bool shouldRepaint(_JournalStarsPainter old) => old.twinkle != twinkle;
 }

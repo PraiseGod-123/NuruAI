@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'dart:ui';
+import 'package:intl/intl.dart';
+import 'package:lottie/lottie.dart';
 import '../utils/nuru_colors.dart';
 
 class AgeVerificationScreen extends StatefulWidget {
@@ -12,27 +13,28 @@ class AgeVerificationScreen extends StatefulWidget {
 
 class _AgeVerificationScreenState extends State<AgeVerificationScreen>
     with TickerProviderStateMixin {
-  final _formKey = GlobalKey<FormState>();
-
-  // Using dropdown for easier selection
-  int? _selectedDay;
-  int? _selectedMonth;
-  int? _selectedYear;
+  DateTime? _selectedDate;
+  final TextEditingController _dateController = TextEditingController();
 
   late AnimationController _floatController1;
   late AnimationController _floatController2;
+  late AnimationController _floatController3;
 
   @override
   void initState() {
     super.initState();
 
-    // Initialize simple floating animations
     _floatController1 = AnimationController(
-      duration: Duration(seconds: 5),
+      duration: Duration(seconds: 4),
       vsync: this,
     )..repeat(reverse: true);
 
     _floatController2 = AnimationController(
+      duration: Duration(seconds: 5),
+      vsync: this,
+    )..repeat(reverse: true);
+
+    _floatController3 = AnimationController(
       duration: Duration(seconds: 6),
       vsync: this,
     )..repeat(reverse: true);
@@ -42,41 +44,58 @@ class _AgeVerificationScreenState extends State<AgeVerificationScreen>
   void dispose() {
     _floatController1.dispose();
     _floatController2.dispose();
+    _floatController3.dispose();
+    _dateController.dispose();
     super.dispose();
   }
 
   int? _calculateAge() {
-    if (_selectedDay == null ||
-        _selectedMonth == null ||
-        _selectedYear == null) {
-      return null;
+    if (_selectedDate == null) return null;
+
+    final today = DateTime.now();
+    int age = today.year - _selectedDate!.year;
+
+    if (today.month < _selectedDate!.month ||
+        (today.month == _selectedDate!.month &&
+            today.day < _selectedDate!.day)) {
+      age--;
     }
 
-    try {
-      final birthDate = DateTime(
-        _selectedYear!,
-        _selectedMonth!,
-        _selectedDay!,
-      );
-      final today = DateTime.now();
-      int age = today.year - birthDate.year;
+    return age;
+  }
 
-      if (today.month < birthDate.month ||
-          (today.month == birthDate.month && today.day < birthDate.day)) {
-        age--;
-      }
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime(2005),
+      firstDate: DateTime(1924),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: Color(0xFF4569AD),
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: Colors.black,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
 
-      return age;
-    } catch (e) {
-      return null;
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
+        _dateController.text = DateFormat('MMMM dd, yyyy').format(picked);
+      });
     }
   }
 
   void _handleContinue() {
-    if (_selectedDay == null ||
-        _selectedMonth == null ||
-        _selectedYear == null) {
-      _showError('Please select your complete birthday');
+    if (_selectedDate == null) {
+      _showError('Please select your birthday');
       return;
     }
 
@@ -130,69 +149,70 @@ class _AgeVerificationScreenState extends State<AgeVerificationScreen>
   }
 
   void _handleBack() {
-    Navigator.pushReplacementNamed(context, '/', arguments: {'initialPage': 3});
+    Navigator.pushReplacementNamed(context, '/onboarding');
   }
-
-  // Generate list of days (1-31)
-  List<int> get _days => List.generate(31, (index) => index + 1);
-
-  // Generate list of years (current year - 100 to current year - 10)
-  List<int> get _years {
-    final currentYear = DateTime.now().year;
-    return List.generate(91, (index) => currentYear - 10 - index);
-  }
-
-  // Month names for easier understanding
-  final List<Map<String, dynamic>> _months = [
-    {'value': 1, 'name': 'January'},
-    {'value': 2, 'name': 'February'},
-    {'value': 3, 'name': 'March'},
-    {'value': 4, 'name': 'April'},
-    {'value': 5, 'name': 'May'},
-    {'value': 6, 'name': 'June'},
-    {'value': 7, 'name': 'July'},
-    {'value': 8, 'name': 'August'},
-    {'value': 9, 'name': 'September'},
-    {'value': 10, 'name': 'October'},
-    {'value': 11, 'name': 'November'},
-    {'value': 12, 'name': 'December'},
-  ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Color(0xFF4569AD), // Match gradient background
       body: Stack(
         children: [
-          // Gradient Background
+          // FIXED BACKGROUND
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xFF4569AD), Color(0xFF1F3F74)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF4569AD), Color(0xFF14366D)],
               ),
             ),
           ),
 
-          // Simple dynamic background shapes
-          AnimatedBuilder(
-            animation: Listenable.merge([_floatController1, _floatController2]),
-            builder: (context, child) {
-              return CustomPaint(
-                size: Size.infinite,
-                painter: SimpleBackgroundPainter(
-                  animation1: _floatController1.value,
-                  animation2: _floatController2.value,
-                ),
-              );
-            },
+          // Stars layer
+          IgnorePointer(
+            child: AnimatedBuilder(
+              animation: _floatController1,
+              builder: (context, child) {
+                return CustomPaint(
+                  size: Size.infinite,
+                  painter: SubtleStarsPainter(twinkle: _floatController1.value),
+                );
+              },
+            ),
           ),
 
+          // 3D shapes
+          IgnorePointer(
+            child: AnimatedBuilder(
+              animation: Listenable.merge([
+                _floatController1,
+                _floatController2,
+                _floatController3,
+              ]),
+              builder: (context, child) {
+                return CustomPaint(
+                  size: Size.infinite,
+                  painter: Animated3DShapesPainter(
+                    animation1: _floatController1.value,
+                    animation2: _floatController2.value,
+                    animation3: _floatController3.value,
+                  ),
+                );
+              },
+            ),
+          ),
+
+          // CONTENT
           SafeArea(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.all(24),
-              child: Form(
-                key: _formKey,
+            child: NotificationListener<OverscrollIndicatorNotification>(
+              onNotification: (OverscrollIndicatorNotification overscroll) {
+                overscroll.disallowIndicator();
+                return true;
+              },
+              child: SingleChildScrollView(
+                physics: ClampingScrollPhysics(),
+                padding: EdgeInsets.all(24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -210,27 +230,48 @@ class _AgeVerificationScreenState extends State<AgeVerificationScreen>
 
                     SizedBox(height: 60),
 
-                    // Icon
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(30),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                        child: Container(
-                          width: 120,
-                          height: 120,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(30),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.2),
-                              width: 1.5,
-                            ),
-                          ),
-                          child: Icon(
-                            Icons.cake_rounded,
-                            size: 60,
-                            color: Colors.white,
-                          ),
+                    // Birthday Cake Lottie
+                    Center(
+                      child: Container(
+                        width: 250,
+                        height: 250,
+                        child: Lottie.asset(
+                          'assets/animations/birthday celebration.json',
+                          fit: BoxFit.contain,
+                          repeat: true,
+                          animate: true,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              width: 180,
+                              height: 180,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Color(0xFFFF6B9D).withOpacity(0.3),
+                                    Color(0xFFC239B3).withOpacity(0.3),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(35),
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.4),
+                                  width: 2,
+                                ),
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text('🎂', style: TextStyle(fontSize: 80)),
+                                  SizedBox(height: 10),
+                                  Text(
+                                    '🎈 🎈 🎈',
+                                    style: TextStyle(fontSize: 35),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
                         ),
                       ),
                     ),
@@ -239,14 +280,16 @@ class _AgeVerificationScreenState extends State<AgeVerificationScreen>
 
                     // Title
                     Text(
-                      'When is your birthday?',
+                      'Enter Your Birthday',
                       style: TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
                       ),
                     ),
+
                     SizedBox(height: 12),
+
                     Text(
                       'NuruAI is for ages 13-25',
                       style: TextStyle(
@@ -255,95 +298,80 @@ class _AgeVerificationScreenState extends State<AgeVerificationScreen>
                       ),
                     ),
 
-                    SizedBox(height: 48),
+                    SizedBox(height: 40),
 
-                    // Easy-to-use dropdown fields
+                    // Date Picker
                     Text(
                       'Select Your Birthday',
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: 18,
                         fontWeight: FontWeight.w600,
                         color: Colors.white,
-                        letterSpacing: 1,
                       ),
                     ),
 
                     SizedBox(height: 16),
 
-                    // Month Dropdown (Full names for clarity)
-                    _buildDropdown(
-                      label: 'Month',
-                      value: _selectedMonth,
-                      items: _months.map((month) {
-                        return DropdownMenuItem<int>(
-                          value: month['value'],
-                          child: Text(
-                            month['name'],
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
+                    GestureDetector(
+                      onTap: () => _selectDate(context),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 10,
+                              offset: Offset(0, 5),
+                            ),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: TextField(
+                                controller: _dateController,
+                                enabled: false,
+                                decoration: InputDecoration(
+                                  prefixIcon: Icon(
+                                    Icons.calendar_today,
+                                    color: Color(0xFF4569AD),
+                                  ),
+                                  suffixIcon: Icon(
+                                    Icons.arrow_drop_down,
+                                    color: Color(0xFF4569AD),
+                                  ),
+                                  filled: true,
+                                  fillColor: Colors.white,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 16,
+                                  ),
+                                  hintText: 'Tap to select your birthday',
+                                  hintStyle: TextStyle(
+                                    color: Colors.grey[400],
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF1F3F74),
+                                ),
+                              ),
                             ),
                           ),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedMonth = value;
-                        });
-                      },
-                      icon: Icons.calendar_month,
-                    ),
-
-                    SizedBox(height: 16),
-
-                    // Day Dropdown
-                    _buildDropdown(
-                      label: 'Day',
-                      value: _selectedDay,
-                      items: _days.map((day) {
-                        return DropdownMenuItem<int>(
-                          value: day,
-                          child: Text(
-                            day.toString(),
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedDay = value;
-                        });
-                      },
-                      icon: Icons.today,
-                    ),
-
-                    SizedBox(height: 16),
-
-                    // Year Dropdown
-                    _buildDropdown(
-                      label: 'Year',
-                      value: _selectedYear,
-                      items: _years.map((year) {
-                        return DropdownMenuItem<int>(
-                          value: year,
-                          child: Text(
-                            year.toString(),
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedYear = value;
-                        });
-                      },
-                      icon: Icons.event,
+                        ),
+                      ),
                     ),
 
                     SizedBox(height: 32),
@@ -412,6 +440,8 @@ class _AgeVerificationScreenState extends State<AgeVerificationScreen>
                         ),
                       ),
                     ),
+
+                    SizedBox(height: 24),
                   ],
                 ),
               ),
@@ -421,150 +451,186 @@ class _AgeVerificationScreenState extends State<AgeVerificationScreen>
       ),
     );
   }
-
-  Widget _buildDropdown({
-    required String label,
-    required int? value,
-    required List<DropdownMenuItem<int>> items,
-    required Function(int?) onChanged,
-    required IconData icon,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: Colors.white.withOpacity(0.9),
-          ),
-        ),
-        SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.2),
-                blurRadius: 10,
-                offset: Offset(0, 5),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: DropdownButtonFormField<int>(
-                  value: value,
-                  decoration: InputDecoration(
-                    prefixIcon: Icon(icon, color: Color(0xFF4569AD)),
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 16,
-                    ),
-                    hintText: 'Select $label',
-                    hintStyle: TextStyle(color: Colors.grey[400], fontSize: 16),
-                  ),
-                  dropdownColor: Colors.white,
-                  icon: Icon(
-                    Icons.arrow_drop_down,
-                    color: Color(0xFF4569AD),
-                    size: 30,
-                  ),
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF1F3F74),
-                  ),
-                  isExpanded: true,
-                  menuMaxHeight: 300,
-                  items: items,
-                  onChanged: onChanged,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 }
 
-// Simple background painter with gentle floating shapes
-class SimpleBackgroundPainter extends CustomPainter {
-  final double animation1;
-  final double animation2;
+// Stars Painter
+class SubtleStarsPainter extends CustomPainter {
+  final double twinkle;
 
-  SimpleBackgroundPainter({required this.animation1, required this.animation2});
+  SubtleStarsPainter({required this.twinkle});
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..style = PaintingStyle.fill;
 
-    // Large gentle circle - top left
-    final offset1 = animation1 * 40 - 20;
-    paint.color = Colors.white.withOpacity(0.08);
-    canvas.drawCircle(
-      Offset(
-        size.width * 0.2 + offset1,
-        size.height * 0.15 + (animation2 * 30 - 15),
-      ),
-      120,
-      paint,
-    );
+    final stars = [
+      [0.08, 0.05],
+      [0.18, 0.15],
+      [0.25, 0.08],
+      [0.35, 0.20],
+      [0.42, 0.12],
+      [0.52, 0.18],
+      [0.62, 0.08],
+      [0.72, 0.22],
+      [0.78, 0.14],
+      [0.88, 0.10],
+      [0.12, 0.48],
+      [0.28, 0.55],
+      [0.38, 0.62],
+      [0.50, 0.58],
+      [0.65, 0.52],
+      [0.75, 0.65],
+      [0.85, 0.58],
+      [0.15, 0.82],
+      [0.45, 0.88],
+      [0.92, 0.85],
+    ];
 
-    // Medium circle - bottom right
-    final offset2 = animation2 * 50 - 25;
-    paint.color = Color(0xFF081F44).withOpacity(0.15);
-    canvas.drawCircle(
-      Offset(
-        size.width * 0.8 + (animation1 * 25 - 12),
-        size.height * 0.75 + offset2,
-      ),
-      100,
-      paint,
-    );
+    for (final star in stars) {
+      final x = size.width * star[0];
+      final y = size.height * star[1];
+      final opacity = 0.4 + (twinkle * 0.3);
 
-    // Small accent circle - center
-    paint.color = Colors.white.withOpacity(0.05);
-    canvas.drawCircle(
-      Offset(
-        size.width * 0.5 + (animation2 * 30 - 15),
-        size.height * 0.45 + (animation1 * 35 - 17),
-      ),
-      80,
-      paint,
-    );
+      paint.color = Colors.white.withOpacity(opacity * 0.4);
+      canvas.drawCircle(Offset(x, y), 3.5, paint);
 
-    // Soft wave at bottom
-    paint.color = Color(0xFF14366D).withOpacity(0.12);
-    final wavePath = Path()
-      ..moveTo(0, size.height * 0.85 + (animation1 * 20 - 10))
-      ..quadraticBezierTo(
-        size.width * 0.5,
-        size.height * 0.8 + (animation2 * 25 - 12),
-        size.width,
-        size.height * 0.85 + (animation1 * 15 - 7),
-      )
-      ..lineTo(size.width, size.height)
-      ..lineTo(0, size.height)
-      ..close();
-    canvas.drawPath(wavePath, paint);
+      paint.color = Colors.white.withOpacity(opacity * 0.6);
+      canvas.drawCircle(Offset(x, y), 2.0, paint);
+
+      paint.color = Colors.white.withOpacity(opacity);
+      canvas.drawCircle(Offset(x, y), 1.3, paint);
+    }
   }
 
   @override
-  bool shouldRepaint(SimpleBackgroundPainter oldDelegate) => true;
+  bool shouldRepaint(SubtleStarsPainter oldDelegate) {
+    return oldDelegate.twinkle != twinkle;
+  }
+}
+
+// Animated 3D Shapes Painter
+class Animated3DShapesPainter extends CustomPainter {
+  final double animation1;
+  final double animation2;
+  final double animation3;
+
+  Animated3DShapesPainter({
+    required this.animation1,
+    required this.animation2,
+    required this.animation3,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..style = PaintingStyle.fill;
+
+    paint.color = Color(0xFFB7C3E8).withOpacity(0.25);
+    final offsetY1 = animation1 * 40 - 20;
+    final path1 = Path()
+      ..moveTo(0, offsetY1)
+      ..quadraticBezierTo(
+        size.width * 0.3,
+        size.height * 0.1 + offsetY1,
+        size.width * 0.4,
+        size.height * 0.25 + offsetY1,
+      )
+      ..quadraticBezierTo(
+        size.width * 0.5,
+        size.height * 0.4 + offsetY1,
+        size.width * 0.3,
+        size.height * 0.5 + offsetY1,
+      )
+      ..quadraticBezierTo(
+        size.width * 0.1,
+        size.height * 0.6 + offsetY1,
+        0,
+        size.height * 0.4 + offsetY1,
+      )
+      ..close();
+    canvas.drawPath(path1, paint);
+
+    paint.color = Color(0xFF081F44).withOpacity(0.2);
+    final offsetX2 = animation2 * 35 - 17;
+    final path2 = Path()
+      ..moveTo(size.width, size.height * 0.2 + offsetX2)
+      ..quadraticBezierTo(
+        size.width * 0.7,
+        size.height * 0.3 + offsetX2,
+        size.width * 0.6,
+        size.height * 0.5 + offsetX2,
+      )
+      ..quadraticBezierTo(
+        size.width * 0.5,
+        size.height * 0.7 + offsetX2,
+        size.width * 0.7,
+        size.height * 0.8 + offsetX2,
+      )
+      ..quadraticBezierTo(
+        size.width * 0.9,
+        size.height * 0.9 + offsetX2,
+        size.width,
+        size.height * 0.7 + offsetX2,
+      )
+      ..close();
+    canvas.drawPath(path2, paint);
+
+    final spherePaint1 = Paint()
+      ..shader =
+          RadialGradient(
+            colors: [
+              Colors.white.withOpacity(0.25),
+              Colors.white.withOpacity(0.05),
+            ],
+          ).createShader(
+            Rect.fromCircle(
+              center: Offset(
+                size.width * 0.75 + (animation1 * 25 - 12),
+                size.height * 0.15 + (animation2 * 20 - 10),
+              ),
+              radius: 90,
+            ),
+          );
+    canvas.drawCircle(
+      Offset(
+        size.width * 0.75 + (animation1 * 25 - 12),
+        size.height * 0.15 + (animation2 * 20 - 10),
+      ),
+      90,
+      spherePaint1,
+    );
+
+    final spherePaint2 = Paint()
+      ..shader =
+          RadialGradient(
+            colors: [
+              Color(0xFF14366D).withOpacity(0.35),
+              Color(0xFF14366D).withOpacity(0.1),
+              Colors.transparent,
+            ],
+            stops: [0.0, 0.6, 1.0],
+          ).createShader(
+            Rect.fromCircle(
+              center: Offset(
+                size.width * 0.3 + (animation3 * 30 - 15),
+                size.height * 0.85 + (animation1 * 20 - 10),
+              ),
+              radius: 110,
+            ),
+          );
+    canvas.drawCircle(
+      Offset(
+        size.width * 0.3 + (animation3 * 30 - 15),
+        size.height * 0.85 + (animation1 * 20 - 10),
+      ),
+      110,
+      spherePaint2,
+    );
+  }
+
+  @override
+  bool shouldRepaint(Animated3DShapesPainter oldDelegate) {
+    return oldDelegate.animation1 != animation1 ||
+        oldDelegate.animation2 != animation2 ||
+        oldDelegate.animation3 != animation3;
+  }
 }

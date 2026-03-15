@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:ui';
 import 'dart:math' as math;
 import '../utils/nuru_colors.dart';
-import '../utils/nuru_theme.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
 
@@ -19,15 +19,22 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
     with TickerProviderStateMixin {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _contentController = TextEditingController();
+  final FocusNode _titleFocus = FocusNode();
+  final FocusNode _contentFocus = FocusNode();
 
-  late AnimationController _animationController;
+  late AnimationController _starController;
+  late AnimationController _entryController;
 
   String? selectedMood;
   DateTime selectedDate = DateTime.now();
   DateTime focusedDay = DateTime.now();
 
-  String themeMode = 'auto';
-  bool isDarkMode = false;
+  // ── Colours ──────────────────────────────────────────────
+  static const Color _bgTop = Color(0xFF4569AD);
+  static const Color _bgBottom = Color(0xFF14366D);
+  static const Color _cardTop = Color(0xFF1F3F74);
+  static const Color _cardBot = Color(0xFF081F44);
+  static const Color _border = Color(0xFF4569AD);
 
   final List<Map<String, dynamic>> moods = [
     {'emoji': '😊', 'label': 'Happy', 'value': 'happy'},
@@ -41,603 +48,170 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
-      duration: Duration(seconds: 8),
+    _starController = AnimationController(
+      duration: const Duration(seconds: 6),
       vsync: this,
     )..repeat(reverse: true);
 
-    _updateTheme();
+    _entryController = AnimationController(
+      duration: const Duration(milliseconds: 650),
+      vsync: this,
+    )..forward();
   }
 
   @override
   void dispose() {
     _titleController.dispose();
     _contentController.dispose();
-    _animationController.dispose();
+    _titleFocus.dispose();
+    _contentFocus.dispose();
+    _starController.dispose();
+    _entryController.dispose();
     super.dispose();
   }
 
-  bool _isNightTime() {
-    final hour = DateTime.now().hour;
-    return hour >= 18 || hour < 6;
-  }
-
-  void _updateTheme() {
-    setState(() {
-      if (themeMode == 'auto') {
-        isDarkMode = _isNightTime();
-      } else if (themeMode == 'night') {
-        isDarkMode = true;
-      } else {
-        isDarkMode = false;
-      }
-    });
-  }
-
-  void _showThemeSelector() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return Container(
-          padding: EdgeInsets.all(NuruTheme.spacingL),
-          decoration: BoxDecoration(
-            color: isDarkMode ? NuruColors.nightCard : Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                margin: EdgeInsets.only(bottom: 16),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDarkMode
-                      ? Colors.white.withOpacity(0.3)
-                      : Colors.black.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Text(
-                'Theme Mode',
-                style: isDarkMode ? NuruTheme.darkH2 : NuruTheme.lightH2,
-              ),
-              SizedBox(height: NuruTheme.spacingL),
-              _buildThemeOption('🌓 Auto', 'auto', 'Switches based on time'),
-              _buildThemeOption('☀️ Day', 'day', 'Always light theme'),
-              _buildThemeOption('🌙 Night', 'night', 'Always dark theme'),
-              SizedBox(height: NuruTheme.spacingL),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildThemeOption(String title, String mode, String subtitle) {
-    final isSelected = themeMode == mode;
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          themeMode = mode;
-          _updateTheme();
-        });
-        Navigator.pop(context);
-      },
-      child: Container(
-        margin: EdgeInsets.only(bottom: 12),
-        padding: EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? (isDarkMode
-                    ? NuruColors.softBlue.withOpacity(0.2)
-                    : NuruColors.softBlue.withOpacity(0.1))
-              : (isDarkMode
-                    ? NuruColors.nightElevated
-                    : NuruColors.morningCard),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? NuruColors.softBlue : Colors.transparent,
-            width: 2,
-          ),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style:
-                        (isDarkMode
-                                ? NuruTheme.darkBody1
-                                : NuruTheme.lightBody1)
-                            .copyWith(fontWeight: FontWeight.w600),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: isDarkMode
-                        ? NuruTheme.darkCaption
-                        : NuruTheme.lightCaption,
-                  ),
-                ],
-              ),
-            ),
-            if (isSelected)
-              Icon(Icons.check_circle, color: NuruColors.softBlue, size: 24),
-          ],
-        ),
-      ),
-    );
-  }
+  // ── Date picker ───────────────────────────────────────────
 
   void _showCalendarPicker() {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) {
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.7,
-          decoration: BoxDecoration(
-            color: isDarkMode ? NuruColors.nightCard : Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            children: [
-              Container(
-                margin: EdgeInsets.only(top: 12),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDarkMode
-                      ? Colors.white.withOpacity(0.3)
-                      : Colors.black.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              SizedBox(height: 16),
-              Text(
-                'Select Date',
-                style: isDarkMode ? NuruTheme.darkH2 : NuruTheme.lightH2,
-              ),
-              SizedBox(height: 16),
-              TableCalendar(
-                firstDay: DateTime(2020),
-                lastDay: DateTime.now(),
-                focusedDay: focusedDay,
-                selectedDayPredicate: (day) => isSameDay(selectedDate, day),
-                onDaySelected: (selected, focused) {
-                  setState(() {
-                    selectedDate = selected;
-                    focusedDay = focused;
-                  });
-                  Navigator.pop(context);
-                },
-                calendarStyle: CalendarStyle(
-                  todayDecoration: BoxDecoration(
-                    color: NuruColors.softBlue.withOpacity(0.3),
-                    shape: BoxShape.circle,
-                  ),
-                  todayTextStyle: TextStyle(
-                    color: isDarkMode ? Colors.white : Colors.black,
-                  ),
-                  selectedDecoration: BoxDecoration(
-                    color: NuruColors.softBlue,
-                    shape: BoxShape.circle,
-                  ),
-                  selectedTextStyle: TextStyle(color: Colors.white),
-                  defaultTextStyle: TextStyle(
-                    color: isDarkMode ? Colors.white : Colors.black,
-                  ),
-                  weekendTextStyle: TextStyle(color: NuruColors.softCyan),
-                  outsideTextStyle: TextStyle(
-                    color: isDarkMode ? Colors.white30 : Colors.black26,
-                  ),
-                ),
-                headerStyle: HeaderStyle(
-                  formatButtonVisible: false,
-                  titleCentered: true,
-                  titleTextStyle: isDarkMode
-                      ? NuruTheme.darkH3
-                      : NuruTheme.lightH3,
-                  leftChevronIcon: Icon(
-                    Icons.chevron_left,
-                    color: isDarkMode ? Colors.white : Colors.black,
-                  ),
-                  rightChevronIcon: Icon(
-                    Icons.chevron_right,
-                    color: isDarkMode ? Colors.white : Colors.black,
-                  ),
-                ),
-                daysOfWeekStyle: DaysOfWeekStyle(
-                  weekdayStyle: TextStyle(
-                    color: isDarkMode
-                        ? NuruColors.nightTextSecondary
-                        : NuruColors.morningTextSecondary,
-                  ),
-                  weekendStyle: TextStyle(color: NuruColors.softCyan),
-                ),
-              ),
-              SizedBox(height: 24),
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24),
-                child: SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      shadowColor: Colors.transparent,
-                      padding: EdgeInsets.zero,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: Ink(
-                      decoration: NuruTheme.button(isDark: isDarkMode),
-                      child: Container(
-                        alignment: Alignment.center,
-                        child: Text('Done', style: NuruTheme.buttonText),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(height: 24),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _saveEntry() {
-    if (_titleController.text.isEmpty || _contentController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Please fill in all fields'),
-          backgroundColor: NuruColors.softRed,
-        ),
-      );
-      return;
-    }
-
-    if (selectedMood == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Please select your mood'),
-          backgroundColor: NuruColors.softOrange,
-        ),
-      );
-      return;
-    }
-
-    final journalData = {
-      'title': _titleController.text,
-      'content': _contentController.text,
-      'mood': selectedMood,
-      'date': selectedDate,
-      'createdAt': DateTime.now(),
-    };
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Journal entry saved!'),
-        backgroundColor: NuruColors.softGreen,
-      ),
-    );
-
-    Navigator.pop(context, journalData);
-  }
-
-  String _formatDate(DateTime date) {
-    return DateFormat('EEEE, d MMMM, yyyy').format(date);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: isDarkMode
-              ? NuruColors.nightBackgroundGradient
-              : LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color(0xFF4569AD),
-                    Color(0xFF597DD4),
-                    Color(0xFF7EA9E8),
-                  ],
-                ),
-        ),
-        child: Stack(
-          children: [
-            AnimatedBuilder(
-              animation: _animationController,
-              builder: (context, child) {
-                return CustomPaint(
-                  size: Size.infinite,
-                  painter: isDarkMode
-                      ? NightSkyPainter(animation: _animationController.value)
-                      : DaySkyPainter(animation: _animationController.value),
-                );
-              },
-            ),
-            SafeArea(
-              child: Column(
-                children: [
-                  _buildHeader(),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      padding: EdgeInsets.all(NuruTheme.spacingL),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildDateSelector(),
-                          SizedBox(height: NuruTheme.spacingXL),
-                          Text(
-                            'How do you feel?',
-                            style: isDarkMode
-                                ? NuruTheme.darkH3
-                                : NuruTheme.darkH3.copyWith(
-                                    color: Colors.white,
-                                  ),
-                          ),
-                          SizedBox(height: NuruTheme.spacingM),
-                          _buildMoodSelector(),
-                          SizedBox(height: NuruTheme.spacingXL),
-                          Text(
-                            'Title',
-                            style: isDarkMode
-                                ? NuruTheme.darkH3
-                                : NuruTheme.darkH3.copyWith(
-                                    color: Colors.white,
-                                  ),
-                          ),
-                          SizedBox(height: NuruTheme.spacingM),
-                          _buildTitleField(),
-                          SizedBox(height: NuruTheme.spacingXL),
-                          Text(
-                            'What\'s on your mind?',
-                            style: isDarkMode
-                                ? NuruTheme.darkH3
-                                : NuruTheme.darkH3.copyWith(
-                                    color: Colors.white,
-                                  ),
-                          ),
-                          SizedBox(height: NuruTheme.spacingM),
-                          _buildContentField(),
-                          SizedBox(height: NuruTheme.spacingXL),
-                          _buildSaveButton(),
-                          SizedBox(height: NuruTheme.spacingL),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Padding(
-      padding: EdgeInsets.all(NuruTheme.spacingL),
-      child: Row(
-        children: [
-          GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Container(
-              padding: EdgeInsets.all(12),
-              decoration: isDarkMode
-                  ? NuruTheme.darkGlassCard()
-                  : NuruTheme.lightGlassCard(),
-              child: Icon(
-                Icons.arrow_back_ios_new,
-                color: Colors.white,
-                size: 20,
-              ),
-            ),
-          ),
-          SizedBox(width: NuruTheme.spacingM),
-          Text('New Entry', style: NuruTheme.darkH2),
-          Spacer(),
-          GestureDetector(
-            onTap: _showThemeSelector,
-            child: Container(
-              padding: EdgeInsets.all(12),
-              decoration: isDarkMode
-                  ? NuruTheme.darkGlassCard()
-                  : NuruTheme.lightGlassCard(),
-              child: Text(
-                isDarkMode ? '🌙' : '☀️',
-                style: TextStyle(fontSize: 20),
-              ),
-            ),
-          ),
-          SizedBox(width: NuruTheme.spacingM),
-          GestureDetector(
-            onTap: _saveEntry,
-            child: Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: NuruTheme.spacingL,
-                vertical: 12,
-              ),
-              decoration: isDarkMode
-                  ? NuruTheme.darkGlassCard()
-                  : NuruTheme.lightGlassCard(),
-              child: Text(
-                'Save',
-                style: NuruTheme.darkBody1.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDateSelector() {
-    return GestureDetector(
-      onTap: _showCalendarPicker,
-      child: Container(
-        padding: EdgeInsets.all(NuruTheme.spacingL),
-        decoration: isDarkMode ? NuruTheme.darkCard() : NuruTheme.lightCard(),
-        child: Row(
-          children: [
-            Icon(Icons.calendar_today, color: NuruColors.softBlue, size: 20),
-            SizedBox(width: NuruTheme.spacingM),
-            Text(
-              _formatDate(selectedDate),
-              style: isDarkMode ? NuruTheme.darkBody1 : NuruTheme.lightBody1,
-            ),
-            Spacer(),
-            Icon(
-              Icons.arrow_forward_ios,
-              color: isDarkMode
-                  ? NuruColors.nightTextMuted
-                  : NuruColors.morningTextMuted,
-              size: 16,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMoodSelector() {
-    return Container(
-      height: 90,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: moods.length,
-        itemBuilder: (context, index) {
-          final mood = moods[index];
-          final isSelected = selectedMood == mood['value'];
-          return GestureDetector(
-            onTap: () => setState(() => selectedMood = mood['value'] as String),
-            child: Container(
-              width: 80,
-              margin: EdgeInsets.only(right: NuruTheme.spacingM),
-              decoration: isSelected
-                  ? (isDarkMode ? NuruTheme.darkCard() : NuruTheme.lightCard())
-                  : (isDarkMode
-                        ? NuruTheme.darkGlassCard()
-                        : NuruTheme.lightGlassCard()),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(mood['emoji'] as String, style: TextStyle(fontSize: 32)),
-                  SizedBox(height: 8),
-                  Text(
-                    mood['label'] as String,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isSelected
-                          ? (isDarkMode ? Colors.white : Colors.black)
-                          : Colors.white70,
-                      fontWeight: isSelected
-                          ? FontWeight.w600
-                          : FontWeight.normal,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildTitleField() {
-    return Container(
-      padding: EdgeInsets.all(NuruTheme.spacingL),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(NuruTheme.radiusXL),
-      ),
-      child: TextField(
-        controller: _titleController,
-        style: TextStyle(
-          fontSize: 16,
-          color: Colors.black,
-          fontWeight: FontWeight.w500,
-        ),
-        cursorColor: NuruColors.softBlue,
-        decoration: InputDecoration(
-          border: InputBorder.none,
-          enabledBorder: InputBorder.none,
-          focusedBorder: InputBorder.none,
-          isDense: true,
-          contentPadding: EdgeInsets.zero,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildContentField() {
-    return Container(
-      height: 280,
-      padding: EdgeInsets.all(NuruTheme.spacingL),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(NuruTheme.radiusXL),
-      ),
-      child: TextField(
-        controller: _contentController,
-        maxLines: null,
-        expands: true,
-        textAlignVertical: TextAlignVertical.top,
-        style: TextStyle(fontSize: 16, color: Colors.black, height: 1.5),
-        cursorColor: NuruColors.softBlue,
-        decoration: InputDecoration(
-          border: InputBorder.none,
-          enabledBorder: InputBorder.none,
-          focusedBorder: InputBorder.none,
-          isDense: true,
-          contentPadding: EdgeInsets.zero,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSaveButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 56,
-      child: ElevatedButton(
-        onPressed: _saveEntry,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.transparent,
-          shadowColor: Colors.transparent,
-          padding: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(NuruTheme.radiusM),
-          ),
-        ),
-        child: Ink(
-          decoration: NuruTheme.button(isDark: isDarkMode),
+      builder: (_) => ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
           child: Container(
-            alignment: Alignment.center,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            height: MediaQuery.of(context).size.height * 0.68,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  _cardTop.withOpacity(0.97),
+                  _cardBot.withOpacity(0.99),
+                ],
+              ),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(28),
+              ),
+              border: Border(top: BorderSide(color: _border.withOpacity(0.35))),
+            ),
+            child: Column(
               children: [
-                Icon(Icons.check_circle_outline, size: 22, color: Colors.white),
-                SizedBox(width: 8),
-                Text('Save Entry', style: NuruTheme.buttonText),
+                // Handle
+                Container(
+                  margin: const EdgeInsets.only(top: 12, bottom: 6),
+                  width: 38,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Select Date',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Calendar
+                TableCalendar(
+                  firstDay: DateTime(2020),
+                  lastDay: DateTime.now(),
+                  focusedDay: focusedDay,
+                  selectedDayPredicate: (day) => isSameDay(selectedDate, day),
+                  onDaySelected: (selected, focused) {
+                    setState(() {
+                      selectedDate = selected;
+                      focusedDay = focused;
+                    });
+                    Navigator.pop(context);
+                  },
+                  calendarStyle: CalendarStyle(
+                    todayDecoration: BoxDecoration(
+                      color: _border.withOpacity(0.35),
+                      shape: BoxShape.circle,
+                    ),
+                    todayTextStyle: const TextStyle(color: Colors.white),
+                    selectedDecoration: const BoxDecoration(
+                      color: Color(0xFF4569AD),
+                      shape: BoxShape.circle,
+                    ),
+                    selectedTextStyle: const TextStyle(color: Colors.white),
+                    defaultTextStyle: TextStyle(
+                      color: Colors.white.withOpacity(0.85),
+                    ),
+                    weekendTextStyle: const TextStyle(color: Color(0xFF8EA2D7)),
+                    outsideTextStyle: TextStyle(
+                      color: Colors.white.withOpacity(0.25),
+                    ),
+                  ),
+                  headerStyle: HeaderStyle(
+                    formatButtonVisible: false,
+                    titleCentered: true,
+                    titleTextStyle: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                    leftChevronIcon: const Icon(
+                      Icons.chevron_left,
+                      color: Colors.white,
+                    ),
+                    rightChevronIcon: const Icon(
+                      Icons.chevron_right,
+                      color: Colors.white,
+                    ),
+                  ),
+                  daysOfWeekStyle: DaysOfWeekStyle(
+                    weekdayStyle: TextStyle(
+                      color: Colors.white.withOpacity(0.5),
+                      fontSize: 12,
+                    ),
+                    weekendStyle: const TextStyle(
+                      color: Color(0xFF8EA2D7),
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      width: double.infinity,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF4569AD), Color(0xFF1F3F74)],
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: const Color(0xFF8EA2D7).withOpacity(0.45),
+                        ),
+                      ),
+                      child: const Center(
+                        child: Text(
+                          'Done',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
               ],
             ),
           ),
@@ -645,288 +219,604 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
       ),
     );
   }
+
+  // ── Save ──────────────────────────────────────────────────
+
+  void _saveEntry() {
+    if (_titleController.text.trim().isEmpty ||
+        _contentController.text.trim().isEmpty) {
+      _showSnack('Please fill in title and content', const Color(0xFFEF5350));
+      return;
+    }
+    if (selectedMood == null) {
+      _showSnack('Please select your mood', const Color(0xFFFF9800));
+      return;
+    }
+    Navigator.pop(context, {
+      'title': _titleController.text.trim(),
+      'content': _contentController.text.trim(),
+      'mood': selectedMood,
+      'date': selectedDate,
+      'createdAt': DateTime.now(),
+    });
+  }
+
+  void _showSnack(String msg, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg, style: const TextStyle(color: Colors.white)),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  String _formatDate(DateTime date) =>
+      DateFormat('EEEE, d MMMM, yyyy').format(date);
+
+  // ── Build ─────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Color(0xFF1F3F74),
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+      ),
+      child: Scaffold(
+        backgroundColor: _bgBottom,
+        body: Stack(
+          children: [
+            // Background
+            Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [_bgTop, _bgBottom],
+                ),
+              ),
+            ),
+
+            // Stars
+            IgnorePointer(
+              child: AnimatedBuilder(
+                animation: _starController,
+                builder: (_, __) => CustomPaint(
+                  size: Size.infinite,
+                  painter: _EntryStarsPainter(twinkle: _starController.value),
+                ),
+              ),
+            ),
+
+            // Content
+            SafeArea(
+              child: AnimatedBuilder(
+                animation: _entryController,
+                builder: (_, child) => FadeTransition(
+                  opacity: CurvedAnimation(
+                    parent: _entryController,
+                    curve: Curves.easeOut,
+                  ),
+                  child: child,
+                ),
+                child: Column(
+                  children: [
+                    _buildHeader(),
+                    Expanded(
+                      child: ScrollConfiguration(
+                        behavior: ScrollConfiguration.of(
+                          context,
+                        ).copyWith(overscroll: false),
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.fromLTRB(20, 10, 20, 40),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildDateSelector(),
+                              const SizedBox(height: 22),
+                              _sectionLabel('How are you feeling?'),
+                              const SizedBox(height: 12),
+                              _buildMoodSelector(),
+                              const SizedBox(height: 22),
+                              _sectionLabel('Title'),
+                              const SizedBox(height: 10),
+                              _buildTitleField(),
+                              const SizedBox(height: 22),
+                              _sectionLabel('What\'s on your mind?'),
+                              const SizedBox(height: 10),
+                              _buildContentField(),
+                              const SizedBox(height: 28),
+                              _buildSaveButton(),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Header ────────────────────────────────────────────────
+
+  Widget _buildHeader() {
+    return ClipRRect(
+      borderRadius: const BorderRadius.only(
+        bottomLeft: Radius.circular(30),
+        bottomRight: Radius.circular(30),
+      ),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 22),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [_cardTop.withOpacity(0.65), _cardBot.withOpacity(0.55)],
+            ),
+            border: Border(bottom: BorderSide(color: _border.withOpacity(0.3))),
+          ),
+          child: Row(
+            children: [
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: _iconBtn(Icons.arrow_back_ios_new_rounded),
+              ),
+              const SizedBox(width: 16),
+              const Expanded(
+                child: Text(
+                  'New Entry',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                    letterSpacing: -0.4,
+                  ),
+                ),
+              ),
+              // Save shortcut
+              GestureDetector(
+                onTap: _saveEntry,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF4569AD), Color(0xFF1F3F74)],
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: const Color(0xFF8EA2D7).withOpacity(0.45),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF4569AD).withOpacity(0.3),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: const Text(
+                    'Save',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _iconBtn(IconData icon) {
+    return Container(
+      width: 42,
+      height: 42,
+      decoration: BoxDecoration(
+        color: _cardBot.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _border.withOpacity(0.45), width: 1.2),
+      ),
+      child: Icon(icon, color: Colors.white, size: 18),
+    );
+  }
+
+  Widget _sectionLabel(String text) {
+    return Text(
+      text,
+      style: TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        color: Colors.white.withOpacity(0.65),
+        letterSpacing: 0.3,
+      ),
+    );
+  }
+
+  // ── Date selector ─────────────────────────────────────────
+
+  Widget _buildDateSelector() {
+    return GestureDetector(
+      onTap: _showCalendarPicker,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [_cardTop.withOpacity(0.7), _cardBot.withOpacity(0.8)],
+              ),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: _border.withOpacity(0.35), width: 1.2),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: _border.withOpacity(0.18),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.calendar_today_rounded,
+                    color: Color(0xFF8EA2D7),
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    _formatDate(selectedDate),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: Colors.white.withOpacity(0.35),
+                  size: 20,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Mood selector ─────────────────────────────────────────
+
+  Widget _buildMoodSelector() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: moods.map((mood) {
+        final isSelected = selectedMood == mood['value'];
+        final moodColor =
+            NuruColors.moodColors[mood['value']] ?? const Color(0xFF8EA2D7);
+
+        return GestureDetector(
+          onTap: () => setState(() => selectedMood = mood['value'] as String),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
+            width: 52,
+            height: 68,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: isSelected
+                    ? [moodColor.withOpacity(0.3), _cardBot.withOpacity(0.85)]
+                    : [_cardTop.withOpacity(0.6), _cardBot.withOpacity(0.75)],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isSelected
+                    ? moodColor.withOpacity(0.7)
+                    : _border.withOpacity(0.3),
+                width: isSelected ? 1.6 : 1.0,
+              ),
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: moodColor.withOpacity(0.25),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ]
+                  : [],
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  mood['emoji'] as String,
+                  style: TextStyle(fontSize: isSelected ? 26 : 22),
+                ),
+                const SizedBox(height: 5),
+                AnimatedDefaultTextStyle(
+                  duration: const Duration(milliseconds: 200),
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
+                    color: isSelected
+                        ? Colors.white
+                        : Colors.white.withOpacity(0.45),
+                  ),
+                  child: Text(mood['label'] as String),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  // ── Text fields ───────────────────────────────────────────
+
+  Widget _buildTitleField() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(18),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [_cardTop.withOpacity(0.7), _cardBot.withOpacity(0.85)],
+            ),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: _border.withOpacity(0.35), width: 1.2),
+          ),
+          child: Theme(
+            data: Theme.of(context).copyWith(
+              textSelectionTheme: const TextSelectionThemeData(
+                cursorColor: Color(0xFF8EA2D7),
+                selectionColor: Color(0x554569AD),
+                selectionHandleColor: Color(0xFF8EA2D7),
+              ),
+            ),
+            child: TextField(
+              controller: _titleController,
+              focusNode: _titleFocus,
+              style: const TextStyle(
+                fontSize: 15,
+                color: Colors.white,
+                fontWeight: FontWeight.w500,
+                decoration: TextDecoration.none,
+              ),
+              cursorColor: const Color(0xFF8EA2D7),
+              decoration: InputDecoration(
+                hintText: 'Entry title…',
+                hintStyle: TextStyle(
+                  color: Colors.white.withOpacity(0.32),
+                  fontWeight: FontWeight.w400,
+                ),
+                filled: true,
+                fillColor: Colors.transparent,
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContentField() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(18),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 240),
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [_cardTop.withOpacity(0.7), _cardBot.withOpacity(0.88)],
+            ),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: _border.withOpacity(0.35), width: 1.2),
+          ),
+          child: Theme(
+            data: Theme.of(context).copyWith(
+              textSelectionTheme: const TextSelectionThemeData(
+                cursorColor: Color(0xFF8EA2D7),
+                selectionColor: Color(0x554569AD),
+                selectionHandleColor: Color(0xFF8EA2D7),
+              ),
+            ),
+            child: TextField(
+              controller: _contentController,
+              focusNode: _contentFocus,
+              maxLines: null,
+              keyboardType: TextInputType.multiline,
+              textAlignVertical: TextAlignVertical.top,
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.white,
+                height: 1.65,
+                decoration: TextDecoration.none,
+              ),
+              cursorColor: const Color(0xFF8EA2D7),
+              decoration: InputDecoration(
+                hintText: 'Write freely — this is your safe space…',
+                hintStyle: TextStyle(
+                  color: Colors.white.withOpacity(0.28),
+                  fontStyle: FontStyle.italic,
+                  fontSize: 14,
+                ),
+                filled: true,
+                fillColor: Colors.transparent,
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Save button ───────────────────────────────────────────
+
+  Widget _buildSaveButton() {
+    return GestureDetector(
+      onTap: _saveEntry,
+      child: Container(
+        width: double.infinity,
+        height: 54,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF4569AD), Color(0xFF1F3F74)],
+          ),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: const Color(0xFF8EA2D7).withOpacity(0.45),
+            width: 1.2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF4569AD).withOpacity(0.4),
+              blurRadius: 20,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.check_circle_outline_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
+            SizedBox(width: 10),
+            Text(
+              'Save Entry',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.2,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
-class NightSkyPainter extends CustomPainter {
-  final double animation;
-  NightSkyPainter({required this.animation});
+// ── Stars painter (entry screen) ──────────────────────────────
+// Sparser than the list screen — fewer stars so the writing
+// area feels clean and focused.
+
+class _EntryStarsPainter extends CustomPainter {
+  final double twinkle;
+
+  const _EntryStarsPainter({required this.twinkle});
+
+  static const List<List<double>> _stars = [
+    // Band 1 — top
+    [0.05, 0.03, 0], [0.14, 0.06, 1], [0.27, 0.02, 2],
+    [0.38, 0.08, 0], [0.50, 0.04, 1], [0.63, 0.01, 0],
+    [0.74, 0.07, 2], [0.83, 0.03, 1], [0.92, 0.09, 0],
+    // Band 2
+    [0.08, 0.15, 1], [0.20, 0.19, 0], [0.33, 0.14, 2],
+    [0.46, 0.18, 0], [0.57, 0.12, 1], [0.68, 0.20, 0],
+    [0.79, 0.16, 2], [0.88, 0.22, 0], [0.97, 0.13, 1],
+    // Band 3
+    [0.03, 0.29, 0], [0.16, 0.33, 2], [0.29, 0.27, 0],
+    [0.42, 0.35, 1], [0.54, 0.30, 0], [0.66, 0.37, 2],
+    [0.77, 0.28, 0], [0.86, 0.34, 1], [0.94, 0.31, 0],
+    // Band 4
+    [0.07, 0.45, 1], [0.19, 0.49, 0], [0.31, 0.43, 2],
+    [0.44, 0.51, 0], [0.56, 0.46, 1], [0.69, 0.53, 0],
+    [0.80, 0.47, 2], [0.90, 0.54, 0], [0.98, 0.42, 1],
+    // Band 5
+    [0.04, 0.61, 0], [0.15, 0.66, 2], [0.26, 0.59, 1],
+    [0.39, 0.64, 0], [0.52, 0.69, 2], [0.64, 0.62, 0],
+    [0.75, 0.67, 1], [0.85, 0.61, 0], [0.95, 0.70, 2],
+    // Band 6
+    [0.09, 0.77, 1], [0.21, 0.81, 0], [0.34, 0.75, 2],
+    [0.47, 0.79, 0], [0.59, 0.83, 1], [0.71, 0.76, 0],
+    [0.82, 0.82, 2], [0.91, 0.78, 1], [0.99, 0.85, 0],
+    // Band 7 — bottom
+    [0.06, 0.90, 0], [0.18, 0.93, 2], [0.30, 0.88, 1],
+    [0.43, 0.95, 0], [0.55, 0.91, 2], [0.67, 0.96, 0],
+    [0.78, 0.89, 1], [0.87, 0.94, 2], [0.96, 0.92, 0],
+  ];
 
   @override
   void paint(Canvas canvas, Size size) {
-    _drawStars(canvas, size);
-    _drawMoon(canvas, size);
-  }
+    final paint = Paint()..style = PaintingStyle.fill;
 
-  void _drawStars(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.fill;
-    final stars = [
-      {'x': 0.1, 'y': 0.15, 'size': 2.0},
-      {'x': 0.25, 'y': 0.08, 'size': 1.5},
-      {'x': 0.4, 'y': 0.12, 'size': 2.5},
-      {'x': 0.6, 'y': 0.18, 'size': 1.8},
-      {'x': 0.75, 'y': 0.1, 'size': 2.2},
-      {'x': 0.85, 'y': 0.2, 'size': 1.6},
-      {'x': 0.15, 'y': 0.35, 'size': 1.4},
-      {'x': 0.3, 'y': 0.28, 'size': 2.0},
-      {'x': 0.5, 'y': 0.32, 'size': 1.7},
-      {'x': 0.7, 'y': 0.38, 'size': 2.3},
-    ];
-    for (var star in stars) {
-      final x = (star['x'] as double) * size.width;
-      final y = (star['y'] as double) * size.height;
-      final baseSize = star['size'] as double;
-      final twinkle = (math.sin(animation * math.pi * 2 + x) + 1) / 2;
-      final starSize = baseSize * (0.5 + twinkle * 0.5);
-      paint.color = Colors.white.withOpacity(0.6 + twinkle * 0.4);
-      canvas.drawCircle(Offset(x, y), starSize, paint);
+    for (final s in _stars) {
+      final x = size.width * s[0];
+      final y = size.height * s[1];
+      final type = s[2];
+
+      final phase = (s[0] * 3.7 + s[1] * 5.3) % 1.0;
+      final t = ((twinkle + phase) % 1.0);
+      final op = 0.20 + t * 0.45;
+
+      if (type == 0) {
+        paint.color = Colors.white.withOpacity(op * 0.65);
+        canvas.drawCircle(Offset(x, y), 1.0, paint);
+      } else if (type == 1) {
+        paint.color = Colors.white.withOpacity(op * 0.18);
+        canvas.drawCircle(Offset(x, y), 3.0, paint);
+        paint.color = Colors.white.withOpacity(op * 0.55);
+        canvas.drawCircle(Offset(x, y), 1.4, paint);
+        paint.color = Colors.white.withOpacity(op);
+        canvas.drawCircle(Offset(x, y), 0.7, paint);
+      } else {
+        paint.color = Colors.white.withOpacity(op * 0.10);
+        canvas.drawCircle(Offset(x, y), 5.0, paint);
+        paint.color = Colors.white.withOpacity(op * 0.25);
+        canvas.drawCircle(Offset(x, y), 3.0, paint);
+        paint.color = Colors.white.withOpacity(op * 0.65);
+        canvas.drawCircle(Offset(x, y), 1.5, paint);
+        paint.color = Colors.white.withOpacity(op);
+        canvas.drawCircle(Offset(x, y), 0.8, paint);
+      }
     }
   }
 
-  void _drawMoon(Canvas canvas, Size size) {
-    final moonX = size.width * 0.85;
-    final moonY = size.height * 0.08;
-    final moonRadius = 25.0;
-    canvas.drawCircle(
-      Offset(moonX, moonY),
-      moonRadius * 1.8,
-      Paint()..color = NuruColors.softYellow.withOpacity(0.1),
-    );
-    canvas.drawCircle(
-      Offset(moonX, moonY),
-      moonRadius,
-      Paint()..color = NuruColors.softYellow,
-    );
-    canvas.drawCircle(
-      Offset(moonX + moonRadius * 0.5, moonY),
-      moonRadius * 0.95,
-      Paint()..color = NuruColors.nightBackground,
-    );
-  }
-
   @override
-  bool shouldRepaint(NightSkyPainter oldDelegate) =>
-      oldDelegate.animation != animation;
-}
-
-class DaySkyPainter extends CustomPainter {
-  final double animation;
-  DaySkyPainter({required this.animation});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    _drawSun(canvas, size);
-    _drawClouds(canvas, size);
-  }
-
-  void _drawSun(Canvas canvas, Size size) {
-    final sunX = size.width * 0.85;
-    final sunY = size.height * 0.08;
-    final sunRadius = 32.0;
-
-    // Outer glow (much softer)
-    final outerGlowPaint = Paint()
-      ..color = Color(0xFFFFE5B4).withOpacity(0.04)
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 30);
-    canvas.drawCircle(Offset(sunX, sunY), sunRadius * 2.5, outerGlowPaint);
-
-    // Middle glow layer (reduced)
-    final middleGlowPaint = Paint()
-      ..color = Color(0xFFFFF4D6).withOpacity(0.08)
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 18);
-    canvas.drawCircle(Offset(sunX, sunY), sunRadius * 1.8, middleGlowPaint);
-
-    // Inner glow (softer)
-    final innerGlowPaint = Paint()
-      ..color = NuruColors.softYellow.withOpacity(0.15)
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 8);
-    canvas.drawCircle(Offset(sunX, sunY), sunRadius * 1.3, innerGlowPaint);
-
-    // Sun core with softer gradient
-    final rect = Rect.fromCircle(center: Offset(sunX, sunY), radius: sunRadius);
-    final sunGradient = Paint()
-      ..shader = RadialGradient(
-        colors: [
-          Color(0xFFFFF9E6), // Softer center
-          Color(0xFFFED98B), // NuruAI yellow
-          Color(0xFFFDC870), // Slightly darker edge
-        ],
-        stops: [0.0, 0.7, 1.0],
-      ).createShader(rect);
-    canvas.drawCircle(Offset(sunX, sunY), sunRadius, sunGradient);
-
-    // Subtle highlight (less bright)
-    final highlightPaint = Paint()
-      ..color = Colors.white.withOpacity(0.3)
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 3);
-    canvas.drawCircle(
-      Offset(sunX - sunRadius * 0.3, sunY - sunRadius * 0.3),
-      sunRadius * 0.35,
-      highlightPaint,
-    );
-
-    // Softer sun rays
-    final rayPaint = Paint()
-      ..strokeWidth = 2.0
-      ..strokeCap = StrokeCap.round
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 1);
-
-    for (int i = 0; i < 12; i++) {
-      final angle = (i * math.pi / 6) + (animation * math.pi / 6);
-
-      // Shorter, subtler rays
-      final rayLength = (i % 2 == 0) ? sunRadius + 16 : sunRadius + 12;
-
-      // Lower opacity
-      final opacity = (i % 3 == 0) ? 0.5 : 0.35;
-      rayPaint.color = NuruColors.softYellow.withOpacity(opacity);
-
-      final startX = sunX + math.cos(angle) * (sunRadius + 5);
-      final startY = sunY + math.sin(angle) * (sunRadius + 5);
-      final endX = sunX + math.cos(angle) * rayLength;
-      final endY = sunY + math.sin(angle) * rayLength;
-
-      canvas.drawLine(Offset(startX, startY), Offset(endX, endY), rayPaint);
-    }
-
-    // Subtle sparkle effect (much less bright)
-    final sparklePaint = Paint()
-      ..color = Colors.white.withOpacity(0.4)
-      ..strokeWidth = 1.2
-      ..strokeCap = StrokeCap.round;
-
-    for (int i = 0; i < 8; i++) {
-      final angle = (i * math.pi / 4) + (animation * math.pi / 2);
-      final sparkleLength =
-          sunRadius + 18 + (math.sin(animation * math.pi * 2 + i) * 4);
-
-      final startX = sunX + math.cos(angle) * (sunRadius + 8);
-      final startY = sunY + math.sin(angle) * (sunRadius + 8);
-      final endX = sunX + math.cos(angle) * sparkleLength;
-      final endY = sunY + math.sin(angle) * sparkleLength;
-
-      canvas.drawLine(Offset(startX, startY), Offset(endX, endY), sparklePaint);
-    }
-  }
-
-  void _drawClouds(Canvas canvas, Size size) {
-    // Cloud 1 - Large fluffy cloud
-    final offset1 = (animation * 30).remainder(size.width + 200) - 100;
-    _drawRealisticCloud(
-      canvas,
-      size.width * 0.2 + offset1,
-      size.height * 0.15,
-      1.2,
-    );
-
-    // Cloud 2 - Medium cloud
-    final offset2 = (animation * 20).remainder(size.width + 200) - 100;
-    _drawRealisticCloud(
-      canvas,
-      size.width * 0.6 - offset2,
-      size.height * 0.25,
-      0.9,
-    );
-
-    // Cloud 3 - Small cloud
-    final offset3 = (animation * 25).remainder(size.width + 200) - 100;
-    _drawRealisticCloud(
-      canvas,
-      size.width * 0.4 + offset3,
-      size.height * 0.35,
-      0.7,
-    );
-
-    // Cloud 4 - Large cloud
-    final offset4 = (animation * 15).remainder(size.width + 200) - 100;
-    _drawRealisticCloud(
-      canvas,
-      size.width * 0.1 - offset4,
-      size.height * 0.45,
-      1.0,
-    );
-  }
-
-  void _drawRealisticCloud(Canvas canvas, double x, double y, double scale) {
-    // Shadow layer (softer, more subtle)
-    final shadowPaint = Paint()
-      ..color = Colors.white.withOpacity(0.25)
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 6);
-
-    _drawCloudShape(canvas, x + 2, y + 3, scale, shadowPaint);
-
-    // Main cloud layer (less bright)
-    final cloudPaint = Paint()
-      ..color = Colors.white.withOpacity(0.7)
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 3);
-
-    _drawCloudShape(canvas, x, y, scale, cloudPaint);
-
-    // Highlight layer (much subtler)
-    final highlightPaint = Paint()..color = Colors.white.withOpacity(0.85);
-
-    // Fewer, smaller highlights
-    canvas.drawCircle(
-      Offset(x + (30 * scale), y - (8 * scale)),
-      10 * scale,
-      highlightPaint,
-    );
-    canvas.drawCircle(
-      Offset(x + (50 * scale), y - (5 * scale)),
-      8 * scale,
-      highlightPaint,
-    );
-  }
-
-  void _drawCloudShape(
-    Canvas canvas,
-    double x,
-    double y,
-    double scale,
-    Paint paint,
-  ) {
-    // Bottom puffs
-    canvas.drawCircle(Offset(x, y + (8 * scale)), 18 * scale, paint);
-    canvas.drawCircle(
-      Offset(x + (25 * scale), y + (12 * scale)),
-      20 * scale,
-      paint,
-    );
-    canvas.drawCircle(
-      Offset(x + (50 * scale), y + (10 * scale)),
-      18 * scale,
-      paint,
-    );
-    canvas.drawCircle(
-      Offset(x + (70 * scale), y + (8 * scale)),
-      16 * scale,
-      paint,
-    );
-
-    // Middle puffs
-    canvas.drawCircle(Offset(x + (15 * scale), y), 22 * scale, paint);
-    canvas.drawCircle(
-      Offset(x + (40 * scale), y - (5 * scale)),
-      25 * scale,
-      paint,
-    );
-    canvas.drawCircle(Offset(x + (60 * scale), y), 20 * scale, paint);
-
-    // Top puffs (largest)
-    canvas.drawCircle(
-      Offset(x + (30 * scale), y - (10 * scale)),
-      28 * scale,
-      paint,
-    );
-    canvas.drawCircle(
-      Offset(x + (50 * scale), y - (8 * scale)),
-      24 * scale,
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(DaySkyPainter oldDelegate) =>
-      oldDelegate.animation != animation;
+  bool shouldRepaint(_EntryStarsPainter old) => old.twinkle != twinkle;
 }
