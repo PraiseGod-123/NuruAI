@@ -13,20 +13,21 @@ class NuruAIApp extends StatelessWidget {
       theme: ThemeData(
         // Primary Colors
         primaryColor: NuruColors.sailingBlue,
-        scaffoldBackgroundColor: NuruColors.white,
+        // Dark blue prevents any white flash during route transitions
+        scaffoldBackgroundColor: const Color(0xFF081F44),
 
         // Color Scheme
-        colorScheme: ColorScheme.light(
-          primary: NuruColors.sailingBlue,
-          secondary: NuruColors.solidBlue,
-          surface: NuruColors.white,
-          background: NuruColors.white,
-          error: NuruColors.error,
-          onPrimary: NuruColors.white,
-          onSecondary: NuruColors.white,
-          onSurface: NuruColors.dive,
-          onBackground: NuruColors.dive,
-          onError: NuruColors.white,
+        colorScheme: const ColorScheme.dark(
+          primary: Color(0xFF4569AD),
+          secondary: Color(0xFF8EA2D7),
+          surface: Color(0xFF1F3F74),
+          background: Color(0xFF081F44),
+          error: Color(0xFFEF5350),
+          onPrimary: Colors.white,
+          onSecondary: Colors.white,
+          onSurface: Colors.white,
+          onBackground: Colors.white,
+          onError: Colors.white,
         ),
 
         // App Bar Theme
@@ -96,7 +97,7 @@ class NuruAIApp extends StatelessWidget {
         // Input Decoration Theme
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: NuruColors.white,
+          fillColor: Colors.transparent,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
             borderSide: BorderSide.none,
@@ -126,7 +127,7 @@ class NuruAIApp extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
-          color: NuruColors.white,
+          color: const Color(0xFF1F3F74),
         ),
 
         // Divider Theme
@@ -168,7 +169,6 @@ class NuruAIApp extends StatelessWidget {
 
       // Routes
       initialRoute: AppRoutes.splash,
-      routes: AppRoutes.getRoutes(),
       onGenerateRoute: AppRoutes.onGenerateRoute,
     );
   }

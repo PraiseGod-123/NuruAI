@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'app.dart';
+import 'services/music_service.dart';
+import 'services/nuru_ai_service.dart';
 
 void main() async {
   // Ensure Flutter binding is initialized
@@ -26,5 +28,7 @@ void main() async {
   // await Firebase.initializeApp();
 
   // Run the app
+  MusicService.instance.jamendoClientId = 'YOUR_CLIENT_ID';
+  NuruAIService.instance.apiKey = 'AIzaSyCoyi5KB5qSEX-4i7hkqWgIrVHCq-BIt6o';
   runApp(const NuruAIApp());
 }
