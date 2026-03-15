@@ -29,6 +29,5 @@ void main() async {
 
   // Run the app
   MusicService.instance.jamendoClientId = 'YOUR_CLIENT_ID';
-  NuruAIService.instance.apiKey = 'AIzaSyCoyi5KB5qSEX-4i7hkqWgIrVHCq-BIt6o';
   runApp(const NuruAIApp());
 }
