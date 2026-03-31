@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
+import 'dart:convert';
+import 'dart:io';
+import 'package:camera/camera.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../utils/nuru_colors.dart';
+import '../services/api_services.dart';
+import '../services/firebase_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -18,6 +24,11 @@ class _LoginScreenState extends State<LoginScreen>
   bool _obscurePassword = true;
   bool _isUnlocking = false;
   bool _isUnlocked = false;
+  bool _isLoading = false;
+
+  // Camera for facial recognition
+  CameraController? _cameraController;
+  bool _isCameraReady = false;
 
   late AnimationController _floatController1;
   late AnimationController _floatController2;
@@ -32,17 +43,14 @@ class _LoginScreenState extends State<LoginScreen>
       duration: Duration(seconds: 4),
       vsync: this,
     )..repeat(reverse: true);
-
     _floatController2 = AnimationController(
       duration: Duration(seconds: 5),
       vsync: this,
     )..repeat(reverse: true);
-
     _floatController3 = AnimationController(
       duration: Duration(seconds: 6),
       vsync: this,
     )..repeat(reverse: true);
-
     _unlockController = AnimationController(
       duration: Duration(milliseconds: 600),
       vsync: this,
@@ -57,20 +65,36 @@ class _LoginScreenState extends State<LoginScreen>
     _unlockController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _cameraController?.dispose();
     super.dispose();
   }
 
-  void _handleLogin() {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+  Future<void> _handleLogin() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _isLoading = true);
 
-    // TODO: Implement actual login logic
-    Navigator.pushReplacementNamed(
-      context,
-      '/home',
-      arguments: {'email': _emailController.text},
+    final result = await NuruFirebaseService.instance.login(
+      email: _emailController.text.trim(),
+      password: _passwordController.text,
     );
+
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    if (result.success) {
+      final userData = result.userData ?? {};
+      Navigator.pushReplacementNamed(
+        context,
+        '/home',
+        arguments: {
+          ...userData,
+          'uid': result.uid,
+          'email': _emailController.text.trim(),
+        },
+      );
+    } else {
+      _showError(result.error ?? 'Login failed. Please try again.');
+    }
   }
 
   void _showError(String message) {
@@ -84,42 +108,309 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   void _handleForgotPassword() {
+    final emailController = TextEditingController(
+      text: _emailController.text.trim(),
+    );
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1F3F74),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Reset Password'),
-        content: Text('Password reset functionality coming soon!'),
+        title: const Text(
+          'Reset Password',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Enter your email and we will send you a reset link.',
+              style: TextStyle(color: Colors.white70, fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: emailController,
+              keyboardType: TextInputType.emailAddress,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: 'your@email.com',
+                hintStyle: const TextStyle(color: Colors.white38),
+                filled: true,
+                fillColor: Colors.white12,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                prefixIcon: const Icon(
+                  Icons.email_outlined,
+                  color: Colors.white54,
+                ),
+              ),
+            ),
+          ],
+        ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('OK'),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.white54),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              if (emailController.text.trim().isEmpty) return;
+              final result = await NuruFirebaseService.instance
+                  .sendPasswordReset(emailController.text.trim());
+              if (!mounted) return;
+              if (result.success) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Password reset email sent! Check your inbox.',
+                    ),
+                    backgroundColor: Color(0xFF4CAF50),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              } else {
+                _showError(result.error ?? 'Could not send reset email.');
+              }
+            },
+            child: const Text(
+              'Send Reset Link',
+              style: TextStyle(
+                color: Color(0xFF4569AD),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  void _handleFacialRecognitionLogin() async {
-    setState(() {
-      _isUnlocking = true;
-    });
+  // ── Facial recognition login ──────────────────────────────────────────────
 
-    // Start unlock animation
+  Future<void> _handleFacialRecognitionLogin() async {
+    // Step 1 — check camera permission
+    final status = await Permission.camera.request();
+    if (!status.isGranted) {
+      _showError('Camera permission is needed for Face ID login.');
+      return;
+    }
+
+    setState(() => _isUnlocking = true);
     await _unlockController.forward();
 
-    // Simulate facial recognition process
-    await Future.delayed(Duration(milliseconds: 500));
+    // Step 2 — initialise front camera
+    try {
+      final cameras = await availableCameras();
+      final front = cameras.firstWhere(
+        (c) => c.lensDirection == CameraLensDirection.front,
+        orElse: () => cameras.first,
+      );
+      _cameraController = CameraController(
+        front,
+        ResolutionPreset.medium,
+        enableAudio: false,
+      );
+      await _cameraController!.initialize();
+      setState(() => _isCameraReady = true);
+    } catch (e) {
+      setState(() => _isUnlocking = false);
+      _unlockController.reset();
+      _showError('Could not access camera. Please try again.');
+      return;
+    }
 
-    setState(() {
-      _isUnlocked = true;
-    });
+    // Step 3 — show camera preview sheet for the user to look at the camera
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _buildFaceLoginSheet(),
+    );
 
-    // Wait a moment to show unlocked state
-    await Future.delayed(Duration(milliseconds: 800));
+    if (confirmed != true) {
+      // User dismissed without capturing
+      setState(() {
+        _isUnlocking = false;
+        _isCameraReady = false;
+      });
+      _unlockController.reset();
+      _cameraController?.dispose();
+      _cameraController = null;
+      return;
+    }
+  }
 
-    // Navigate to home
-    Navigator.pushReplacementNamed(context, '/home');
+  Widget _buildFaceLoginSheet() {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.75,
+      decoration: BoxDecoration(
+        color: NuruColors.nightBackground,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        children: [
+          SizedBox(height: 12),
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.white24,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          SizedBox(height: 20),
+          Text(
+            'Look at the camera',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
+          ),
+          SizedBox(height: 6),
+          Text(
+            'Position your face in the circle',
+            style: TextStyle(fontSize: 14, color: Colors.white60),
+          ),
+          SizedBox(height: 20),
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (_isCameraReady)
+                      CameraPreview(_cameraController!)
+                    else
+                      Container(color: NuruColors.nightCard),
+                    Center(
+                      child: Container(
+                        width: 220,
+                        height: 280,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white60, width: 2),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          SizedBox(height: 24),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 24),
+            child: SizedBox(
+              width: double.infinity,
+              height: 54,
+              child: ElevatedButton(
+                onPressed: _captureAndAuthenticate,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: NuruColors.sailingBlue,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: Text(
+                  'Scan My Face',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          SizedBox(height: 16),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: Colors.white60, fontSize: 15),
+            ),
+          ),
+          SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _captureAndAuthenticate() async {
+    if (_cameraController == null || !_cameraController!.value.isInitialized)
+      return;
+
+    Navigator.pop(context, true); // close the sheet
+
+    try {
+      // Capture frame
+      final image = await _cameraController!.takePicture();
+      final bytes = await File(image.path).readAsBytes();
+      final imageBase64 = base64Encode(bytes);
+
+      // Get user ID — use email as fallback until Firebase is wired
+      final userId = _emailController.text.isNotEmpty
+          ? _emailController.text
+          : 'user_unknown';
+
+      // Call the API
+      final result = await NuruApiService.instance.login(
+        userId: userId,
+        imageBase64: imageBase64,
+      );
+
+      _cameraController?.dispose();
+      _cameraController = null;
+
+      if (!mounted) return;
+
+      if (result.authenticated) {
+        // Login successful
+        setState(() => _isUnlocked = true);
+        await Future.delayed(Duration(milliseconds: 800));
+
+        Navigator.pushReplacementNamed(
+          context,
+          '/home',
+          arguments: {
+            'email': userId,
+            'emotion': result.emotionResult?.emotion ?? 'neutral',
+            'supportTool': result.emotionResult?.supportTool,
+            'supportMessage': result.emotionResult?.supportMessage,
+          },
+        );
+      } else {
+        // Not authenticated
+        setState(() {
+          _isUnlocking = false;
+          _isUnlocked = false;
+        });
+        _unlockController.reset();
+        _showError(
+          result.message.isNotEmpty
+              ? result.message
+              : 'Face not recognised. Please try again or use email.',
+        );
+      }
+    } catch (e) {
+      _cameraController?.dispose();
+      _cameraController = null;
+      setState(() {
+        _isUnlocking = false;
+        _isUnlocked = false;
+      });
+      _unlockController.reset();
+      _showError('Something went wrong. Please try again.');
+    }
   }
 
   @override
@@ -128,7 +419,6 @@ class _LoginScreenState extends State<LoginScreen>
       backgroundColor: Color(0xFF4569AD),
       body: Stack(
         children: [
-          // FIXED BACKGROUND
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -139,20 +429,16 @@ class _LoginScreenState extends State<LoginScreen>
             ),
           ),
 
-          // Stars layer
           IgnorePointer(
             child: AnimatedBuilder(
               animation: _floatController1,
-              builder: (context, child) {
-                return CustomPaint(
-                  size: Size.infinite,
-                  painter: SubtleStarsPainter(twinkle: _floatController1.value),
-                );
-              },
+              builder: (context, child) => CustomPaint(
+                size: Size.infinite,
+                painter: SubtleStarsPainter(twinkle: _floatController1.value),
+              ),
             ),
           ),
 
-          // 3D shapes
           IgnorePointer(
             child: AnimatedBuilder(
               animation: Listenable.merge([
@@ -160,24 +446,21 @@ class _LoginScreenState extends State<LoginScreen>
                 _floatController2,
                 _floatController3,
               ]),
-              builder: (context, child) {
-                return CustomPaint(
-                  size: Size.infinite,
-                  painter: Animated3DShapesPainter(
-                    animation1: _floatController1.value,
-                    animation2: _floatController2.value,
-                    animation3: _floatController3.value,
-                  ),
-                );
-              },
+              builder: (context, child) => CustomPaint(
+                size: Size.infinite,
+                painter: Animated3DShapesPainter(
+                  animation1: _floatController1.value,
+                  animation2: _floatController2.value,
+                  animation3: _floatController3.value,
+                ),
+              ),
             ),
           ),
 
-          // CONTENT
           SafeArea(
             child: NotificationListener<OverscrollIndicatorNotification>(
-              onNotification: (OverscrollIndicatorNotification overscroll) {
-                overscroll.disallowIndicator();
+              onNotification: (n) {
+                n.disallowIndicator();
                 return true;
               },
               child: SingleChildScrollView(
@@ -195,7 +478,6 @@ class _LoginScreenState extends State<LoginScreen>
                       children: [
                         Spacer(flex: 2),
 
-                        // Welcome Back Title
                         Text(
                           'Welcome Back',
                           style: TextStyle(
@@ -219,7 +501,6 @@ class _LoginScreenState extends State<LoginScreen>
 
                         SizedBox(height: 60),
 
-                        // Email Field
                         _buildTextField(
                           controller: _emailController,
                           label: 'Email Address',
@@ -227,19 +508,16 @@ class _LoginScreenState extends State<LoginScreen>
                           icon: Icons.email_rounded,
                           keyboardType: TextInputType.emailAddress,
                           validator: (value) {
-                            if (value == null || value.isEmpty) {
+                            if (value == null || value.isEmpty)
                               return 'Please enter your email';
-                            }
-                            if (!value.contains('@')) {
+                            if (!value.contains('@'))
                               return 'Please enter a valid email';
-                            }
                             return null;
                           },
                         ),
 
                         SizedBox(height: 24),
 
-                        // Password Field
                         _buildTextField(
                           controller: _passwordController,
                           label: 'Password',
@@ -253,23 +531,19 @@ class _LoginScreenState extends State<LoginScreen>
                                   : Icons.visibility_rounded,
                               color: Color(0xFF4569AD),
                             ),
-                            onPressed: () {
-                              setState(() {
-                                _obscurePassword = !_obscurePassword;
-                              });
-                            },
+                            onPressed: () => setState(
+                              () => _obscurePassword = !_obscurePassword,
+                            ),
                           ),
                           validator: (value) {
-                            if (value == null || value.isEmpty) {
+                            if (value == null || value.isEmpty)
                               return 'Please enter your password';
-                            }
                             return null;
                           },
                         ),
 
                         SizedBox(height: 16),
 
-                        // Forgot Password
                         Align(
                           alignment: Alignment.centerRight,
                           child: TextButton(
@@ -288,12 +562,11 @@ class _LoginScreenState extends State<LoginScreen>
 
                         SizedBox(height: 32),
 
-                        // Login Button
                         SizedBox(
                           width: double.infinity,
                           height: 56,
                           child: ElevatedButton(
-                            onPressed: _handleLogin,
+                            onPressed: _isLoading ? null : _handleLogin,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.white,
                               foregroundColor: Color(0xFF4569AD),
@@ -316,7 +589,7 @@ class _LoginScreenState extends State<LoginScreen>
 
                         SizedBox(height: 32),
 
-                        // Apple-style Padlock Unlock
+                        // Face ID unlock button
                         Center(
                           child: GestureDetector(
                             onTap: _isUnlocking
@@ -374,7 +647,7 @@ class _LoginScreenState extends State<LoginScreen>
                                     SizedBox(height: 16),
                                     Text(
                                       _isUnlocking
-                                          ? 'Unlocking...'
+                                          ? 'Scanning...'
                                           : _isUnlocked
                                           ? 'Unlocked!'
                                           : 'Tap to unlock with Face ID',
@@ -395,7 +668,6 @@ class _LoginScreenState extends State<LoginScreen>
 
                         Spacer(flex: 3),
 
-                        // Divider with "OR"
                         Row(
                           children: [
                             Expanded(
@@ -426,15 +698,12 @@ class _LoginScreenState extends State<LoginScreen>
 
                         SizedBox(height: 24),
 
-                        // Sign Up Link
                         Center(
                           child: TextButton(
-                            onPressed: () {
-                              Navigator.pushReplacementNamed(
-                                context,
-                                '/signup',
-                              );
-                            },
+                            onPressed: () => Navigator.pushReplacementNamed(
+                              context,
+                              '/signup',
+                            ),
                             child: RichText(
                               text: TextSpan(
                                 style: TextStyle(
@@ -550,16 +819,15 @@ class _LoginScreenState extends State<LoginScreen>
   }
 }
 
-// Stars Painter
+// ── Painters (unchanged) ──────────────────────────────────────────────────────
+
 class SubtleStarsPainter extends CustomPainter {
   final double twinkle;
-
   SubtleStarsPainter({required this.twinkle});
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..style = PaintingStyle.fill;
-
     final stars = [
       [0.08, 0.05],
       [0.18, 0.15],
@@ -582,35 +850,25 @@ class SubtleStarsPainter extends CustomPainter {
       [0.45, 0.88],
       [0.92, 0.85],
     ];
-
     for (final star in stars) {
       final x = size.width * star[0];
       final y = size.height * star[1];
-      final opacity = 0.4 + (twinkle * 0.3);
-
-      paint.color = Colors.white.withOpacity(opacity * 0.4);
+      final op = 0.4 + (twinkle * 0.3);
+      paint.color = Colors.white.withOpacity(op * 0.4);
       canvas.drawCircle(Offset(x, y), 3.5, paint);
-
-      paint.color = Colors.white.withOpacity(opacity * 0.6);
+      paint.color = Colors.white.withOpacity(op * 0.6);
       canvas.drawCircle(Offset(x, y), 2.0, paint);
-
-      paint.color = Colors.white.withOpacity(opacity);
+      paint.color = Colors.white.withOpacity(op);
       canvas.drawCircle(Offset(x, y), 1.3, paint);
     }
   }
 
   @override
-  bool shouldRepaint(SubtleStarsPainter oldDelegate) {
-    return oldDelegate.twinkle != twinkle;
-  }
+  bool shouldRepaint(SubtleStarsPainter old) => old.twinkle != twinkle;
 }
 
-// Animated 3D Shapes Painter
 class Animated3DShapesPainter extends CustomPainter {
-  final double animation1;
-  final double animation2;
-  final double animation3;
-
+  final double animation1, animation2, animation3;
   Animated3DShapesPainter({
     required this.animation1,
     required this.animation2,
@@ -622,112 +880,103 @@ class Animated3DShapesPainter extends CustomPainter {
     final paint = Paint()..style = PaintingStyle.fill;
 
     paint.color = Color(0xFFB7C3E8).withOpacity(0.25);
-    final offsetY1 = animation1 * 40 - 20;
+    final oy1 = animation1 * 40 - 20;
     final path1 = Path()
-      ..moveTo(0, offsetY1)
+      ..moveTo(0, oy1)
       ..quadraticBezierTo(
         size.width * 0.3,
-        size.height * 0.1 + offsetY1,
+        size.height * 0.1 + oy1,
         size.width * 0.4,
-        size.height * 0.25 + offsetY1,
+        size.height * 0.25 + oy1,
       )
       ..quadraticBezierTo(
         size.width * 0.5,
-        size.height * 0.4 + offsetY1,
+        size.height * 0.4 + oy1,
         size.width * 0.3,
-        size.height * 0.5 + offsetY1,
+        size.height * 0.5 + oy1,
       )
       ..quadraticBezierTo(
         size.width * 0.1,
-        size.height * 0.6 + offsetY1,
+        size.height * 0.6 + oy1,
         0,
-        size.height * 0.4 + offsetY1,
+        size.height * 0.4 + oy1,
       )
       ..close();
     canvas.drawPath(path1, paint);
 
     paint.color = Color(0xFF081F44).withOpacity(0.2);
-    final offsetX2 = animation2 * 35 - 17;
+    final ox2 = animation2 * 35 - 17;
     final path2 = Path()
-      ..moveTo(size.width, size.height * 0.2 + offsetX2)
+      ..moveTo(size.width, size.height * 0.2 + ox2)
       ..quadraticBezierTo(
         size.width * 0.7,
-        size.height * 0.3 + offsetX2,
+        size.height * 0.3 + ox2,
         size.width * 0.6,
-        size.height * 0.5 + offsetX2,
+        size.height * 0.5 + ox2,
       )
       ..quadraticBezierTo(
         size.width * 0.5,
-        size.height * 0.7 + offsetX2,
+        size.height * 0.7 + ox2,
         size.width * 0.7,
-        size.height * 0.8 + offsetX2,
+        size.height * 0.8 + ox2,
       )
       ..quadraticBezierTo(
         size.width * 0.9,
-        size.height * 0.9 + offsetX2,
+        size.height * 0.9 + ox2,
         size.width,
-        size.height * 0.7 + offsetX2,
+        size.height * 0.7 + ox2,
       )
       ..close();
     canvas.drawPath(path2, paint);
 
-    final spherePaint1 = Paint()
-      ..shader =
-          RadialGradient(
-            colors: [
-              Colors.white.withOpacity(0.25),
-              Colors.white.withOpacity(0.05),
-            ],
-          ).createShader(
-            Rect.fromCircle(
-              center: Offset(
-                size.width * 0.75 + (animation1 * 25 - 12),
-                size.height * 0.15 + (animation2 * 20 - 10),
-              ),
-              radius: 90,
-            ),
-          );
     canvas.drawCircle(
       Offset(
         size.width * 0.75 + (animation1 * 25 - 12),
         size.height * 0.15 + (animation2 * 20 - 10),
       ),
       90,
-      spherePaint1,
+      Paint()
+        ..shader =
+            RadialGradient(
+              colors: [
+                Colors.white.withOpacity(0.25),
+                Colors.white.withOpacity(0.05),
+              ],
+            ).createShader(
+              Rect.fromCircle(
+                center: Offset(size.width * 0.75, size.height * 0.15),
+                radius: 90,
+              ),
+            ),
     );
 
-    final spherePaint2 = Paint()
-      ..shader =
-          RadialGradient(
-            colors: [
-              Color(0xFF14366D).withOpacity(0.35),
-              Color(0xFF14366D).withOpacity(0.1),
-              Colors.transparent,
-            ],
-            stops: [0.0, 0.6, 1.0],
-          ).createShader(
-            Rect.fromCircle(
-              center: Offset(
-                size.width * 0.3 + (animation3 * 30 - 15),
-                size.height * 0.85 + (animation1 * 20 - 10),
-              ),
-              radius: 110,
-            ),
-          );
     canvas.drawCircle(
       Offset(
         size.width * 0.3 + (animation3 * 30 - 15),
         size.height * 0.85 + (animation1 * 20 - 10),
       ),
       110,
-      spherePaint2,
+      Paint()
+        ..shader =
+            RadialGradient(
+              colors: [
+                Color(0xFF14366D).withOpacity(0.35),
+                Color(0xFF14366D).withOpacity(0.1),
+                Colors.transparent,
+              ],
+              stops: [0.0, 0.6, 1.0],
+            ).createShader(
+              Rect.fromCircle(
+                center: Offset(size.width * 0.3, size.height * 0.85),
+                radius: 110,
+              ),
+            ),
     );
   }
 
   @override
-  bool shouldRepaint(Animated3DShapesPainter oldDelegate) {
-    return oldDelegate.animation1 != animation1 ||
-        oldDelegate.animation2 != animation2 ||
-        oldDelegate.animation3 != animation3;
-  }
+  bool shouldRepaint(Animated3DShapesPainter o) =>
+      o.animation1 != animation1 ||
+      o.animation2 != animation2 ||
+      o.animation3 != animation3;
 }

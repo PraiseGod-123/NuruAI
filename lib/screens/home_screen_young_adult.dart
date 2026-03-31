@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:ui';
 import '../utils/nuru_colors.dart';
+import 'package:provider/provider.dart';
+import '../providers/theme_provider.dart';
+import '../providers/nuru_theme_extension.dart';
+import '../services/firebase_service.dart';
 
 // ══════════════════════════════════════════════════════════════
 // HOME SCREEN FOR AGES 20-25 - GLASSMORPHISM + BOTTOM NAV
@@ -24,10 +29,15 @@ class _HomeScreenYoungAdultState extends State<HomeScreenYoungAdult>
 
   int _selectedMoodIndex = -1;
   int _currentNavIndex = 0;
+  Map<String, dynamic> _liveStats = {};
+  bool _moodLoggedToday = false;
+  final TextEditingController _moodNoteController = TextEditingController();
+  final List<String> _savedNotes = [];
 
   @override
   void initState() {
     super.initState();
+    _loadLiveStats();
 
     _floatController1 = AnimationController(
       duration: Duration(seconds: 4),
@@ -45,161 +55,188 @@ class _HomeScreenYoungAdultState extends State<HomeScreenYoungAdult>
     )..repeat(reverse: true);
   }
 
+  void _loadLiveStats() {
+    final uid = widget.userData?['uid'] as String? ?? '';
+    if (uid.isEmpty) return;
+    NuruFirebaseService.instance.streamUserStats(uid).listen((stats) {
+      if (mounted) setState(() => _liveStats = stats);
+    });
+  }
+
+  Future<void> _logMoodCheckIn(int moodScore) async {
+    final uid = widget.userData?['uid'] as String? ?? '';
+    if (uid.isEmpty || _moodLoggedToday) return;
+    setState(() => _moodLoggedToday = true);
+    await NuruFirebaseService.instance.logCheckIn(
+      uid: uid,
+      moodScore: moodScore,
+      note: _moodNoteController.text.trim().isNotEmpty
+          ? _moodNoteController.text.trim()
+          : null,
+    );
+  }
+
   @override
   void dispose() {
     _floatController1.dispose();
     _floatController2.dispose();
     _floatController3.dispose();
+    _moodNoteController.dispose();
     super.dispose();
   }
 
+  // ── Live stat helpers ─────────────────────────────────────
+  int get _liveStreak =>
+      (_liveStats['currentStreak'] as num? ??
+              widget.userData?['currentStreak'] as num? ??
+              0)
+          .toInt();
+  int get _liveCheckIns =>
+      (_liveStats['totalCheckIns'] as num? ??
+              widget.userData?['totalCheckIns'] as num? ??
+              0)
+          .toInt();
+  double get _liveAvgMood =>
+      (_liveStats['avgMood'] as num? ??
+              widget.userData?['avgMood'] as num? ??
+              0.0)
+          .toDouble();
+  int get _liveUnread =>
+      (_liveStats['unreadNotifications'] as num? ??
+              widget.userData?['unreadNotifications'] as num? ??
+              0)
+          .toInt();
+  int get _liveStreakVal =>
+      (_liveStats['currentStreak'] as num? ??
+              widget.userData?['currentStreak'] as num? ??
+              0)
+          .toInt();
+
   @override
   Widget build(BuildContext context) {
-    final userName = widget.userData?['name'] ?? 'User';
+    // Reset selection to Home whenever this screen is displayed
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _currentNavIndex != 0) {
+        setState(() {
+          _currentNavIndex = 0;
+        });
+      }
+    });
 
-    return Scaffold(
-      backgroundColor: Color(0xFF4569AD),
-      body: Stack(
-        children: [
-          // Background gradient - SAME AS ONBOARDING
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFF4569AD), Color(0xFF14366D)],
+    final userName = widget.userData?['name'] as String? ?? 'User';
+
+    // Determine if this is a new user (account created within last 10 minutes)
+    final createdAtStr = widget.userData?['createdAt'] as String?;
+    final isNewUser =
+        createdAtStr != null &&
+        DateTime.now().difference(DateTime.parse(createdAtStr)).inMinutes < 10;
+    final greeting = isNewUser ? 'Welcome' : 'Welcome back';
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Color(0xFF081F44),
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+      ),
+      child: Scaffold(
+        backgroundColor: const Color(0xFF4569AD),
+        body: Stack(
+          children: [
+            // Background gradient - SAME AS ONBOARDING
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: const [Color(0xFF4569AD), Color(0xFF14366D)],
+                ),
               ),
             ),
-          ),
 
-          // Stars layer - SAME AS ONBOARDING
-          IgnorePointer(
-            child: AnimatedBuilder(
-              animation: _floatController1,
-              builder: (context, child) {
-                return CustomPaint(
-                  size: Size.infinite,
-                  painter: SubtleStarsPainter(twinkle: _floatController1.value),
-                );
-              },
+            // Stars layer - SAME AS ONBOARDING
+            IgnorePointer(
+              child: AnimatedBuilder(
+                animation: _floatController1,
+                builder: (context, child) {
+                  return CustomPaint(
+                    size: Size.infinite,
+                    painter: SubtleStarsPainter(
+                      twinkle: _floatController1.value,
+                    ),
+                  );
+                },
+              ),
             ),
-          ),
 
-          // Animated 3D shapes - SAME AS ONBOARDING
-          IgnorePointer(
-            child: AnimatedBuilder(
-              animation: Listenable.merge([
-                _floatController1,
-                _floatController2,
-                _floatController3,
-              ]),
-              builder: (context, child) {
-                return CustomPaint(
-                  size: Size.infinite,
-                  painter: Animated3DShapesPainter(
-                    animation1: _floatController1.value,
-                    animation2: _floatController2.value,
-                    animation3: _floatController3.value,
-                  ),
-                );
-              },
+            // Animated 3D shapes - SAME AS ONBOARDING
+            IgnorePointer(
+              child: AnimatedBuilder(
+                animation: Listenable.merge([
+                  _floatController1,
+                  _floatController2,
+                  _floatController3,
+                ]),
+                builder: (context, child) {
+                  return CustomPaint(
+                    size: Size.infinite,
+                    painter: Animated3DShapesPainter(
+                      animation1: _floatController1.value,
+                      animation2: _floatController2.value,
+                      animation3: _floatController3.value,
+                      accentColor: const Color(0xFF4569AD),
+                      bgColor: const Color(0xFF081F44),
+                    ),
+                  );
+                },
+              ),
             ),
-          ),
 
-          // Main content
-          SafeArea(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.only(bottom: 100), // Only bottom padding
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // MAIN HEADER CARD - Edge-to-edge with curved bottom
-                  Container(
-                    margin: EdgeInsets.only(bottom: 24),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.only(
-                        bottomLeft: Radius.circular(32),
-                        bottomRight: Radius.circular(32),
-                      ),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                        child: Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 24,
+            // Main content
+            SafeArea(
+              child: ScrollConfiguration(
+                behavior: ScrollConfiguration.of(
+                  context,
+                ).copyWith(overscroll: false),
+                child: SingleChildScrollView(
+                  physics: const ClampingScrollPhysics(),
+                  padding: EdgeInsets.only(bottom: 100),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // MAIN HEADER CARD - Edge-to-edge with curved bottom
+                      Container(
+                        margin: EdgeInsets.only(bottom: 24),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.only(
+                            bottomLeft: Radius.circular(32),
+                            bottomRight: Radius.circular(32),
                           ),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                Color(0xFF1F3F74).withOpacity(0.5),
-                                Color(0xFF081F44).withOpacity(0.6),
-                              ],
-                            ),
-                            border: Border(
-                              bottom: BorderSide(
-                                color: Color(0xFF4569AD).withOpacity(0.4),
-                                width: 1.5,
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                            child: Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 24,
                               ),
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              // Left icon - Profile
-                              Container(
-                                padding: EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Color(0xFF081F44).withOpacity(0.6),
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(
-                                    color: Color(0xFF4569AD).withOpacity(0.5),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Color(0xFF1F3F74).withOpacity(0.5),
+                                    Color(0xFF081F44).withOpacity(0.6),
+                                  ],
+                                ),
+                                border: Border(
+                                  bottom: BorderSide(
+                                    color: Color(0xFF4569AD).withOpacity(0.4),
                                     width: 1.5,
                                   ),
                                 ),
-                                child: Icon(
-                                  Icons.person_outline,
-                                  color: Colors.white,
-                                  size: 28,
-                                ),
                               ),
-
-                              SizedBox(width: 16),
-
-                              // Center text
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Welcome back',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: Colors.white.withOpacity(0.8),
-                                        fontWeight: FontWeight.w400,
-                                      ),
-                                    ),
-                                    SizedBox(height: 2),
-                                    Text(
-                                      userName,
-                                      style: TextStyle(
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                        letterSpacing: -0.5,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
-                                ),
-                              ),
-
-                              SizedBox(width: 16),
-
-                              // Right icon - Notifications with badge
-                              Stack(
-                                clipBehavior: Clip.none,
+                              child: Row(
                                 children: [
+                                  // Left icon - Profile
                                   Container(
                                     padding: EdgeInsets.all(16),
                                     decoration: BoxDecoration(
@@ -213,40 +250,362 @@ class _HomeScreenYoungAdultState extends State<HomeScreenYoungAdult>
                                       ),
                                     ),
                                     child: Icon(
-                                      Icons.notifications_outlined,
+                                      Icons.person_outline,
                                       color: Colors.white,
                                       size: 28,
                                     ),
                                   ),
-                                  Positioned(
-                                    right: 8,
-                                    top: 8,
-                                    child: Container(
-                                      padding: EdgeInsets.symmetric(
-                                        horizontal: 6,
-                                        vertical: 3,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Color(0xFF4CAF50),
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: Colors.white,
-                                          width: 2,
-                                        ),
-                                      ),
-                                      constraints: BoxConstraints(
-                                        minWidth: 20,
-                                        minHeight: 20,
-                                      ),
-                                      child: Center(
-                                        child: Text(
-                                          '3',
+
+                                  SizedBox(width: 16),
+
+                                  // Center text
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          greeting,
                                           style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                            color: Colors.white.withOpacity(
+                                              0.8,
+                                            ),
+                                            fontWeight: FontWeight.w400,
                                           ),
                                         ),
+                                        SizedBox(height: 2),
+                                        Text(
+                                          userName,
+                                          style: TextStyle(
+                                            fontSize: 22,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                            letterSpacing: -0.5,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+
+                                  SizedBox(width: 16),
+
+                                  // Right icon - Notifications with badge
+                                  GestureDetector(
+                                    onTap: () {
+                                      final uid =
+                                          widget.userData?['uid'] as String? ??
+                                          '';
+                                      if (uid.isNotEmpty) {
+                                        NuruFirebaseService.instance
+                                            .clearUnreadNotifications(uid);
+                                      }
+                                    },
+                                    child: Stack(
+                                      clipBehavior: Clip.none,
+                                      children: [
+                                        Container(
+                                          padding: EdgeInsets.all(16),
+                                          decoration: BoxDecoration(
+                                            color: Color(
+                                              0xFF081F44,
+                                            ).withOpacity(0.6),
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                            border: Border.all(
+                                              color: Color(
+                                                0xFF4569AD,
+                                              ).withOpacity(0.5),
+                                              width: 1.5,
+                                            ),
+                                          ),
+                                          child: Icon(
+                                            _liveUnread > 0
+                                                ? Icons.notifications
+                                                : Icons.notifications_outlined,
+                                            color: Colors.white,
+                                            size: 28,
+                                          ),
+                                        ),
+                                        if (_liveUnread > 0)
+                                          Positioned(
+                                            right: 8,
+                                            top: 8,
+                                            child: Container(
+                                              padding: EdgeInsets.symmetric(
+                                                horizontal: 6,
+                                                vertical: 3,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: Color(0xFF4CAF50),
+                                                shape: BoxShape.circle,
+                                                border: Border.all(
+                                                  color: Colors.white,
+                                                  width: 2,
+                                                ),
+                                              ),
+                                              constraints: BoxConstraints(
+                                                minWidth: 20,
+                                                minHeight: 20,
+                                              ),
+                                              child: Center(
+                                                child: Text(
+                                                  _liveUnread > 99
+                                                      ? '99+'
+                                                      : '$_liveUnread',
+                                                  style: TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      // Metrics Overview - GLASSMORPHISM
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 24),
+                        child: _buildGlassContainer(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Weekly Overview',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              SizedBox(height: 20),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildMetricItem(
+                                      'Check-ins',
+                                      '$_liveCheckIns',
+                                      _liveCheckIns > 0
+                                          ? '↑ keep going'
+                                          : 'Start today',
+                                      Color(0xFF4CAF50),
+                                    ),
+                                  ),
+                                  Container(
+                                    width: 1,
+                                    height: 40,
+                                    color: Colors.white.withOpacity(0.2),
+                                  ),
+                                  Expanded(
+                                    child: _buildMetricItem(
+                                      'Avg. Mood',
+                                      _liveAvgMood > 0
+                                          ? '${_liveAvgMood.toStringAsFixed(1)}/10'
+                                          : '—',
+                                      _liveAvgMood >= 7
+                                          ? '↑ great'
+                                          : _liveAvgMood >= 4
+                                          ? '→ steady'
+                                          : _liveAvgMood > 0
+                                          ? '↓ low'
+                                          : '',
+                                      Color(0xFF2196F3),
+                                    ),
+                                  ),
+                                  Container(
+                                    width: 1,
+                                    height: 40,
+                                    color: Colors.white.withOpacity(0.2),
+                                  ),
+                                  Expanded(
+                                    child: _buildMetricItem(
+                                      'Streak',
+                                      _liveStreak > 0
+                                          ? '$_liveStreak days'
+                                          : '0 days',
+                                      _liveStreak > 0
+                                          ? '🔥 active'
+                                          : 'Log mood to start',
+                                      Color(0xFFFF9800),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      SizedBox(height: 24),
+
+                      // Mood Assessment - GLASSMORPHISM
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 24),
+                        child: Text(
+                          'How Are You Feeling?',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 16),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 24),
+                        child: _buildGlassContainer(
+                          child: Column(
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: List.generate(5, (index) {
+                                  final colors = [
+                                    Color(0xFFF44336),
+                                    Color(0xFFFF9800),
+                                    Color(0xFFFFC107),
+                                    Color(0xFF8BC34A),
+                                    Color(0xFF4CAF50),
+                                  ];
+                                  final icons = [
+                                    Icons.sentiment_very_dissatisfied,
+                                    Icons.sentiment_dissatisfied,
+                                    Icons.sentiment_neutral,
+                                    Icons.sentiment_satisfied,
+                                    Icons.sentiment_very_satisfied,
+                                  ];
+                                  return _buildMoodScale(
+                                    index,
+                                    colors[index],
+                                    icons[index],
+                                  );
+                                }),
+                              ),
+                              SizedBox(height: 20),
+                              // Saved notes list
+                              if (_savedNotes.isNotEmpty) ...[
+                                ..._savedNotes
+                                    .map(
+                                      (note) => Padding(
+                                        padding: EdgeInsets.only(bottom: 8),
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              Icons.check_circle_outline,
+                                              size: 14,
+                                              color: Colors.white54,
+                                            ),
+                                            SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                note,
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  color: Colors.white70,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    )
+                                    .toList(),
+                                SizedBox(height: 8),
+                              ],
+                              // Note input field
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Container(
+                                      padding: EdgeInsets.symmetric(
+                                        vertical: 4,
+                                        horizontal: 16,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Color(
+                                          0xFF081F44,
+                                        ).withOpacity(0.3),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: Color(
+                                            0xFF4569AD,
+                                          ).withOpacity(0.4),
+                                          width: 1,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.edit_outlined,
+                                            size: 18,
+                                            color: Colors.white70,
+                                          ),
+                                          SizedBox(width: 12),
+                                          Expanded(
+                                            child: Theme(
+                                              data: Theme.of(context).copyWith(
+                                                textSelectionTheme:
+                                                    TextSelectionThemeData(
+                                                      cursorColor:
+                                                          Colors.white70,
+                                                      selectionColor:
+                                                          Colors.white24,
+                                                      selectionHandleColor:
+                                                          Colors.white70,
+                                                    ),
+                                              ),
+                                              child: TextField(
+                                                controller: _moodNoteController,
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  color: Colors.white,
+                                                ),
+                                                cursorColor: Colors.white70,
+                                                decoration: InputDecoration(
+                                                  hintText:
+                                                      'Add context or notes...',
+                                                  hintStyle: TextStyle(
+                                                    fontSize: 14,
+                                                    color: Colors.white60,
+                                                  ),
+                                                  border: InputBorder.none,
+                                                  enabledBorder:
+                                                      InputBorder.none,
+                                                  focusedBorder:
+                                                      InputBorder.none,
+                                                  contentPadding:
+                                                      EdgeInsets.symmetric(
+                                                        vertical: 12,
+                                                      ),
+                                                ),
+                                                maxLines: 1,
+                                                textInputAction:
+                                                    TextInputAction.done,
+                                                onSubmitted: (value) {
+                                                  final trimmed = value.trim();
+                                                  if (trimmed.isNotEmpty) {
+                                                    setState(() {
+                                                      _savedNotes.add(trimmed);
+                                                      _moodNoteController
+                                                          .clear();
+                                                    });
+                                                  }
+                                                },
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ),
@@ -256,295 +615,155 @@ class _HomeScreenYoungAdultState extends State<HomeScreenYoungAdult>
                           ),
                         ),
                       ),
-                    ),
-                  ),
 
-                  // Metrics Overview - GLASSMORPHISM
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 24),
-                    child: _buildGlassContainer(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Weekly Overview',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
+                      SizedBox(height: 24),
+
+                      // Quick Actions Grid - GLASSMORPHISM
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Quick Actions',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
                             ),
-                          ),
-                          SizedBox(height: 20),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildMetricItem(
-                                  'Check-ins',
-                                  '${widget.userData?['totalCheckIns'] ?? 0}',
-                                  widget.userData?['checkInTrend'] ?? '',
-                                  Color(0xFF4CAF50),
-                                ),
-                              ),
-                              Container(
-                                width: 1,
-                                height: 40,
-                                color: Colors.white.withOpacity(0.2),
-                              ),
-                              Expanded(
-                                child: _buildMetricItem(
-                                  'Avg. Mood',
-                                  '${widget.userData?['avgMood']?.toStringAsFixed(1) ?? '0.0'}/10',
-                                  widget.userData?['moodTrend'] ?? '',
-                                  Color(0xFF2196F3),
-                                ),
-                              ),
-                              Container(
-                                width: 1,
-                                height: 40,
-                                color: Colors.white.withOpacity(0.2),
-                              ),
-                              Expanded(
-                                child: _buildMetricItem(
-                                  'Streak',
-                                  '${widget.userData?['currentStreak'] ?? 0} days',
-                                  '',
-                                  Color(0xFFFF9800),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  SizedBox(height: 24),
-
-                  // Mood Assessment - GLASSMORPHISM
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 24),
-                    child: Text(
-                      'How Are You Feeling?',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 16),
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 24),
-                    child: _buildGlassContainer(
-                      child: Column(
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: List.generate(5, (index) {
-                              final colors = [
-                                Color(0xFFF44336),
-                                Color(0xFFFF9800),
-                                Color(0xFFFFC107),
-                                Color(0xFF8BC34A),
-                                Color(0xFF4CAF50),
-                              ];
-                              final icons = [
-                                Icons.sentiment_very_dissatisfied,
-                                Icons.sentiment_dissatisfied,
-                                Icons.sentiment_neutral,
-                                Icons.sentiment_satisfied,
-                                Icons.sentiment_very_satisfied,
-                              ];
-                              return _buildMoodScale(
-                                index,
-                                colors[index],
-                                icons[index],
-                              );
-                            }),
-                          ),
-                          SizedBox(height: 20),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Container(
-                                  padding: EdgeInsets.symmetric(
-                                    vertical: 14,
-                                    horizontal: 16,
+                            SizedBox(height: 16),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildGlassActionCard(
+                                    'Journal Entry',
+                                    'Document your thoughts',
+                                    Icons.book_outlined,
+                                    const Color(0xFF4569AD),
                                   ),
+                                ),
+                                SizedBox(width: 16),
+                                Expanded(
+                                  child: _buildGlassActionCard(
+                                    'Breathing',
+                                    'Guided exercises',
+                                    Icons.air,
+                                    const Color(0xFF1F3F74),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: 16),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildGlassActionCard(
+                                    'Analytics',
+                                    'View detailed insights',
+                                    Icons.analytics_outlined,
+                                    const Color(0xFF4569AD),
+                                  ),
+                                ),
+                                SizedBox(width: 16),
+                                Expanded(
+                                  child: _buildGlassActionCard(
+                                    'Resources',
+                                    'Self-help materials',
+                                    Icons.library_books_outlined,
+                                    const Color(0xFF081F44),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      SizedBox(height: 24),
+
+                      // Need Help - FRIENDLY APPROACH
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 24),
+                        child: GestureDetector(
+                          onTap: () => Navigator.pushNamed(
+                            context,
+                            '/nuru-ai',
+                            arguments: widget.userData,
+                          ),
+                          child: _buildGlassContainer(
+                            gradient: LinearGradient(
+                              colors: [
+                                const Color(0xFF1F3F74),
+                                const Color(0xFF081F44),
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: EdgeInsets.all(16),
                                   decoration: BoxDecoration(
-                                    color: Color(0xFF081F44).withOpacity(0.3),
-                                    borderRadius: BorderRadius.circular(12),
+                                    color: Color(0xFF081F44).withOpacity(0.6),
+                                    borderRadius: BorderRadius.circular(14),
                                     border: Border.all(
-                                      color: Color(0xFF4569AD).withOpacity(0.4),
-                                      width: 1,
+                                      color: Color(0xFF4569AD).withOpacity(0.5),
+                                      width: 1.5,
                                     ),
                                   ),
-                                  child: Row(
+                                  child: Icon(
+                                    Icons.support_agent,
+                                    color: Colors.white,
+                                    size: 28,
+                                  ),
+                                ),
+                                SizedBox(width: 20),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      Icon(
-                                        Icons.edit_outlined,
-                                        size: 18,
-                                        color: Colors.white70,
+                                      Text(
+                                        'Need Help?',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
                                       ),
-                                      SizedBox(width: 12),
-                                      Expanded(
-                                        child: Text(
-                                          'Add context or notes...',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            color: Colors.white60,
-                                          ),
+                                      SizedBox(height: 4),
+                                      Text(
+                                        'Chat with NuruAI anytime',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: Colors.white.withOpacity(0.9),
                                         ),
                                       ),
                                     ],
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  SizedBox(height: 24),
-
-                  // Quick Actions Grid - GLASSMORPHISM
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Quick Actions',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                          ),
-                        ),
-                        SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildGlassActionCard(
-                                'Journal Entry',
-                                'Document your thoughts',
-                                Icons.book_outlined,
-                                Color(0xFF4569AD),
-                              ),
-                            ),
-                            SizedBox(width: 16),
-                            Expanded(
-                              child: _buildGlassActionCard(
-                                'Breathing',
-                                'Guided exercises',
-                                Icons.air,
-                                Color(0xFF1F3F74),
-                              ),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildGlassActionCard(
-                                'Analytics',
-                                'View detailed insights',
-                                Icons.analytics_outlined,
-                                Color(0xFF3A5FA8),
-                              ),
-                            ),
-                            SizedBox(width: 16),
-                            Expanded(
-                              child: _buildGlassActionCard(
-                                'Resources',
-                                'Self-help materials',
-                                Icons.library_books_outlined,
-                                Color(0xFF081F44),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  SizedBox(height: 24),
-
-                  // Need Help - FRIENDLY APPROACH
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 24),
-                    child: _buildGlassContainer(
-                      gradient: LinearGradient(
-                        colors: [
-                          Color(0xFF1F3F74).withOpacity(0.75),
-                          Color(0xFF081F44).withOpacity(0.85),
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Color(0xFF081F44).withOpacity(0.6),
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(
-                                color: Color(0xFF4569AD).withOpacity(0.5),
-                                width: 1.5,
-                              ),
-                            ),
-                            child: Icon(
-                              Icons.support_agent,
-                              color: Colors.white,
-                              size: 28,
-                            ),
-                          ),
-                          SizedBox(width: 20),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Need Help?',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                SizedBox(height: 4),
-                                Text(
-                                  'Chat with NuruAI anytime',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.white.withOpacity(0.9),
-                                  ),
+                                Icon(
+                                  Icons.arrow_forward_ios,
+                                  color: Colors.white,
+                                  size: 20,
                                 ),
                               ],
                             ),
                           ),
-                          Icon(
-                            Icons.arrow_forward_ios,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
-                  ),
 
-                  SizedBox(height: 20),
-                ],
+                      SizedBox(height: 20),
+                    ],
+                  ),
+                ),
               ),
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
 
-      // BOTTOM NAVIGATION BAR WITH GLASSMORPHISM
-      bottomNavigationBar: _buildGlassBottomNav(),
+        // BOTTOM NAVIGATION BAR WITH GLASSMORPHISM
+        bottomNavigationBar: _buildGlassBottomNav(),
+      ),
     );
   }
 
@@ -585,10 +804,7 @@ class _HomeScreenYoungAdultState extends State<HomeScreenYoungAdult>
                 LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFF1F3F74).withOpacity(0.75),
-                    Color(0xFF081F44).withOpacity(0.80),
-                  ],
+                  colors: [const Color(0xFF1F3F74), const Color(0xFF081F44)],
                 ),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
@@ -662,6 +878,9 @@ class _HomeScreenYoungAdultState extends State<HomeScreenYoungAdult>
         setState(() {
           _selectedMoodIndex = index;
         });
+        // Map 0-4 index to 1-10 mood score (2, 4, 6, 8, 10)
+        final moodScore = (index + 1) * 2;
+        _logMoodCheckIn(moodScore);
       },
       child: Container(
         padding: EdgeInsets.all(12),
@@ -693,9 +912,25 @@ class _HomeScreenYoungAdultState extends State<HomeScreenYoungAdult>
     return GestureDetector(
       onTap: () {
         if (title == 'Journal Entry') {
-          Navigator.pushNamed(context, '/journal');
-        } else {
-          print('Navigate to: $title');
+          Navigator.pushNamed(context, '/journal', arguments: widget.userData);
+        } else if (title == 'Breathing') {
+          Navigator.pushNamed(
+            context,
+            '/breathing',
+            arguments: widget.userData,
+          );
+        } else if (title == 'Analytics') {
+          Navigator.pushNamed(
+            context,
+            '/analytics',
+            arguments: widget.userData,
+          );
+        } else if (title == 'Resources') {
+          Navigator.pushNamed(
+            context,
+            '/resources',
+            arguments: widget.userData,
+          );
         }
       },
       child: ClipRRect(
@@ -708,10 +943,7 @@ class _HomeScreenYoungAdultState extends State<HomeScreenYoungAdult>
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF1F3F74).withOpacity(0.75),
-                  Color(0xFF081F44).withOpacity(0.80),
-                ],
+                colors: [const Color(0xFF1F3F74), const Color(0xFF081F44)],
               ),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
@@ -788,10 +1020,10 @@ class _HomeScreenYoungAdultState extends State<HomeScreenYoungAdult>
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    Color(0xFF1F3F74),
-                    Color(0xFF081F44),
-                    Color(0xFF081F44),
-                    Color(0xFF0D2550),
+                    const Color(0xFF1F3F74),
+                    const Color(0xFF081F44),
+                    const Color(0xFF081F44),
+                    const Color(0xFF14366D),
                   ],
                 ),
               ),
@@ -900,21 +1132,24 @@ class _HomeScreenYoungAdultState extends State<HomeScreenYoungAdult>
 
     return GestureDetector(
       onTap: () {
-        if (index == 0) return; // already on home
-        setState(() => _currentNavIndex = index);
+        // Update selection to where user tapped
+        setState(() {
+          _currentNavIndex = index;
+        });
+
+        // Navigate to different screens
         if (index == 1) {
-          Navigator.pushNamed(context, '/calmme').then((_) {
-            if (mounted) setState(() => _currentNavIndex = 0);
-          });
+          Navigator.pushNamed(context, '/calmme', arguments: widget.userData);
         } else if (index == 2) {
-          Navigator.pushNamed(context, '/analytics').then((_) {
-            if (mounted) setState(() => _currentNavIndex = 0);
-          });
+          Navigator.pushNamed(
+            context,
+            '/analytics',
+            arguments: widget.userData,
+          );
         } else if (index == 3) {
-          Navigator.pushNamed(context, '/profile').then((_) {
-            if (mounted) setState(() => _currentNavIndex = 0);
-          });
+          Navigator.pushNamed(context, '/profile', arguments: widget.userData);
         }
+        // If index == 0 (Home), we're already here, do nothing
       },
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -1011,18 +1246,22 @@ class Animated3DShapesPainter extends CustomPainter {
   final double animation1;
   final double animation2;
   final double animation3;
+  final Color accentColor;
+  final Color bgColor;
 
   Animated3DShapesPainter({
     required this.animation1,
     required this.animation2,
     required this.animation3,
+    required this.accentColor,
+    required this.bgColor,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..style = PaintingStyle.fill;
 
-    paint.color = Color(0xFFB7C3E8).withOpacity(0.25);
+    paint.color = accentColor.withOpacity(0.25);
     final offsetY1 = animation1 * 40 - 20;
     final path1 = Path()
       ..moveTo(0, offsetY1)
@@ -1047,7 +1286,7 @@ class Animated3DShapesPainter extends CustomPainter {
       ..close();
     canvas.drawPath(path1, paint);
 
-    paint.color = Color(0xFF081F44).withOpacity(0.2);
+    paint.color = bgColor.withOpacity(0.2);
     final offsetX2 = animation2 * 35 - 17;
     final path2 = Path()
       ..moveTo(size.width, size.height * 0.2 + offsetX2)
@@ -1101,8 +1340,8 @@ class Animated3DShapesPainter extends CustomPainter {
       ..shader =
           RadialGradient(
             colors: [
-              Color(0xFF14366D).withOpacity(0.35),
-              Color(0xFF14366D).withOpacity(0.1),
+              bgColor.withOpacity(0.35),
+              bgColor.withOpacity(0.1),
               Colors.transparent,
             ],
             stops: [0.0, 0.6, 1.0],
@@ -1129,6 +1368,8 @@ class Animated3DShapesPainter extends CustomPainter {
   bool shouldRepaint(Animated3DShapesPainter oldDelegate) {
     return oldDelegate.animation1 != animation1 ||
         oldDelegate.animation2 != animation2 ||
-        oldDelegate.animation3 != animation3;
+        oldDelegate.animation3 != animation3 ||
+        oldDelegate.accentColor != accentColor ||
+        oldDelegate.bgColor != bgColor;
   }
 }

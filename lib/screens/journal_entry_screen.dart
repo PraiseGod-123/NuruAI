@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:ui';
 import 'dart:math' as math;
+import 'package:provider/provider.dart';
 import '../utils/nuru_colors.dart';
+import '../providers/theme_provider.dart';
+import '../providers/nuru_theme_extension.dart';
+import '../services/firebase_service.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
 
@@ -30,11 +34,6 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
   DateTime focusedDay = DateTime.now();
 
   // ── Colours ──────────────────────────────────────────────
-  static const Color _bgTop = Color(0xFF4569AD);
-  static const Color _bgBottom = Color(0xFF14366D);
-  static const Color _cardTop = Color(0xFF1F3F74);
-  static const Color _cardBot = Color(0xFF081F44);
-  static const Color _border = Color(0xFF4569AD);
 
   final List<Map<String, dynamic>> moods = [
     {'emoji': '😊', 'label': 'Happy', 'value': 'happy'},
@@ -88,14 +87,16 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  _cardTop.withOpacity(0.97),
-                  _cardBot.withOpacity(0.99),
+                  Color(0xFF1F3F74).withOpacity(0.97),
+                  Color(0xFF081F44).withOpacity(0.99),
                 ],
               ),
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(28),
               ),
-              border: Border(top: BorderSide(color: _border.withOpacity(0.35))),
+              border: Border(
+                top: BorderSide(color: Color(0xFF4569AD).withOpacity(0.35)),
+              ),
             ),
             child: Column(
               children: [
@@ -135,19 +136,21 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
                   },
                   calendarStyle: CalendarStyle(
                     todayDecoration: BoxDecoration(
-                      color: _border.withOpacity(0.35),
+                      color: Color(0xFF4569AD).withOpacity(0.35),
                       shape: BoxShape.circle,
                     ),
-                    todayTextStyle: const TextStyle(color: Colors.white),
-                    selectedDecoration: const BoxDecoration(
-                      color: Color(0xFF4569AD),
+                    todayTextStyle: TextStyle(color: Colors.white),
+                    selectedDecoration: BoxDecoration(
+                      color: const Color(0xFF4569AD),
                       shape: BoxShape.circle,
                     ),
-                    selectedTextStyle: const TextStyle(color: Colors.white),
+                    selectedTextStyle: TextStyle(color: Colors.white),
                     defaultTextStyle: TextStyle(
                       color: Colors.white.withOpacity(0.85),
                     ),
-                    weekendTextStyle: const TextStyle(color: Color(0xFF8EA2D7)),
+                    weekendTextStyle: TextStyle(
+                      color: Color(0xFF4569AD).withOpacity(0.6),
+                    ),
                     outsideTextStyle: TextStyle(
                       color: Colors.white.withOpacity(0.25),
                     ),
@@ -174,8 +177,8 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
                       color: Colors.white.withOpacity(0.5),
                       fontSize: 12,
                     ),
-                    weekendStyle: const TextStyle(
-                      color: Color(0xFF8EA2D7),
+                    weekendStyle: TextStyle(
+                      color: Color(0xFF4569AD).withOpacity(0.6),
                       fontSize: 12,
                     ),
                   ),
@@ -190,12 +193,15 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
                       width: double.infinity,
                       height: 48,
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF4569AD), Color(0xFF1F3F74)],
+                        gradient: LinearGradient(
+                          colors: [
+                            const Color(0xFF4569AD),
+                            const Color(0xFF1F3F74),
+                          ],
                         ),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: const Color(0xFF8EA2D7).withOpacity(0.45),
+                          color: Color(0xFF4569AD).withOpacity(0.45),
                         ),
                       ),
                       child: const Center(
@@ -222,7 +228,7 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
 
   // ── Save ──────────────────────────────────────────────────
 
-  void _saveEntry() {
+  Future<void> _saveEntry() async {
     if (_titleController.text.trim().isEmpty ||
         _contentController.text.trim().isEmpty) {
       _showSnack('Please fill in title and content', const Color(0xFFEF5350));
@@ -232,9 +238,30 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
       _showSnack('Please select your mood', const Color(0xFFFF9800));
       return;
     }
+
+    final title = _titleController.text.trim();
+    final content = _contentController.text.trim();
+    final uid = widget.userData?['uid'] as String? ?? '';
+
+    String? entryId;
+
+    // Save to Firestore if user is logged in
+    if (uid.isNotEmpty) {
+      entryId = await NuruFirebaseService.instance.saveJournal(
+        uid: uid,
+        title: title,
+        content: content,
+        mood: selectedMood!,
+        date: selectedDate,
+      );
+    }
+
+    if (!mounted) return;
+
     Navigator.pop(context, {
-      'title': _titleController.text.trim(),
-      'content': _contentController.text.trim(),
+      'id': entryId ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      'title': title,
+      'content': content,
       'mood': selectedMood,
       'date': selectedDate,
       'createdAt': DateTime.now(),
@@ -260,22 +287,22 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
-        statusBarColor: Color(0xFF1F3F74),
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
         statusBarBrightness: Brightness.dark,
       ),
       child: Scaffold(
-        backgroundColor: _bgBottom,
+        backgroundColor: const Color(0xFF0A1628),
         body: Stack(
           children: [
             // Background
             Container(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [_bgTop, _bgBottom],
+                  colors: [const Color(0xFF0D1F44), const Color(0xFF050D1A)],
                 ),
               ),
             ),
@@ -361,9 +388,14 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [_cardTop.withOpacity(0.65), _cardBot.withOpacity(0.55)],
+              colors: [
+                Color(0xFF1F3F74).withOpacity(0.65),
+                Color(0xFF081F44).withOpacity(0.55),
+              ],
             ),
-            border: Border(bottom: BorderSide(color: _border.withOpacity(0.3))),
+            border: Border(
+              bottom: BorderSide(color: Color(0xFF4569AD).withOpacity(0.3)),
+            ),
           ),
           child: Row(
             children: [
@@ -392,16 +424,19 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
                     vertical: 10,
                   ),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF4569AD), Color(0xFF1F3F74)],
+                    gradient: LinearGradient(
+                      colors: [
+                        const Color(0xFF4569AD),
+                        const Color(0xFF1F3F74),
+                      ],
                     ),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: const Color(0xFF8EA2D7).withOpacity(0.45),
+                      color: Color(0xFF4569AD).withOpacity(0.45),
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF4569AD).withOpacity(0.3),
+                        color: Color(0xFF4569AD).withOpacity(0.3),
                         blurRadius: 10,
                         offset: const Offset(0, 3),
                       ),
@@ -429,9 +464,12 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
       width: 42,
       height: 42,
       decoration: BoxDecoration(
-        color: _cardBot.withOpacity(0.5),
+        color: Color(0xFF081F44).withOpacity(0.5),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _border.withOpacity(0.45), width: 1.2),
+        border: Border.all(
+          color: Color(0xFF4569AD).withOpacity(0.45),
+          width: 1.2,
+        ),
       ),
       child: Icon(icon, color: Colors.white, size: 18),
     );
@@ -462,22 +500,28 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [_cardTop.withOpacity(0.7), _cardBot.withOpacity(0.8)],
+                colors: [
+                  Color(0xFF1F3F74).withOpacity(0.7),
+                  Color(0xFF081F44).withOpacity(0.8),
+                ],
               ),
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: _border.withOpacity(0.35), width: 1.2),
+              border: Border.all(
+                color: Color(0xFF4569AD).withOpacity(0.35),
+                width: 1.2,
+              ),
             ),
             child: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: _border.withOpacity(0.18),
+                    color: Color(0xFF4569AD).withOpacity(0.18),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.calendar_today_rounded,
-                    color: Color(0xFF8EA2D7),
+                    color: Color(0xFF4569AD).withOpacity(0.6),
                     size: 18,
                   ),
                 ),
@@ -527,14 +571,20 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: isSelected
-                    ? [moodColor.withOpacity(0.3), _cardBot.withOpacity(0.85)]
-                    : [_cardTop.withOpacity(0.6), _cardBot.withOpacity(0.75)],
+                    ? [
+                        moodColor.withOpacity(0.3),
+                        Color(0xFF081F44).withOpacity(0.85),
+                      ]
+                    : [
+                        Color(0xFF1F3F74).withOpacity(0.6),
+                        Color(0xFF081F44).withOpacity(0.75),
+                      ],
               ),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: isSelected
                     ? moodColor.withOpacity(0.7)
-                    : _border.withOpacity(0.3),
+                    : Color(0xFF4569AD).withOpacity(0.3),
                 width: isSelected ? 1.6 : 1.0,
               ),
               boxShadow: isSelected
@@ -585,29 +635,35 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [_cardTop.withOpacity(0.7), _cardBot.withOpacity(0.85)],
+              colors: [
+                Color(0xFF1F3F74).withOpacity(0.7),
+                Color(0xFF081F44).withOpacity(0.85),
+              ],
             ),
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: _border.withOpacity(0.35), width: 1.2),
+            border: Border.all(
+              color: Color(0xFF4569AD).withOpacity(0.35),
+              width: 1.2,
+            ),
           ),
           child: Theme(
             data: Theme.of(context).copyWith(
-              textSelectionTheme: const TextSelectionThemeData(
-                cursorColor: Color(0xFF8EA2D7),
+              textSelectionTheme: TextSelectionThemeData(
+                cursorColor: Color(0xFF4569AD).withOpacity(0.6),
                 selectionColor: Color(0x554569AD),
-                selectionHandleColor: Color(0xFF8EA2D7),
+                selectionHandleColor: Color(0xFF4569AD).withOpacity(0.6),
               ),
             ),
             child: TextField(
               controller: _titleController,
               focusNode: _titleFocus,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 15,
                 color: Colors.white,
                 fontWeight: FontWeight.w500,
                 decoration: TextDecoration.none,
               ),
-              cursorColor: const Color(0xFF8EA2D7),
+              cursorColor: Color(0xFF4569AD).withOpacity(0.6),
               decoration: InputDecoration(
                 hintText: 'Entry title…',
                 hintStyle: TextStyle(
@@ -635,23 +691,29 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
         child: Container(
-          constraints: const BoxConstraints(minHeight: 240),
+          constraints: BoxConstraints(minHeight: 240),
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [_cardTop.withOpacity(0.7), _cardBot.withOpacity(0.88)],
+              colors: [
+                Color(0xFF1F3F74).withOpacity(0.7),
+                Color(0xFF081F44).withOpacity(0.88),
+              ],
             ),
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: _border.withOpacity(0.35), width: 1.2),
+            border: Border.all(
+              color: Color(0xFF4569AD).withOpacity(0.35),
+              width: 1.2,
+            ),
           ),
           child: Theme(
             data: Theme.of(context).copyWith(
-              textSelectionTheme: const TextSelectionThemeData(
-                cursorColor: Color(0xFF8EA2D7),
+              textSelectionTheme: TextSelectionThemeData(
+                cursorColor: Color(0xFF4569AD).withOpacity(0.6),
                 selectionColor: Color(0x554569AD),
-                selectionHandleColor: Color(0xFF8EA2D7),
+                selectionHandleColor: Color(0xFF4569AD).withOpacity(0.6),
               ),
             ),
             child: TextField(
@@ -660,13 +722,13 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
               maxLines: null,
               keyboardType: TextInputType.multiline,
               textAlignVertical: TextAlignVertical.top,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 color: Colors.white,
                 height: 1.65,
                 decoration: TextDecoration.none,
               ),
-              cursorColor: const Color(0xFF8EA2D7),
+              cursorColor: Color(0xFF4569AD).withOpacity(0.6),
               decoration: InputDecoration(
                 hintText: 'Write freely — this is your safe space…',
                 hintStyle: TextStyle(
@@ -698,19 +760,19 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
         width: double.infinity,
         height: 54,
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF4569AD), Color(0xFF1F3F74)],
+            colors: [const Color(0xFF4569AD), const Color(0xFF1F3F74)],
           ),
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: const Color(0xFF8EA2D7).withOpacity(0.45),
+            color: Color(0xFF4569AD).withOpacity(0.45),
             width: 1.2,
           ),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF4569AD).withOpacity(0.4),
+              color: Color(0xFF4569AD).withOpacity(0.4),
               blurRadius: 20,
               offset: const Offset(0, 6),
             ),

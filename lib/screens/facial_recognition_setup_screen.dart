@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import 'dart:ui' as ui;
 import '../utils/nuru_colors.dart';
+import '../services/api_services.dart';
 
 class FacialRecognitionSetupScreen extends StatefulWidget {
   final Map<String, dynamic>? userData;
@@ -22,9 +25,10 @@ class _FacialRecognitionSetupScreenState
   CameraController? _cameraController;
   List<CameraDescription>? _cameras;
   bool _isCameraInitialized = false;
-  int _captureStep = 0; // 0: front, 1: left angle, 2: right angle
+  int _captureStep = 0;
   List<String> _capturedAngles = [];
   bool _isCapturing = false;
+  bool _isSendingToApi = false; // true while we upload baseline to the API
 
   late AnimationController _floatController1;
   late AnimationController _floatController2;
@@ -57,7 +61,6 @@ class _FacialRecognitionSetupScreenState
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // Delay camera init so permission dialog renders properly
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeCamera();
     });
@@ -87,13 +90,11 @@ class _FacialRecognitionSetupScreenState
   }
 
   Future<void> _initializeCamera() async {
-    // Prevent re-entry if already initialized
     if (_isCameraInitialized &&
         _cameraController != null &&
         _cameraController!.value.isInitialized)
       return;
 
-    // Request camera permission first
     final status = await Permission.camera.request();
     if (!status.isGranted) {
       _showError(
@@ -112,7 +113,7 @@ class _FacialRecognitionSetupScreenState
 
         _cameraController = CameraController(
           frontCamera,
-          ResolutionPreset.medium,
+          ResolutionPreset.low, // low resolution — enough for face detection
           enableAudio: false,
         );
 
@@ -154,9 +155,7 @@ class _FacialRecognitionSetupScreenState
       return;
     }
 
-    setState(() {
-      _isCapturing = true;
-    });
+    setState(() => _isCapturing = true);
 
     try {
       final image = await _cameraController!.takePicture();
@@ -171,16 +170,12 @@ class _FacialRecognitionSetupScreenState
       await Future.delayed(Duration(milliseconds: 500));
 
       if (_captureStep < _angles.length - 1) {
-        setState(() {
-          _captureStep++;
-        });
+        setState(() => _captureStep++);
       } else {
         _completeSetup();
       }
     } catch (e) {
-      setState(() {
-        _isCapturing = false;
-      });
+      setState(() => _isCapturing = false);
       _showError('Failed to capture image. Please try again.');
     }
   }
@@ -202,7 +197,40 @@ class _FacialRecognitionSetupScreenState
     );
   }
 
+  // ── Convert image file to compressed base64 string ────────────────────────
+  // Resizes the image to max 480px wide before encoding.
+  // This reduces a typical 1-2MB camera image to ~50KB,
+  // making the upload to the Flask API 20x faster.
+
+  Future<String> _imageToBase64(String imagePath) async {
+    final bytes = await File(imagePath).readAsBytes();
+
+    try {
+      // Decode and resize using Flutter built-in dart:ui codec
+      final codec = await ui.instantiateImageCodec(bytes, targetWidth: 480);
+      final frame = await codec.getNextFrame();
+      final pngData = await frame.image.toByteData(
+        format: ui.ImageByteFormat.png,
+      );
+      frame.image.dispose();
+
+      if (pngData == null) return base64Encode(bytes);
+      return base64Encode(pngData.buffer.asUint8List());
+    } catch (_) {
+      // If compression fails, send original bytes
+      return base64Encode(bytes);
+    }
+  }
+
+  // ── Complete setup — fire-and-forget, then show success immediately ──────────
+  // The API upload runs in the background. The user sees the success
+  // screen straight away and can continue without waiting.
+
   void _completeSetup() {
+    // Fire the API call in the background — do not block the user
+    _sendBaselineToApi();
+
+    // Show the success dialog immediately
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -231,7 +259,7 @@ class _FacialRecognitionSetupScreenState
             ),
             SizedBox(height: 12),
             Text(
-              'You can now use facial recognition to login quickly and securely',
+              'Your face data is being saved securely in the background.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
@@ -251,9 +279,7 @@ class _FacialRecognitionSetupScreenState
             ),
             child: ElevatedButton(
               onPressed: () {
-                // Dispose camera before navigating
                 _cameraController?.dispose();
-                // Now go to baseline setup for micro-expressions
                 Navigator.pushReplacementNamed(
                   context,
                   '/micro-expression-setup',
@@ -283,6 +309,50 @@ class _FacialRecognitionSetupScreenState
         ],
       ),
     );
+  }
+
+  Future<void> _sendBaselineToApi() async {
+    // Fire and forget — runs silently in background, does not block UI
+    if (mounted) setState(() => _isSendingToApi = true);
+
+    try {
+      // Get the user ID — use Firebase UID if available, otherwise fall back
+      final userId =
+          widget.userData?['uid'] as String? ??
+          widget.userData?['email'] as String? ??
+          'user_${DateTime.now().millisecondsSinceEpoch}';
+
+      // Convert all captured images to base64
+      final base64Images = <String>[];
+      for (final path in _capturedAngles) {
+        try {
+          final b64 = await _imageToBase64(path);
+          base64Images.add(b64);
+        } catch (_) {
+          // Skip images that fail to encode
+        }
+      }
+
+      if (base64Images.isEmpty) {
+        setState(() => _isSendingToApi = false);
+        return;
+      }
+
+      // Send to Flask API
+      final result = await NuruApiService.instance.setupBaseline(
+        userId: userId,
+        images: base64Images,
+      );
+
+      if (!result.success) {
+        // Not a fatal error — user can still continue, baseline can be retried
+        debugPrint('Baseline setup warning: ${result.message}');
+      }
+    } catch (e) {
+      debugPrint('Baseline API error: $e');
+    } finally {
+      if (mounted) setState(() => _isSendingToApi = false);
+    }
   }
 
   void _skipSetup() {
@@ -340,7 +410,6 @@ class _FacialRecognitionSetupScreenState
         ),
         child: Stack(
           children: [
-            // Animated background
             AnimatedBuilder(
               animation: Listenable.merge([
                 _floatController1,
@@ -389,7 +458,7 @@ class _FacialRecognitionSetupScreenState
                     ),
                   ),
 
-                  // Progress Indicator
+                  // Progress bar
                   Padding(
                     padding: EdgeInsets.symmetric(horizontal: 20),
                     child: Row(
@@ -479,8 +548,6 @@ class _FacialRecognitionSetupScreenState
                                 fit: StackFit.expand,
                                 children: [
                                   CameraPreview(_cameraController!),
-
-                                  // Face guide overlay
                                   Center(
                                     child: Container(
                                       width: 250,
@@ -498,8 +565,6 @@ class _FacialRecognitionSetupScreenState
                                       ),
                                     ),
                                   ),
-
-                                  // Capture feedback
                                   if (_isCapturing)
                                     Container(
                                       color: Colors.white.withOpacity(0.3),
@@ -706,7 +771,6 @@ class AngleCapture {
   });
 }
 
-// Simple background painter
 class SimpleBackgroundPainter extends CustomPainter {
   final double animation1;
   final double animation2;

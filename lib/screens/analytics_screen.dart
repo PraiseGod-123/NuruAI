@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'dart:ui';
 import '../services/analytics_service.dart';
+import 'package:provider/provider.dart';
+import '../providers/theme_provider.dart';
+import '../providers/nuru_theme_extension.dart';
 
 // ══════════════════════════════════════════════════════════════════════════
 // NuruAI — AnalyticsScreen
@@ -111,7 +114,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
   }
 
   Future<void> _loadData() async {
-    final userId = widget.userData?['id'] as String? ?? '';
+    final userId =
+        widget.userData?['uid'] as String? ??
+        widget.userData?['id'] as String? ??
+        '';
     final analytics = await AnalyticsService.instance.loadUserAnalytics(userId);
 
     if (!mounted) return;
@@ -136,8 +142,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
   // ── Colour helpers ────────────────────────────────────────────────────────
 
   Color _scoreColour(double score) {
-    if (score >= 8) return const Color(0xFF43E97B);
-    if (score >= 6) return const Color(0xFF8EA2D7);
+    if (score >= 8) return Color(0xFF43E97B);
+    if (score >= 6) return context.nuruTheme.accentColor.withOpacity(0.6);
     if (score >= 4) return const Color(0xFFFFA751);
     return const Color(0xFFFA709A);
   }
@@ -145,17 +151,17 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
   Color _moodColour(MoodValue mood) {
     switch (mood) {
       case MoodValue.happy:
-        return const Color(0xFF43E97B);
+        return Color(0xFF43E97B);
       case MoodValue.excited:
-        return const Color(0xFFFFA751);
+        return Color(0xFFFFA751);
       case MoodValue.calm:
-        return const Color(0xFF8EA2D7);
+        return context.nuruTheme.accentColor.withOpacity(0.6);
       case MoodValue.tired:
-        return const Color(0xFF6E7D95);
+        return Color(0xFF6E7D95);
       case MoodValue.anxious:
-        return const Color(0xFFFFC107);
+        return Color(0xFFFFC107);
       case MoodValue.sad:
-        return const Color(0xFF4569AD);
+        return context.nuruTheme.accentColor;
       case MoodValue.angry:
         return const Color(0xFFFA709A);
       case MoodValue.overwhelmed:
@@ -192,15 +198,16 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF081F44),
+      backgroundColor: context.nuruTheme.backgroundStart,
+      resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
           Container(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0xFF4569AD), Color(0xFF14366D)],
+                colors: context.nuruTheme.gradientColors,
               ),
             ),
           ),
@@ -215,7 +222,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
             animation: _shapeController,
             builder: (_, __) => CustomPaint(
               size: Size.infinite,
-              painter: _ShapesPainter(_shapeController.value),
+              painter: _ShapesPainter(
+                _shapeController.value,
+                context.nuruTheme.accentColor,
+              ),
             ),
           ),
           SafeArea(child: _loading ? _buildLoader() : _buildContent()),
@@ -224,8 +234,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
     );
   }
 
-  Widget _buildLoader() => const Center(
-    child: CircularProgressIndicator(color: Color(0xFF8EA2D7), strokeWidth: 2),
+  Widget _buildLoader() => Center(
+    child: CircularProgressIndicator(
+      color: context.nuruTheme.accentColor.withOpacity(0.6),
+      strokeWidth: 2,
+    ),
   );
 
   Widget _buildContent() {
@@ -234,20 +247,23 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
       opacity: _fadeAnim,
       child: SlideTransition(
         position: _slideAnim,
-        child: CustomScrollView(
-          physics: const ClampingScrollPhysics(),
-          slivers: [
-            SliverToBoxAdapter(child: _buildHeader(a)),
-            SliverToBoxAdapter(child: _buildPeriodSelector()),
-            SliverToBoxAdapter(child: _buildTodayInsight(a)),
-            SliverToBoxAdapter(child: _buildWellbeingScore(a)),
-            SliverToBoxAdapter(child: _buildMoodJourney(a)),
-            SliverToBoxAdapter(child: _buildWeekStats(a)),
-            SliverToBoxAdapter(child: _buildStreakSection(a)),
-            SliverToBoxAdapter(child: _buildWeeklyReport(a)),
-            SliverToBoxAdapter(child: _buildAwardsSection(a)),
-            const SliverToBoxAdapter(child: SizedBox(height: 40)),
-          ],
+        child: ScrollConfiguration(
+          behavior: ScrollConfiguration.of(context).copyWith(overscroll: false),
+          child: CustomScrollView(
+            physics: const ClampingScrollPhysics(),
+            slivers: [
+              SliverToBoxAdapter(child: _buildHeader(a)),
+              SliverToBoxAdapter(child: _buildPeriodSelector()),
+              SliverToBoxAdapter(child: _buildTodayInsight(a)),
+              SliverToBoxAdapter(child: _buildWellbeingScore(a)),
+              SliverToBoxAdapter(child: _buildMoodJourney(a)),
+              SliverToBoxAdapter(child: _buildWeekStats(a)),
+              SliverToBoxAdapter(child: _buildStreakSection(a)),
+              SliverToBoxAdapter(child: _buildWeeklyReport(a)),
+              SliverToBoxAdapter(child: _buildAwardsSection(a)),
+              const SliverToBoxAdapter(child: SizedBox(height: 40)),
+            ],
+          ),
         ),
       ),
     );
@@ -260,86 +276,101 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
   Widget _buildHeader(UserAnalytics a) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Back button — screen is pushed via Navigator.pushNamed from bottom nav
-          GestureDetector(
-            onTap: () => Navigator.of(context).pop(),
-            child: Container(
-              width: 38,
-              height: 38,
-              margin: const EdgeInsets.only(right: 12),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.08),
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: const Color(0xFF4569AD).withOpacity(0.4),
+          // Row 1 — back button + greeting
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              GestureDetector(
+                onTap: () => Navigator.of(context).pop(),
+                child: Container(
+                  width: 38,
+                  height: 38,
+                  margin: const EdgeInsets.only(right: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.08),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: context.nuruTheme.accentColor.withOpacity(0.4),
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    color: Colors.white,
+                    size: 16,
+                  ),
                 ),
               ),
-              child: const Icon(
-                Icons.arrow_back_ios_new_rounded,
-                color: Colors.white,
-                size: 16,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _greeting,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        height: 1.2,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Your wellbeing at a glance',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.white.withOpacity(0.55),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
+            ],
           ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _greeting,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+          const SizedBox(height: 12),
+          // Row 2 — chips
+          Row(
+            children: [
+              _GlassChip(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('\u2728', style: TextStyle(fontSize: 14)),
+                    const SizedBox(width: 5),
+                    Text(
+                      '${a.totalPoints} pts',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  'Your wellbeing at a glance',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.white.withOpacity(0.55),
-                  ),
+              ),
+              const SizedBox(width: 8),
+              _GlassChip(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('\ud83d\udd25', style: TextStyle(fontSize: 14)),
+                    const SizedBox(width: 5),
+                    Text(
+                      '${a.streakData.currentStreak} day${a.streakData.currentStreak == 1 ? '' : 's'}',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-          _GlassChip(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('\u2728', style: TextStyle(fontSize: 14)),
-                const SizedBox(width: 5),
-                Text(
-                  '${a.totalPoints} pts',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          _GlassChip(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('\ud83d\udd25', style: TextStyle(fontSize: 14)),
-                const SizedBox(width: 5),
-                Text(
-                  '${a.streakData.currentStreak} days',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
@@ -359,17 +390,17 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
           return GestureDetector(
             onTap: () => setState(() => _selectedPeriod = p),
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 220),
+              duration: Duration(milliseconds: 220),
               margin: const EdgeInsets.only(right: 10),
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
               decoration: BoxDecoration(
                 color: active
-                    ? const Color(0xFF4569AD).withOpacity(0.45)
+                    ? context.nuruTheme.accentColor.withOpacity(0.45)
                     : Colors.white.withOpacity(0.06),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
                   color: active
-                      ? const Color(0xFF8EA2D7)
+                      ? context.nuruTheme.accentColor.withOpacity(0.6)
                       : Colors.white.withOpacity(0.12),
                   width: active ? 1.5 : 1,
                 ),
@@ -445,12 +476,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF4569AD).withOpacity(0.18),
+                  color: context.nuruTheme.accentColor.withOpacity(0.18),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.insights_rounded,
-                  color: Color(0xFF8EA2D7),
+                  color: context.nuruTheme.accentColor.withOpacity(0.6),
                   size: 18,
                 ),
               ),
@@ -522,7 +553,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                 maxValue: 5,
                 colour: score != null
                     ? _scoreColour(score)
-                    : const Color(0xFF8EA2D7),
+                    : context.nuruTheme.accentColor.withOpacity(0.6),
                 isEmpty: !hasData,
               ),
             ),
@@ -562,13 +593,17 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                                   todayMood.emoji,
                                   style: const TextStyle(fontSize: 20),
                                 ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  todayMood.label,
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.white,
+                                const SizedBox(width: 6),
+                                Flexible(
+                                  child: Text(
+                                    todayMood.label,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
                                   ),
                                 ),
                               ],
@@ -691,9 +726,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
               ),
               child: Text(
                 insight!.summary!,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13.5,
-                  color: Color(0xFFB7C3E8),
+                  color: context.nuruTheme.accentColor.withOpacity(0.4),
                   height: 1.6,
                 ),
               ),
@@ -714,18 +749,18 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                       margin: const EdgeInsets.only(top: 6),
                       width: 5,
                       height: 5,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF8EA2D7),
+                      decoration: BoxDecoration(
+                        color: context.nuruTheme.accentColor.withOpacity(0.6),
                         shape: BoxShape.circle,
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         s,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
-                          color: Color(0xFF8EA2D7),
+                          color: context.nuruTheme.accentColor.withOpacity(0.6),
                           height: 1.5,
                         ),
                       ),
@@ -868,26 +903,48 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
   // ══════════════════════════════════════════════════════════════════════════
 
   Widget _buildMoodJourney(UserAnalytics a) {
-    final moods = a.recentMoods;
+    // moods come newest-first from Firestore
+    // We always show 7 slots: index 0 = 6 days ago, index 6 = today
+    final moods = a.recentMoods; // newest first
+
+    // Build a map of date-string → MoodEntry for fast lookup
+    final moodByDate = <String, MoodEntry>{};
+    for (final m in moods) {
+      final key =
+          '${m.timestamp.year}-${m.timestamp.month.toString().padLeft(2, '0')}-${m.timestamp.day.toString().padLeft(2, '0')}';
+      moodByDate.putIfAbsent(key, () => m);
+    }
+
+    // Build 7 slots from 6 days ago → today
+    final today = DateTime.now();
+    final slots = List.generate(7, (i) {
+      final date = today.subtract(Duration(days: 6 - i));
+      final key =
+          '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+      return _MoodSlot(date: date, entry: moodByDate[key]);
+    });
+
+    final loggedCount = slots.where((s) => s.entry != null).length;
 
     return _GlassSection(
       title: 'Mood Journey',
-      subtitle: 'Last 7 days',
+      subtitle: loggedCount == 0 ? 'No data yet' : 'Last 7 days',
       child: moods.isEmpty
           ? const _PendingBlock(
               icon: '\ud83d\ude0c',
               title: 'No mood logs yet',
               body:
-                  'Log your mood each day from the home screen or when '
-                  'writing a journal entry. Your 7-day mood history will appear here.',
+                  'Log your mood each day from the home screen. '
+                  'Your mood history will appear here.',
             )
           : Column(
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: List.generate(7, (i) {
-                    final entry = i < moods.length ? moods[i] : null;
-                    final dayLabel = _dayLabel(i, moods.length);
+                    final slot = slots[i];
+                    final entry = slot.entry;
+                    final label = _slotDayLabel(slot.date);
                     return Column(
                       children: [
                         AnimatedContainer(
@@ -918,10 +975,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          dayLabel,
-                          style: const TextStyle(
+                          label,
+                          style: TextStyle(
                             fontSize: 10,
-                            color: Color(0xFF6E7D95),
+                            color: label == 'Today'
+                                ? Colors.white70
+                                : const Color(0xFF6E7D95),
+                            fontWeight: label == 'Today'
+                                ? FontWeight.w600
+                                : FontWeight.normal,
                           ),
                         ),
                       ],
@@ -933,9 +995,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
     );
   }
 
-  String _dayLabel(int index, int totalMoods) {
-    final daysAgo = 6 - index;
-    final date = DateTime.now().subtract(Duration(days: daysAgo));
+  String _slotDayLabel(DateTime date) {
+    final now = DateTime.now();
+    final diff = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).difference(DateTime(date.year, date.month, date.day)).inDays;
+    if (diff == 0) return 'Today';
+    if (diff == 1) return 'Yest';
     const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     return labels[date.weekday - 1];
   }
@@ -967,7 +1035,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                   label: 'Journals',
                   value: '$journals',
                   icon: Icons.book_outlined,
-                  colour: const Color(0xFF8EA2D7),
+                  colour: context.nuruTheme.accentColor.withOpacity(0.6),
                 ),
                 _StatTile(
                   label: 'Breaths',
@@ -1070,11 +1138,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: active
-                            ? const Color(0xFF4569AD).withOpacity(0.65)
+                            ? context.nuruTheme.accentColor.withOpacity(0.65)
                             : Colors.white.withOpacity(0.05),
                         border: Border.all(
                           color: active
-                              ? const Color(0xFF8EA2D7).withOpacity(0.45)
+                              ? context.nuruTheme.accentColor.withOpacity(0.45)
                               : Colors.white.withOpacity(0.08),
                           width: 1,
                         ),
@@ -1137,12 +1205,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                     ],
                   ),
                 if (report.overallSummary != null) ...[
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                   Text(
                     report.overallSummary!,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14.5,
-                      color: Color(0xFFB7C3E8),
+                      color: context.nuruTheme.accentColor.withOpacity(0.4),
                       height: 1.6,
                     ),
                   ),
@@ -1163,18 +1231,19 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                             margin: const EdgeInsets.only(top: 5),
                             width: 6,
                             height: 6,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFF4569AD),
+                            decoration: BoxDecoration(
+                              color: context.nuruTheme.accentColor,
                               shape: BoxShape.circle,
                             ),
                           ),
-                          const SizedBox(width: 10),
+                          SizedBox(width: 10),
                           Expanded(
                             child: Text(
                               h,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 13.5,
-                                color: Color(0xFF8EA2D7),
+                                color: context.nuruTheme.accentColor
+                                    .withOpacity(0.6),
                                 height: 1.5,
                               ),
                             ),
@@ -1220,7 +1289,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
         final s = scores[i];
         final isToday = i == DateTime.now().weekday - 1;
         final ratio = maxS > 0 ? s / maxS : 0.0;
-        final colour = isToday ? _scoreColour(s) : const Color(0xFF4569AD);
+        final colour = isToday
+            ? _scoreColour(s)
+            : context.nuruTheme.accentColor;
 
         return Expanded(
           child: Padding(
@@ -1336,6 +1407,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
 // ══════════════════════════════════════════════════════════════════════════
 
 /// Standard glass card section.
+class _MoodSlot {
+  final DateTime date;
+  final MoodEntry? entry;
+  const _MoodSlot({required this.date, this.entry});
+}
+
 class _GlassSection extends StatelessWidget {
   final Widget child;
   final String? title;
@@ -1353,14 +1430,17 @@ class _GlassSection extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF1F3F74), Color(0xFF081F44)],
+              colors: [
+                context.nuruTheme.backgroundMid,
+                context.nuruTheme.backgroundStart,
+              ],
             ),
             borderRadius: BorderRadius.circular(22),
             border: Border.all(
-              color: const Color(0xFF4569AD).withOpacity(0.35),
+              color: context.nuruTheme.accentColor.withOpacity(0.35),
               width: 1.5,
             ),
           ),
@@ -1465,7 +1545,7 @@ class _GlassChip extends StatelessWidget {
     decoration: BoxDecoration(
       color: Colors.white.withOpacity(0.07),
       borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: const Color(0xFF4569AD).withOpacity(0.3)),
+      border: Border.all(color: context.nuruTheme.accentColor.withOpacity(0.3)),
     ),
     child: child,
   );
@@ -1487,7 +1567,7 @@ class _StreakCounter extends StatelessWidget {
     decoration: BoxDecoration(
       color: Colors.white.withOpacity(0.04),
       borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: const Color(0xFF4569AD).withOpacity(0.2)),
+      border: Border.all(color: context.nuruTheme.accentColor.withOpacity(0.2)),
     ),
     child: Column(
       children: [
@@ -1903,13 +1983,14 @@ class _StarsPainter extends CustomPainter {
 
 class _ShapesPainter extends CustomPainter {
   final double t;
-  const _ShapesPainter(this.t);
+  final Color accentColor;
+  const _ShapesPainter(this.t, this.accentColor);
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..style = PaintingStyle.fill;
     final dy = math.sin(t * math.pi) * 30;
-    paint.color = const Color(0xFFB7C3E8).withOpacity(0.06);
+    paint.color = accentColor.withOpacity(0.06);
     canvas.drawPath(
       Path()
         ..moveTo(0, dy)
@@ -1935,7 +2016,7 @@ class _ShapesPainter extends CustomPainter {
       paint,
     );
     final dx = math.cos(t * math.pi) * 25;
-    paint.color = const Color(0xFF3A4FA8).withOpacity(0.09);
+    paint.color = accentColor.withOpacity(0.09);
     canvas.drawPath(
       Path()
         ..moveTo(size.width + dx, size.height * 0.22)
@@ -1963,5 +2044,6 @@ class _ShapesPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_ShapesPainter o) => o.t != t;
+  bool shouldRepaint(_ShapesPainter o) =>
+      o.t != t || o.accentColor != accentColor;
 }

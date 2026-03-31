@@ -4,6 +4,10 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
 import '../services/nuru_ai_service.dart';
+import '../services/firebase_service.dart';
+import 'package:provider/provider.dart';
+import '../providers/theme_provider.dart';
+import '../providers/nuru_theme_extension.dart';
 
 // ══════════════════════════════════════════════════════════════
 // NURU AI CHAT SCREEN — Tiimo-inspired design
@@ -18,7 +22,8 @@ import '../services/nuru_ai_service.dart';
 // ══════════════════════════════════════════════════════════════
 
 class NuruAIChatScreen extends StatefulWidget {
-  const NuruAIChatScreen({Key? key}) : super(key: key);
+  final Map<String, dynamic>? userData;
+  const NuruAIChatScreen({Key? key, this.userData}) : super(key: key);
   @override
   State<NuruAIChatScreen> createState() => _NuruAIChatScreenState();
 }
@@ -34,18 +39,16 @@ class _NuruAIChatScreenState extends State<NuruAIChatScreen>
   bool _loading = false;
   bool _showCrisisBanner = false;
 
+  // Session tracking for Firestore persistence
+  final DateTime _sessionStart = DateTime.now();
+  String? _sessionTopic;
+
   final _svc = NuruAIService.instance;
 
   // Palette
-  static const Color _night = Color(0xFF081F44);
-  static const Color _dive = Color(0xFF1F3F74);
-  static const Color _sailing = Color(0xFF4569AD);
-  static const Color _deep = Color(0xFF14366D);
-  static const Color _lilac = Color(0xFFB7C3E8);
   static const Color _aiColor = Color(0xFF6C5CE7);
 
   // User bubble — sailing blue
-  static const Color _userBubble = Color(0xFF4569AD);
   // AI bubble — frosted white
   static const Color _aiBubble = Color(0xFFEDF1FB);
 
@@ -70,6 +73,25 @@ class _NuruAIChatScreenState extends State<NuruAIChatScreen>
 
   @override
   void dispose() {
+    // Save chat session to Firestore when user leaves
+    final uid = widget.userData?['uid'] as String? ?? '';
+    final userMessages = _messages.where((m) => m.isUser).toList();
+    if (uid.isNotEmpty && userMessages.isNotEmpty) {
+      NuruFirebaseService.instance.saveChatSession(
+        uid: uid,
+        messages: _messages
+            .map(
+              (m) => {
+                'text': m.text,
+                'isUser': m.isUser,
+                'timestamp': m.timestamp.toIso8601String(),
+              },
+            )
+            .toList(),
+        topic: _sessionTopic,
+        durationSecs: DateTime.now().difference(_sessionStart).inSeconds,
+      );
+    }
     _starCtrl.dispose();
     _inputCtrl.dispose();
     _scrollCtrl.dispose();
@@ -98,6 +120,40 @@ class _NuruAIChatScreenState extends State<NuruAIChatScreen>
 
     if (_svc.detectsCrisis(msg)) {
       setState(() => _showCrisisBanner = true);
+    }
+
+    // Detect topic from first user message
+    if (_sessionTopic == null) {
+      final lower = msg.toLowerCase();
+      if (lower.contains('overwhelm') || lower.contains('meltdown')) {
+        _sessionTopic = 'overwhelm';
+      } else if (lower.contains('anxi') ||
+          lower.contains('worry') ||
+          lower.contains('panic')) {
+        _sessionTopic = 'anxiety';
+      } else if (lower.contains('sad') ||
+          lower.contains('cry') ||
+          lower.contains('depress')) {
+        _sessionTopic = 'sadness';
+      } else if (lower.contains('ang') ||
+          lower.contains('frust') ||
+          lower.contains('rage')) {
+        _sessionTopic = 'anger';
+      } else if (lower.contains('breath') ||
+          lower.contains('calm') ||
+          lower.contains('relax')) {
+        _sessionTopic = 'calming';
+      } else if (lower.contains('lonely') ||
+          lower.contains('misunderstood') ||
+          lower.contains('alone')) {
+        _sessionTopic = 'connection';
+      } else if (lower.contains('sensory') ||
+          lower.contains('loud') ||
+          lower.contains('light')) {
+        _sessionTopic = 'sensory';
+      } else {
+        _sessionTopic = 'general';
+      }
     }
 
     setState(() {
@@ -141,23 +197,26 @@ class _NuruAIChatScreenState extends State<NuruAIChatScreen>
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
-        statusBarColor: Color(0xFF1F3F74),
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
         statusBarBrightness: Brightness.dark,
       ),
       child: Scaffold(
-        backgroundColor: _night,
+        backgroundColor: context.nuruTheme.backgroundStart,
         resizeToAvoidBottomInset: true,
         body: Stack(
           children: [
             // Background
             Container(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [_sailing, _deep],
+                  colors: [
+                    context.nuruTheme.accentColor,
+                    context.nuruTheme.backgroundEnd,
+                  ],
                 ),
               ),
             ),
@@ -205,10 +264,15 @@ class _NuruAIChatScreenState extends State<NuruAIChatScreen>
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [_dive.withOpacity(0.75), _night.withOpacity(0.80)],
+              colors: [
+                context.nuruTheme.backgroundMid.withOpacity(0.75),
+                context.nuruTheme.backgroundStart.withOpacity(0.80),
+              ],
             ),
             border: Border(
-              bottom: BorderSide(color: _sailing.withOpacity(0.4)),
+              bottom: BorderSide(
+                color: context.nuruTheme.accentColor.withOpacity(0.4),
+              ),
             ),
           ),
           child: Row(
@@ -219,10 +283,10 @@ class _NuruAIChatScreenState extends State<NuruAIChatScreen>
                   width: 42,
                   height: 42,
                   decoration: BoxDecoration(
-                    color: _night.withOpacity(0.5),
+                    color: context.nuruTheme.backgroundStart.withOpacity(0.5),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: _sailing.withOpacity(0.5),
+                      color: context.nuruTheme.accentColor.withOpacity(0.5),
                       width: 1.2,
                     ),
                   ),
@@ -280,7 +344,7 @@ class _NuruAIChatScreenState extends State<NuruAIChatScreen>
                         Container(
                           width: 7,
                           height: 7,
-                          decoration: const BoxDecoration(
+                          decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: Color(0xFF00B894),
                           ),
@@ -311,10 +375,10 @@ class _NuruAIChatScreenState extends State<NuruAIChatScreen>
                   width: 42,
                   height: 42,
                   decoration: BoxDecoration(
-                    color: _night.withOpacity(0.5),
+                    color: context.nuruTheme.backgroundStart.withOpacity(0.5),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: _sailing.withOpacity(0.4),
+                      color: context.nuruTheme.accentColor.withOpacity(0.4),
                       width: 1.2,
                     ),
                   ),
@@ -488,7 +552,7 @@ class _NuruAIChatScreenState extends State<NuruAIChatScreen>
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
               decoration: BoxDecoration(
                 color: isUser
-                    ? _userBubble.withOpacity(0.85)
+                    ? context.nuruTheme.accentColor.withOpacity(0.85)
                     : Colors.white.withOpacity(0.14),
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(22),
@@ -498,13 +562,13 @@ class _NuruAIChatScreenState extends State<NuruAIChatScreen>
                 ),
                 border: Border.all(
                   color: isUser
-                      ? _sailing.withOpacity(0.4)
+                      ? context.nuruTheme.accentColor.withOpacity(0.4)
                       : Colors.white.withOpacity(0.18),
                   width: 1,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: _night.withOpacity(0.2),
+                    color: context.nuruTheme.backgroundStart.withOpacity(0.2),
                     blurRadius: 8,
                     offset: const Offset(0, 3),
                   ),
@@ -580,7 +644,9 @@ class _NuruAIChatScreenState extends State<NuruAIChatScreen>
                     margin: const EdgeInsets.symmetric(horizontal: 3),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: _lilac.withOpacity(opacity.clamp(0.3, 1.0)),
+                      color: context.nuruTheme.accentColor
+                          .withOpacity(0.4)
+                          .withOpacity(opacity.clamp(0.3, 1.0)),
                     ),
                   );
                 }),
@@ -603,7 +669,10 @@ class _NuruAIChatScreenState extends State<NuruAIChatScreen>
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [_night.withOpacity(0.0), _night.withOpacity(0.97)],
+              colors: [
+                context.nuruTheme.backgroundStart.withOpacity(0.0),
+                context.nuruTheme.backgroundStart.withOpacity(0.97),
+              ],
             ),
             border: Border(
               top: BorderSide(color: Colors.white.withOpacity(0.08)),
@@ -630,9 +699,15 @@ class _NuruAIChatScreenState extends State<NuruAIChatScreen>
                           vertical: 8,
                         ),
                         decoration: BoxDecoration(
-                          color: _dive.withOpacity(0.6),
+                          color: context.nuruTheme.backgroundMid.withOpacity(
+                            0.6,
+                          ),
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: _sailing.withOpacity(0.55)),
+                          border: Border.all(
+                            color: context.nuruTheme.accentColor.withOpacity(
+                              0.55,
+                            ),
+                          ),
                         ),
                         child: Text(
                           _suggestions[i],
@@ -657,9 +732,15 @@ class _NuruAIChatScreenState extends State<NuruAIChatScreen>
                     Expanded(
                       child: Container(
                         decoration: BoxDecoration(
-                          color: _dive.withOpacity(0.65),
+                          color: context.nuruTheme.backgroundMid.withOpacity(
+                            0.65,
+                          ),
                           borderRadius: BorderRadius.circular(28),
-                          border: Border.all(color: _sailing.withOpacity(0.5)),
+                          border: Border.all(
+                            color: context.nuruTheme.accentColor.withOpacity(
+                              0.5,
+                            ),
+                          ),
                         ),
                         child: Row(
                           children: [

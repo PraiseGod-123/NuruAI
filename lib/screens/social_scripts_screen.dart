@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:ui';
+import 'package:provider/provider.dart';
+import '../providers/theme_provider.dart';
+import '../providers/nuru_theme_extension.dart';
 
 // ══════════════════════════════════════════════════════════════
 // SOCIAL SCRIPTS SCREEN
@@ -25,7 +28,8 @@ class _Script {
 }
 
 class SocialScriptsScreen extends StatefulWidget {
-  const SocialScriptsScreen({Key? key}) : super(key: key);
+  final Map<String, dynamic>? userData;
+  const SocialScriptsScreen({Key? key, this.userData}) : super(key: key);
   @override
   State<SocialScriptsScreen> createState() => _SocialScriptsScreenState();
 }
@@ -34,11 +38,6 @@ class _SocialScriptsScreenState extends State<SocialScriptsScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _starCtrl;
   int? _expandedIndex;
-
-  static const Color _night = Color(0xFF081F44);
-  static const Color _dive = Color(0xFF1F3F74);
-  static const Color _sailing = Color(0xFF4569AD);
-  static const Color _deep = Color(0xFF14366D);
 
   static const List<_Script> _scripts = [
     _Script(
@@ -149,20 +148,23 @@ class _SocialScriptsScreenState extends State<SocialScriptsScreen>
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
-        statusBarColor: Color(0xFF1F3F74),
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
       ),
       child: Scaffold(
-        backgroundColor: _night,
+        backgroundColor: context.nuruTheme.backgroundStart,
         body: Stack(
           children: [
             Container(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [Color(0xFF4569AD), Color(0xFF14366D)],
+                  colors: [
+                    context.nuruTheme.accentColor,
+                    context.nuruTheme.backgroundEnd,
+                  ],
                 ),
               ),
             ),
@@ -251,11 +253,20 @@ class _SocialScriptsScreenState extends State<SocialScriptsScreen>
                                             colors: open
                                                 ? [
                                                     s.color.withOpacity(0.22),
-                                                    _night.withOpacity(0.88),
+                                                    context
+                                                        .nuruTheme
+                                                        .backgroundStart
+                                                        .withOpacity(0.88),
                                                   ]
                                                 : [
-                                                    _dive.withOpacity(0.6),
-                                                    _night.withOpacity(0.85),
+                                                    context
+                                                        .nuruTheme
+                                                        .backgroundMid
+                                                        .withOpacity(0.6),
+                                                    context
+                                                        .nuruTheme
+                                                        .backgroundStart
+                                                        .withOpacity(0.85),
                                                   ],
                                           ),
                                           borderRadius: BorderRadius.circular(
@@ -264,7 +275,8 @@ class _SocialScriptsScreenState extends State<SocialScriptsScreen>
                                           border: Border.all(
                                             color: open
                                                 ? s.color.withOpacity(0.6)
-                                                : _sailing.withOpacity(0.3),
+                                                : context.nuruTheme.accentColor
+                                                      .withOpacity(0.3),
                                             width: open ? 1.5 : 1,
                                           ),
                                         ),
@@ -456,10 +468,15 @@ class _SocialScriptsScreenState extends State<SocialScriptsScreen>
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [_dive.withOpacity(0.75), _night.withOpacity(0.80)],
+              colors: [
+                context.nuruTheme.backgroundMid.withOpacity(0.75),
+                context.nuruTheme.backgroundStart.withOpacity(0.80),
+              ],
             ),
             border: Border(
-              bottom: BorderSide(color: _sailing.withOpacity(0.4)),
+              bottom: BorderSide(
+                color: context.nuruTheme.accentColor.withOpacity(0.4),
+              ),
             ),
           ),
           child: Row(
@@ -470,10 +487,10 @@ class _SocialScriptsScreenState extends State<SocialScriptsScreen>
                   width: 42,
                   height: 42,
                   decoration: BoxDecoration(
-                    color: _night.withOpacity(0.5),
+                    color: context.nuruTheme.backgroundStart.withOpacity(0.5),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: _sailing.withOpacity(0.5),
+                      color: context.nuruTheme.accentColor.withOpacity(0.5),
                       width: 1.2,
                     ),
                   ),

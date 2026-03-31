@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:ui';
+import 'package:provider/provider.dart';
+import '../providers/theme_provider.dart';
+import '../providers/nuru_theme_extension.dart';
+import '../services/firebase_service.dart';
 
 // ══════════════════════════════════════════════════════════════
 // SPECIAL INTEREST SCREEN
@@ -15,7 +19,8 @@ import 'dart:ui';
 // ══════════════════════════════════════════════════════════════
 
 class SpecialInterestScreen extends StatefulWidget {
-  const SpecialInterestScreen({Key? key}) : super(key: key);
+  final Map<String, dynamic>? userData;
+  const SpecialInterestScreen({Key? key, this.userData}) : super(key: key);
   @override
   State<SpecialInterestScreen> createState() => _SpecialInterestScreenState();
 }
@@ -24,10 +29,6 @@ class _SpecialInterestScreenState extends State<SpecialInterestScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _starCtrl;
 
-  static const Color _night = Color(0xFF081F44);
-  static const Color _dive = Color(0xFF1F3F74);
-  static const Color _sailing = Color(0xFF4569AD);
-  static const Color _deep = Color(0xFF14366D);
   static const Color _gold = Color(0xFFFFD32A);
 
   // User's special interests — stored in memory for this session
@@ -71,6 +72,37 @@ class _SpecialInterestScreenState extends State<SpecialInterestScreen>
       duration: const Duration(seconds: 5),
       vsync: this,
     )..repeat(reverse: true);
+    _loadInterests();
+  }
+
+  Future<void> _loadInterests() async {
+    final uid = widget.userData?['uid'] as String? ?? '';
+    if (uid.isEmpty) return;
+    try {
+      final doc = await NuruFirebaseService.instance.getUserData(uid);
+      final saved = doc?['specialInterests'];
+      if (saved is List && mounted) {
+        setState(() {
+          _interests.clear();
+          _interests.addAll(saved.cast<String>());
+        });
+      }
+    } catch (e) {
+      debugPrint('SpecialInterest: load error — $e');
+    }
+  }
+
+  Future<void> _saveInterests() async {
+    final uid = widget.userData?['uid'] as String? ?? '';
+    if (uid.isEmpty) return;
+    try {
+      await NuruFirebaseService.instance.updateUserProfile(
+        uid: uid,
+        fields: {'specialInterests': List<String>.from(_interests)},
+      );
+    } catch (e) {
+      debugPrint('SpecialInterest: save error — $e');
+    }
   }
 
   @override
@@ -85,26 +117,30 @@ class _SpecialInterestScreenState extends State<SpecialInterestScreen>
     if (clean.isEmpty || _interests.contains(clean)) return;
     setState(() => _interests.add(clean));
     _interestCtrl.clear();
+    _saveInterests();
   }
 
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
-        statusBarColor: Color(0xFF1F3F74),
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
       ),
       child: Scaffold(
-        backgroundColor: _night,
+        backgroundColor: context.nuruTheme.backgroundStart,
         resizeToAvoidBottomInset: true,
         body: Stack(
           children: [
             Container(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [Color(0xFF4569AD), Color(0xFF14366D)],
+                  colors: [
+                    context.nuruTheme.accentColor,
+                    context.nuruTheme.backgroundEnd,
+                  ],
                 ),
               ),
             ),
@@ -137,7 +173,9 @@ class _SpecialInterestScreenState extends State<SpecialInterestScreen>
                               gradient: LinearGradient(
                                 colors: [
                                   _gold.withOpacity(0.18),
-                                  _night.withOpacity(0.4),
+                                  context.nuruTheme.backgroundStart.withOpacity(
+                                    0.4,
+                                  ),
                                 ],
                               ),
                               borderRadius: BorderRadius.circular(20),
@@ -214,17 +252,21 @@ class _SpecialInterestScreenState extends State<SpecialInterestScreen>
                                       colors: already
                                           ? [
                                               color.withOpacity(0.45),
-                                              _night.withOpacity(0.75),
+                                              context.nuruTheme.backgroundStart
+                                                  .withOpacity(0.75),
                                             ]
                                           : [
-                                              _dive.withOpacity(0.5),
-                                              _night.withOpacity(0.75),
+                                              context.nuruTheme.backgroundMid
+                                                  .withOpacity(0.5),
+                                              context.nuruTheme.backgroundStart
+                                                  .withOpacity(0.75),
                                             ],
                                     ),
                                     border: Border.all(
                                       color: already
                                           ? color.withOpacity(0.75)
-                                          : _sailing.withOpacity(0.3),
+                                          : context.nuruTheme.accentColor
+                                                .withOpacity(0.3),
                                       width: already ? 2 : 1,
                                     ),
                                     boxShadow: already
@@ -279,10 +321,12 @@ class _SpecialInterestScreenState extends State<SpecialInterestScreen>
                               Expanded(
                                 child: Container(
                                   decoration: BoxDecoration(
-                                    color: _dive.withOpacity(0.5),
+                                    color: context.nuruTheme.backgroundMid
+                                        .withOpacity(0.5),
                                     borderRadius: BorderRadius.circular(14),
                                     border: Border.all(
-                                      color: _sailing.withOpacity(0.4),
+                                      color: context.nuruTheme.accentColor
+                                          .withOpacity(0.4),
                                     ),
                                   ),
                                   child: TextField(
@@ -368,9 +412,13 @@ class _SpecialInterestScreenState extends State<SpecialInterestScreen>
                                           ),
                                           const SizedBox(width: 6),
                                           GestureDetector(
-                                            onTap: () => setState(
-                                              () => _interests.remove(interest),
-                                            ),
+                                            onTap: () {
+                                              setState(
+                                                () =>
+                                                    _interests.remove(interest),
+                                              );
+                                              _saveInterests();
+                                            },
                                             child: Icon(
                                               Icons.close_rounded,
                                               size: 14,
@@ -389,14 +437,15 @@ class _SpecialInterestScreenState extends State<SpecialInterestScreen>
 
                           // Mindfulness anchor
                           if (_interests.isNotEmpty) ...[
-                            const SizedBox(height: 28),
+                            SizedBox(height: 28),
                             Container(
                               padding: const EdgeInsets.all(18),
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   colors: [
-                                    const Color(0xFF6C5CE7).withOpacity(0.2),
-                                    _night.withOpacity(0.5),
+                                    Color(0xFF6C5CE7).withOpacity(0.2),
+                                    context.nuruTheme.backgroundStart
+                                        .withOpacity(0.5),
                                   ],
                                 ),
                                 borderRadius: BorderRadius.circular(20),
@@ -535,10 +584,15 @@ class _SpecialInterestScreenState extends State<SpecialInterestScreen>
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [_dive.withOpacity(0.75), _night.withOpacity(0.80)],
+              colors: [
+                context.nuruTheme.backgroundMid.withOpacity(0.75),
+                context.nuruTheme.backgroundStart.withOpacity(0.80),
+              ],
             ),
             border: Border(
-              bottom: BorderSide(color: _sailing.withOpacity(0.4)),
+              bottom: BorderSide(
+                color: context.nuruTheme.accentColor.withOpacity(0.4),
+              ),
             ),
           ),
           child: Row(
@@ -549,10 +603,10 @@ class _SpecialInterestScreenState extends State<SpecialInterestScreen>
                   width: 42,
                   height: 42,
                   decoration: BoxDecoration(
-                    color: _night.withOpacity(0.5),
+                    color: context.nuruTheme.backgroundStart.withOpacity(0.5),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: _sailing.withOpacity(0.5),
+                      color: context.nuruTheme.accentColor.withOpacity(0.5),
                       width: 1.2,
                     ),
                   ),

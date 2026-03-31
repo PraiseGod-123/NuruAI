@@ -2,22 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:ui';
 import 'package:lottie/lottie.dart';
-
-// ══════════════════════════════════════════════════════════════
-// CALMME SCREEN — Redesigned
-//
-// Background, stars, blobs, bottom nav: all identical to before.
-//
-// New layout:
-//   1. Header
-//   2. SOS button — "I'm overwhelmed right now"
-//   3. How am I feeling? — 3-circle traffic light
-//   4. Quick Access — horizontal circle scroll
-//   5. Right Now — Meltdown Prevention + Sensory Toolkit
-//   6. Self-Help Resources — 2×2 grid
-//   7. Explore — Music wide + Poetry/Games 2-col
-//   8. Support Tools — Social Scripts + Special Interest
-// ══════════════════════════════════════════════════════════════
+import 'package:provider/provider.dart';
+import '../providers/theme_provider.dart';
+import '../providers/nuru_theme_extension.dart';
+import '../services/firebase_service.dart';
 
 class CalmMeScreen extends StatefulWidget {
   final Map<String, dynamic>? userData;
@@ -34,17 +22,12 @@ class _CalmMeScreenState extends State<CalmMeScreen>
   late AnimationController _starController;
 
   int _currentNavIndex = 1;
-
-  // Traffic light state: 0=none selected, 1=good, 2=okay, 3=struggling
   int _feelingLevel = 0;
 
-  // Palette
-  static const Color _night = Color(0xFF081F44);
-  static const Color _dive = Color(0xFF1F3F74);
-  static const Color _sailing = Color(0xFF4569AD);
-  static const Color _deep = Color(0xFF14366D);
-  static const Color _solid = Color(0xFF8EA2D7);
-  static const Color _lilac = Color(0xFFB7C3E8);
+  // ── Todo state ────────────────────────────────────────────
+  final List<_TodoItem> _todos = [];
+  final TextEditingController _todoController = TextEditingController();
+  String _todoFilter = 'Today'; // 'Today' or 'This Week'
 
   @override
   void initState() {
@@ -65,6 +48,7 @@ class _CalmMeScreenState extends State<CalmMeScreen>
       duration: const Duration(seconds: 5),
       vsync: this,
     )..repeat(reverse: true);
+    _loadTodos();
   }
 
   @override
@@ -73,41 +57,93 @@ class _CalmMeScreenState extends State<CalmMeScreen>
     _floatController2.dispose();
     _floatController3.dispose();
     _starController.dispose();
+    _todoController.dispose();
     super.dispose();
   }
 
-  // ══════════════════════════════════════════════════════════
-  // BUILD
-  // ══════════════════════════════════════════════════════════
+  // ── Todo helpers ──────────────────────────────────────────
+
+  void _addTodo() {
+    final text = _todoController.text.trim();
+    if (text.isEmpty) return;
+    setState(() {
+      _todos.insert(
+        0,
+        _TodoItem(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          text: text,
+          createdAt: DateTime.now(),
+          filter: _todoFilter,
+        ),
+      );
+      _todoController.clear();
+    });
+    _saveTodos();
+  }
+
+  void _toggleTodo(String id) {
+    setState(() {
+      final i = _todos.indexWhere((t) => t.id == id);
+      if (i != -1) _todos[i] = _todos[i].copyWith(done: !_todos[i].done);
+    });
+    _saveTodos();
+  }
+
+  void _deleteTodo(String id) {
+    setState(() => _todos.removeWhere((t) => t.id == id));
+    _saveTodos();
+  }
+
+  Future<void> _saveTodos() async {
+    final uid = widget.userData?['uid'] as String? ?? '';
+    if (uid.isEmpty) return;
+    try {
+      await NuruFirebaseService.instance.updateUserProfile(
+        uid: uid,
+        fields: {'todos': _todos.map((t) => t.toMap()).toList()},
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _loadTodos() async {
+    final uid = widget.userData?['uid'] as String? ?? '';
+    if (uid.isEmpty) return;
+    try {
+      final data = await NuruFirebaseService.instance.getUserData(uid);
+      final saved = data?['todos'];
+      if (saved is List && mounted) {
+        setState(() {
+          _todos.clear();
+          _todos.addAll(
+            saved.map((e) => _TodoItem.fromMap(e as Map<String, dynamic>)),
+          );
+        });
+      }
+    } catch (_) {}
+  }
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.nuruTheme;
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
-        statusBarColor: Color(0xFF1F3F74),
+      value: SystemUiOverlayStyle(
+        statusBarColor: const Color(0xFF081F44),
         statusBarIconBrightness: Brightness.light,
         statusBarBrightness: Brightness.dark,
       ),
       child: Scaffold(
-        backgroundColor: _night,
+        backgroundColor: const Color(0xFF4569AD),
         body: Stack(
           children: [
-            // Background gradient
             Container(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFF4569AD),
-                    Color(0xFF4864B5),
-                    Color(0xFF3A5FA8),
-                    Color(0xFF2D5295),
-                  ],
+                  colors: const [Color(0xFF4569AD), Color(0xFF14366D)],
                 ),
               ),
             ),
-            // Animated blobs
             IgnorePointer(
               child: AnimatedBuilder(
                 animation: Listenable.merge([
@@ -117,105 +153,108 @@ class _CalmMeScreenState extends State<CalmMeScreen>
                 ]),
                 builder: (_, __) => CustomPaint(
                   size: Size.infinite,
-                  painter: Animated3DShapesPainter(
+                  painter: _CalmShapesPainter(
                     animation1: _floatController1.value,
                     animation2: _floatController2.value,
                     animation3: _floatController3.value,
+                    accentColor: const Color(0xFF4569AD),
+                    bgColor: const Color(0xFF081F44),
+                    bgEnd: const Color(0xFF14366D),
                   ),
                 ),
               ),
             ),
-            // Stars
             IgnorePointer(
               child: AnimatedBuilder(
                 animation: _starController,
                 builder: (_, __) => CustomPaint(
                   size: Size.infinite,
-                  painter: SubtleStarsPainter(twinkle: _starController.value),
+                  painter: _CalmStarsPainter(twinkle: _starController.value),
                 ),
               ),
             ),
-
-            // Content
             SafeArea(
-              child: SingleChildScrollView(
-                physics: const ClampingScrollPhysics(),
-                padding: const EdgeInsets.only(bottom: 90),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildHeader(),
-                    const SizedBox(height: 16),
-
-                    // ── 1. SOS Button ────────────────────────────
-                    _buildSOS(),
-                    const SizedBox(height: 20),
-
-                    // ── 2. How am I feeling? ─────────────────────
-                    _buildSectionLabel('How am I feeling?'),
-                    const SizedBox(height: 12),
-                    _buildTrafficLight(),
-                    if (_feelingLevel > 0) ...[
+              child: ScrollConfiguration(
+                behavior: ScrollConfiguration.of(
+                  context,
+                ).copyWith(overscroll: false),
+                child: SingleChildScrollView(
+                  physics: const ClampingScrollPhysics(),
+                  padding: const EdgeInsets.only(bottom: 90),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildHeader(theme),
+                      const SizedBox(height: 16),
+                      _buildSOS(theme),
+                      const SizedBox(height: 20),
+                      _buildSectionLabel('How am I feeling?'),
                       const SizedBox(height: 12),
-                      _buildFeelingContext(),
+                      _buildTrafficLight(theme),
+                      if (_feelingLevel > 0) ...[
+                        const SizedBox(height: 12),
+                        _buildFeelingContext(),
+                      ],
+                      const SizedBox(height: 24),
+                      _buildSectionLabel('Quick Access'),
+                      const SizedBox(height: 12),
+                      _buildQuickAccess(theme),
+                      const SizedBox(height: 24),
+                      _buildSectionLabel('Right Now'),
+                      const SizedBox(height: 12),
+                      _buildMeltdownCard(theme),
+                      const SizedBox(height: 12),
+                      _buildSensoryToolkitCard(theme),
+                      const SizedBox(height: 24),
+                      _buildSectionLabel('Self-Help'),
+                      const SizedBox(height: 12),
+                      _buildResourceGrid(theme),
+                      const SizedBox(height: 24),
+                      _buildSectionLabel('Explore'),
+                      const SizedBox(height: 12),
+                      _buildMusicCard(theme),
+                      const SizedBox(height: 12),
+                      _buildPoetryGamesRow(theme),
+                      const SizedBox(height: 24),
+                      _buildSectionLabel('Support Tools'),
+                      const SizedBox(height: 12),
+                      _buildSocialScriptsCard(theme),
+                      const SizedBox(height: 12),
+                      _buildSpecialInterestCard(theme),
+                      const SizedBox(height: 24),
+                      _buildSectionLabel('My Goals & To-Dos'),
+                      const SizedBox(height: 12),
+                      _buildTodoSection(theme),
+                      const SizedBox(height: 24),
+                      _buildNuruAICard(theme),
+                      const SizedBox(height: 20),
                     ],
-                    const SizedBox(height: 24),
-
-                    // ── 3. Quick Access circles ──────────────────
-                    _buildSectionLabel('Quick Access'),
-                    const SizedBox(height: 12),
-                    _buildQuickAccess(),
-                    const SizedBox(height: 24),
-
-                    // ── 4. Right Now ─────────────────────────────
-                    _buildSectionLabel('Right Now'),
-                    const SizedBox(height: 12),
-                    _buildMeltdownCard(),
-                    const SizedBox(height: 12),
-                    _buildSensoryToolkitCard(),
-                    const SizedBox(height: 24),
-
-                    // ── 5. Self-Help Resources ───────────────────
-                    _buildSectionLabel('Self-Help'),
-                    const SizedBox(height: 12),
-                    _buildResourceGrid(),
-                    const SizedBox(height: 24),
-
-                    // ── 6. Explore ───────────────────────────────
-                    _buildSectionLabel('Explore'),
-                    const SizedBox(height: 12),
-                    _buildMusicCard(),
-                    const SizedBox(height: 12),
-                    _buildPoetryGamesRow(),
-                    const SizedBox(height: 24),
-
-                    // ── 7. Support Tools ─────────────────────────
-                    _buildSectionLabel('Support Tools'),
-                    const SizedBox(height: 12),
-                    _buildSocialScriptsCard(),
-                    const SizedBox(height: 12),
-                    _buildSpecialInterestCard(),
-                    const SizedBox(height: 24),
-
-                    // ── 8. NuruAI Chat ───────────────────────────
-                    _buildNuruAICard(),
-                    const SizedBox(height: 20),
-                  ],
+                  ),
                 ),
               ),
             ),
           ],
         ),
-        bottomNavigationBar: _buildBottomNav(),
+        bottomNavigationBar: _buildBottomNav(theme),
       ),
     );
   }
 
-  // ══════════════════════════════════════════════════════════
-  // HEADER
-  // ══════════════════════════════════════════════════════════
+  // ── Section label ─────────────────────────────────────────
+  Widget _buildSectionLabel(String text) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 20),
+    child: Text(
+      text,
+      style: const TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.bold,
+        color: Colors.white,
+      ),
+    ),
+  );
 
-  Widget _buildHeader() {
+  // ── Header ────────────────────────────────────────────────
+  Widget _buildHeader(dynamic theme) {
     return ClipRRect(
       borderRadius: const BorderRadius.only(
         bottomLeft: Radius.circular(28),
@@ -229,10 +268,16 @@ class _CalmMeScreenState extends State<CalmMeScreen>
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [_dive.withOpacity(0.75), _night.withOpacity(0.80)],
+              colors: [
+                Color(0xFF1F3F74).withOpacity(0.75),
+                Color(0xFF081F44).withOpacity(0.80),
+              ],
             ),
             border: Border(
-              bottom: BorderSide(color: _sailing.withOpacity(0.45), width: 1.5),
+              bottom: BorderSide(
+                color: Color(0xFF4569AD).withOpacity(0.45),
+                width: 1.5,
+              ),
             ),
           ),
           child: Row(
@@ -244,13 +289,13 @@ class _CalmMeScreenState extends State<CalmMeScreen>
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      _sailing.withOpacity(0.5),
-                      _night.withOpacity(0.80),
+                      Color(0xFF4569AD).withOpacity(0.5),
+                      Color(0xFF081F44).withOpacity(0.80),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: _sailing.withOpacity(0.55),
+                    color: Color(0xFF4569AD).withOpacity(0.55),
                     width: 1.5,
                   ),
                 ),
@@ -291,15 +336,13 @@ class _CalmMeScreenState extends State<CalmMeScreen>
     );
   }
 
-  // ══════════════════════════════════════════════════════════
-  // SOS BUTTON
-  // ══════════════════════════════════════════════════════════
-
-  Widget _buildSOS() {
+  // ── SOS ───────────────────────────────────────────────────
+  Widget _buildSOS(dynamic theme) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: GestureDetector(
-        onTap: () => Navigator.pushNamed(context, '/sos'),
+        onTap: () =>
+            Navigator.pushNamed(context, '/sos', arguments: widget.userData),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(20),
           child: BackdropFilter(
@@ -310,16 +353,19 @@ class _CalmMeScreenState extends State<CalmMeScreen>
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [_dive.withOpacity(0.75), _night.withOpacity(0.88)],
+                  colors: [
+                    Color(0xFF1F3F74).withOpacity(0.75),
+                    Color(0xFF081F44).withOpacity(0.88),
+                  ],
                 ),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: _sailing.withOpacity(0.55),
+                  color: Color(0xFF4569AD).withOpacity(0.55),
                   width: 1.5,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: _night.withOpacity(0.5),
+                    color: Color(0xFF081F44).withOpacity(0.5),
                     blurRadius: 16,
                     offset: const Offset(0, 8),
                   ),
@@ -332,18 +378,18 @@ class _CalmMeScreenState extends State<CalmMeScreen>
                     height: 52,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: const Color(0xFF1F3F74).withOpacity(0.75),
+                      color: Color(0xFF1F3F74).withOpacity(0.75),
                       border: Border.all(
                         color: const Color(0xFF4569AD),
                         width: 2.0,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF4569AD).withOpacity(0.25),
+                          color: Color(0xFF4569AD).withOpacity(0.25),
                           blurRadius: 10,
                         ),
                         BoxShadow(
-                          color: const Color(0xFF081F44).withOpacity(0.4),
+                          color: Color(0xFF081F44).withOpacity(0.4),
                           blurRadius: 6,
                           offset: const Offset(0, 3),
                         ),
@@ -384,7 +430,7 @@ class _CalmMeScreenState extends State<CalmMeScreen>
                   const SizedBox(width: 8),
                   Icon(
                     Icons.arrow_forward_ios_rounded,
-                    color: const Color(0xFFFF6B6B).withOpacity(0.7),
+                    color: Color(0xFFFF6B6B).withOpacity(0.7),
                     size: 18,
                   ),
                 ],
@@ -396,11 +442,8 @@ class _CalmMeScreenState extends State<CalmMeScreen>
     );
   }
 
-  // ══════════════════════════════════════════════════════════
-  // TRAFFIC LIGHT — How am I feeling?
-  // ══════════════════════════════════════════════════════════
-
-  Widget _buildTrafficLight() {
+  // ── Traffic light ─────────────────────────────────────────
+  Widget _buildTrafficLight(dynamic theme) {
     final feelings = [
       {
         'level': 1,
@@ -439,21 +482,28 @@ class _CalmMeScreenState extends State<CalmMeScreen>
                 margin: const EdgeInsets.symmetric(horizontal: 5),
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 decoration: BoxDecoration(
-                  shape: BoxShape.rectangle,
                   borderRadius: BorderRadius.circular(50),
                   gradient: LinearGradient(
                     colors: sel
-                        ? [_sailing.withOpacity(0.55), _night.withOpacity(0.75)]
-                        : [_dive.withOpacity(0.6), _night.withOpacity(0.80)],
+                        ? [
+                            Color(0xFF4569AD).withOpacity(0.55),
+                            Color(0xFF081F44).withOpacity(0.75),
+                          ]
+                        : [
+                            Color(0xFF1F3F74).withOpacity(0.6),
+                            Color(0xFF081F44).withOpacity(0.80),
+                          ],
                   ),
                   border: Border.all(
-                    color: sel ? _sailing : _sailing.withOpacity(0.35),
+                    color: sel
+                        ? const Color(0xFF4569AD)
+                        : Color(0xFF4569AD).withOpacity(0.35),
                     width: sel ? 2 : 1,
                   ),
                   boxShadow: sel
                       ? [
                           BoxShadow(
-                            color: _sailing.withOpacity(0.35),
+                            color: Color(0xFF4569AD).withOpacity(0.35),
                             blurRadius: 14,
                             spreadRadius: 1,
                           ),
@@ -465,7 +515,7 @@ class _CalmMeScreenState extends State<CalmMeScreen>
                     Icon(
                       f['icon'] as IconData,
                       size: sel ? 30 : 24,
-                      color: (f['color'] as Color).withOpacity(sel ? 1.0 : 0.7),
+                      color: color.withOpacity(sel ? 1.0 : 0.7),
                     ),
                     const SizedBox(height: 6),
                     Text(
@@ -489,7 +539,7 @@ class _CalmMeScreenState extends State<CalmMeScreen>
   }
 
   Widget _buildFeelingContext() {
-    final Map<int, Map<String, dynamic>> contexts = {
+    final contexts = {
       1: {
         'text': 'Great! Keep going.',
         'color': const Color(0xFF00B894),
@@ -519,11 +569,7 @@ class _CalmMeScreenState extends State<CalmMeScreen>
         ),
         child: Row(
           children: [
-            Icon(
-              ctx['icon'] as IconData,
-              size: 20,
-              color: (ctx['color'] as Color),
-            ),
+            Icon(ctx['icon'] as IconData, size: 20, color: color),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
@@ -541,11 +587,8 @@ class _CalmMeScreenState extends State<CalmMeScreen>
     );
   }
 
-  // ══════════════════════════════════════════════════════════
-  // QUICK ACCESS — horizontal circle scroll
-  // ══════════════════════════════════════════════════════════
-
-  Widget _buildQuickAccess() {
+  // ── Quick access ──────────────────────────────────────────
+  Widget _buildQuickAccess(dynamic theme) {
     final items = [
       {
         'icon': Icons.book_outlined,
@@ -617,18 +660,18 @@ class _CalmMeScreenState extends State<CalmMeScreen>
                     height: 58,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: const Color(0xFF1F3F74).withOpacity(0.75),
+                      color: Color(0xFF1F3F74).withOpacity(0.75),
                       border: Border.all(
                         color: const Color(0xFF4569AD),
                         width: 2.0,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF4569AD).withOpacity(0.25),
+                          color: Color(0xFF4569AD).withOpacity(0.25),
                           blurRadius: 10,
                         ),
                         BoxShadow(
-                          color: const Color(0xFF081F44).withOpacity(0.4),
+                          color: Color(0xFF081F44).withOpacity(0.4),
                           blurRadius: 6,
                           offset: const Offset(0, 3),
                         ),
@@ -661,17 +704,13 @@ class _CalmMeScreenState extends State<CalmMeScreen>
     );
   }
 
-  // ══════════════════════════════════════════════════════════
-  // MELTDOWN PREVENTION CARD
-  // ══════════════════════════════════════════════════════════
-
-  Widget _buildMeltdownCard() {
-    // Map level to suggested action
-    final Map<int, Map<String, dynamic>> levelInfo = {
+  // ── Meltdown card ─────────────────────────────────────────
+  Widget _buildMeltdownCard(dynamic theme) {
+    final levelInfo = {
       1: {
         'label': 'Calm',
         'icon': Icons.sentiment_satisfied_alt_rounded,
-        'tip': 'You\'re doing well.',
+        'tip': "You're doing well.",
         'color': const Color(0xFF00B894),
       },
       2: {
@@ -699,30 +738,52 @@ class _CalmMeScreenState extends State<CalmMeScreen>
         'color': const Color(0xFFFF7675),
       },
     };
-
-    // Use _feelingLevel to set initial slider hint but track separately
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: _MeltdownCard(
         levelInfo: levelInfo,
-        onSOS: () => Navigator.pushNamed(context, '/sos'),
-        onAnger: () => Navigator.pushNamed(context, '/anger-management'),
-        onBreathe: () => Navigator.pushNamed(context, '/breathing'),
-        onMindful: () => Navigator.pushNamed(context, '/mindfulness'),
+        theme: theme,
+        onSOS: () =>
+            Navigator.pushNamed(context, '/sos', arguments: widget.userData),
+        onAnger: () => Navigator.pushNamed(
+          context,
+          '/anger-management',
+          arguments: widget.userData,
+        ),
+        onBreathe: () => Navigator.pushNamed(
+          context,
+          '/breathing',
+          arguments: widget.userData,
+        ),
+        onMindful: () => Navigator.pushNamed(
+          context,
+          '/mindfulness',
+          arguments: widget.userData,
+        ),
       ),
     );
   }
 
-  Widget _buildSensoryToolkitCard() {
+  // ── Sensory toolkit ───────────────────────────────────────
+  Widget _buildSensoryToolkitCard(dynamic theme) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: GestureDetector(
-        onTap: () => Navigator.pushNamed(context, '/sensory-toolkit'),
+        onTap: () => Navigator.pushNamed(
+          context,
+          '/sensory-toolkit',
+          arguments: widget.userData,
+        ),
         child: _glassCard(
+          theme: theme,
           accent: const Color(0xFFA29BFE),
           child: Row(
             children: [
-              _iconCircle(Icons.headphones_outlined, const Color(0xFFA29BFE)),
+              _iconCircle(
+                theme: theme,
+                icon: Icons.headphones_outlined,
+                color: const Color(0xFFA29BFE),
+              ),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
@@ -738,7 +799,7 @@ class _CalmMeScreenState extends State<CalmMeScreen>
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'What\'s overwhelming me right now? Quick relief tools.',
+                      "What's overwhelming me right now? Quick relief tools.",
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.white.withOpacity(0.55),
@@ -750,7 +811,7 @@ class _CalmMeScreenState extends State<CalmMeScreen>
               ),
               Icon(
                 Icons.arrow_forward_ios_rounded,
-                color: const Color(0xFFA29BFE).withOpacity(0.6),
+                color: Color(0xFFA29BFE).withOpacity(0.6),
                 size: 16,
               ),
             ],
@@ -760,11 +821,8 @@ class _CalmMeScreenState extends State<CalmMeScreen>
     );
   }
 
-  // ══════════════════════════════════════════════════════════
-  // RESOURCE GRID
-  // ══════════════════════════════════════════════════════════
-
-  Widget _buildResourceGrid() {
+  // ── Resource grid ─────────────────────────────────────────
+  Widget _buildResourceGrid(dynamic theme) {
     final resources = [
       {
         'title': 'Anger Management',
@@ -815,18 +873,18 @@ class _CalmMeScreenState extends State<CalmMeScreen>
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        _dive.withOpacity(0.75),
-                        _night.withOpacity(0.88),
+                        Color(0xFF1F3F74).withOpacity(0.75),
+                        Color(0xFF081F44).withOpacity(0.88),
                       ],
                     ),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: _sailing.withOpacity(0.55),
+                      color: Color(0xFF4569AD).withOpacity(0.55),
                       width: 1.5,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: _night.withOpacity(0.4),
+                        color: Color(0xFF081F44).withOpacity(0.4),
                         blurRadius: 16,
                         offset: const Offset(0, 8),
                       ),
@@ -835,33 +893,11 @@ class _CalmMeScreenState extends State<CalmMeScreen>
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Container(
-                        width: 52,
-                        height: 52,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: const Color(0xFF1F3F74).withOpacity(0.75),
-                          border: Border.all(
-                            color: const Color(0xFF4569AD),
-                            width: 2.0,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF4569AD).withOpacity(0.25),
-                              blurRadius: 10,
-                            ),
-                            BoxShadow(
-                              color: const Color(0xFF081F44).withOpacity(0.4),
-                              blurRadius: 6,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: Icon(
-                          r['icon'] as IconData,
-                          color: r['colour'] as Color,
-                          size: 26,
-                        ),
+                      _iconCircle(
+                        theme: theme,
+                        icon: r['icon'] as IconData,
+                        color: colour,
+                        size: 52,
                       ),
                       const SizedBox(height: 10),
                       Text(
@@ -884,20 +920,23 @@ class _CalmMeScreenState extends State<CalmMeScreen>
     );
   }
 
-  // ══════════════════════════════════════════════════════════
-  // MUSIC CARD
-  // ══════════════════════════════════════════════════════════
-
-  Widget _buildMusicCard() {
+  // ── Music card ────────────────────────────────────────────
+  Widget _buildMusicCard(dynamic theme) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: GestureDetector(
-        onTap: () => Navigator.pushNamed(context, '/music'),
+        onTap: () =>
+            Navigator.pushNamed(context, '/music', arguments: widget.userData),
         child: _glassCard(
-          accent: _lilac,
+          theme: theme,
+          accent: Color(0xFF4569AD).withOpacity(0.4),
           child: Row(
             children: [
-              _iconCircle(Icons.music_note_rounded, _lilac),
+              _iconCircle(
+                theme: theme,
+                icon: Icons.music_note_rounded,
+                color: Color(0xFF4569AD).withOpacity(0.4),
+              ),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
@@ -925,7 +964,7 @@ class _CalmMeScreenState extends State<CalmMeScreen>
               ),
               Icon(
                 Icons.arrow_forward_ios_rounded,
-                color: _solid.withOpacity(0.6),
+                color: Color(0xFF4569AD).withOpacity(0.6),
                 size: 16,
               ),
             ],
@@ -935,23 +974,25 @@ class _CalmMeScreenState extends State<CalmMeScreen>
     );
   }
 
-  // ══════════════════════════════════════════════════════════
-  // POETRY + GAMES — side by side
-  // ══════════════════════════════════════════════════════════
-
-  Widget _buildPoetryGamesRow() {
+  // ── Poetry + Games row ────────────────────────────────────
+  Widget _buildPoetryGamesRow(dynamic theme) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         children: [
           Expanded(
             child: GestureDetector(
-              onTap: () => Navigator.pushNamed(context, '/poetry-corner'),
+              onTap: () => Navigator.pushNamed(
+                context,
+                '/poetry-corner',
+                arguments: widget.userData,
+              ),
               child: _smallCardIcon(
-                Icons.auto_stories_outlined,
-                'Poetry Corner',
-                'Calming poems',
-                const Color(0xFFB7C3E8),
+                theme: theme,
+                icon: Icons.auto_stories_outlined,
+                title: 'Poetry Corner',
+                sub: 'Calming poems',
+                color: const Color(0xFFB7C3E8),
               ),
             ),
           ),
@@ -960,10 +1001,11 @@ class _CalmMeScreenState extends State<CalmMeScreen>
             child: GestureDetector(
               onTap: () => Navigator.pushNamed(context, '/calming-games'),
               child: _smallCardIcon(
-                Icons.games_outlined,
-                'Calming Games',
-                '5 relaxing games',
-                const Color(0xFF80C4B7),
+                theme: theme,
+                icon: Icons.games_outlined,
+                title: 'Calming Games',
+                sub: '5 relaxing games',
+                color: const Color(0xFF80C4B7),
               ),
             ),
           ),
@@ -972,88 +1014,25 @@ class _CalmMeScreenState extends State<CalmMeScreen>
     );
   }
 
-  Widget _smallCard(String lottieUrl, String title, String sub, Color color) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(18),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [color.withOpacity(0.18), _night.withOpacity(0.85)],
-            ),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: color.withOpacity(0.4), width: 1.2),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      color.withOpacity(0.5),
-                      color.withOpacity(0.1),
-                      Colors.transparent,
-                    ],
-                  ),
-                  border: Border.all(color: color.withOpacity(0.4), width: 1.2),
-                ),
-                child: ClipOval(
-                  child: Lottie.network(
-                    lottieUrl,
-                    fit: BoxFit.cover,
-                    repeat: true,
-                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                sub,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.white.withOpacity(0.5),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ══════════════════════════════════════════════════════════
-  // SUPPORT TOOLS
-  // ══════════════════════════════════════════════════════════
-
-  Widget _buildSocialScriptsCard() {
+  // ── Social scripts ────────────────────────────────────────
+  Widget _buildSocialScriptsCard(dynamic theme) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: GestureDetector(
-        onTap: () => Navigator.pushNamed(context, '/social-scripts'),
+        onTap: () => Navigator.pushNamed(
+          context,
+          '/social-scripts',
+          arguments: widget.userData,
+        ),
         child: _glassCard(
+          theme: theme,
           accent: const Color(0xFF74B9FF),
           child: Row(
             children: [
               _iconCircle(
-                Icons.chat_bubble_outline_rounded,
-                const Color(0xFF74B9FF),
+                theme: theme,
+                icon: Icons.chat_bubble_outline_rounded,
+                color: const Color(0xFF74B9FF),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -1082,7 +1061,7 @@ class _CalmMeScreenState extends State<CalmMeScreen>
               ),
               Icon(
                 Icons.arrow_forward_ios_rounded,
-                color: const Color(0xFF74B9FF).withOpacity(0.6),
+                color: Color(0xFF74B9FF).withOpacity(0.6),
                 size: 16,
               ),
             ],
@@ -1092,16 +1071,26 @@ class _CalmMeScreenState extends State<CalmMeScreen>
     );
   }
 
-  Widget _buildSpecialInterestCard() {
+  // ── Special interest ──────────────────────────────────────
+  Widget _buildSpecialInterestCard(dynamic theme) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: GestureDetector(
-        onTap: () => Navigator.pushNamed(context, '/special-interest'),
+        onTap: () => Navigator.pushNamed(
+          context,
+          '/special-interest',
+          arguments: widget.userData,
+        ),
         child: _glassCard(
+          theme: theme,
           accent: const Color(0xFFFFD32A),
           child: Row(
             children: [
-              _iconCircle(Icons.star_outline_rounded, const Color(0xFFFFD32A)),
+              _iconCircle(
+                theme: theme,
+                icon: Icons.star_outline_rounded,
+                color: const Color(0xFFFFD32A),
+              ),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
@@ -1129,7 +1118,7 @@ class _CalmMeScreenState extends State<CalmMeScreen>
               ),
               Icon(
                 Icons.arrow_forward_ios_rounded,
-                color: const Color(0xFFFFD32A).withOpacity(0.6),
+                color: Color(0xFFFFD32A).withOpacity(0.6),
                 size: 16,
               ),
             ],
@@ -1139,21 +1128,288 @@ class _CalmMeScreenState extends State<CalmMeScreen>
     );
   }
 
-  // ══════════════════════════════════════════════════════════
-  // SHARED HELPERS
-  // ══════════════════════════════════════════════════════════
+  // ── NuruAI card ───────────────────────────────────────────
+  // ── Todo Section ──────────────────────────────────────────
+  Widget _buildTodoSection(dynamic theme) {
+    final filtered = _todos.where((t) => t.filter == _todoFilter).toList();
+    final pending = filtered.where((t) => !t.done).toList();
+    final done = filtered.where((t) => t.done).toList();
 
-  // ══════════════════════════════════════════════════════════
-  // NURU AI CARD
-  // ══════════════════════════════════════════════════════════
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  const Color(0xFF1F3F74).withOpacity(0.75),
+                  const Color(0xFF081F44).withOpacity(0.88),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: const Color(0xFF4569AD).withOpacity(0.4),
+                width: 1.2,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header row
+                Row(
+                  children: [
+                    const Text('📋', style: TextStyle(fontSize: 18)),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Text(
+                        'My To-Dos',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    // Filter toggle
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: const Color(0xFF4569AD).withOpacity(0.3),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: ['Today', 'This Week'].map((f) {
+                          final active = _todoFilter == f;
+                          return GestureDetector(
+                            onTap: () => setState(() => _todoFilter = f),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: active
+                                    ? const Color(0xFF4569AD).withOpacity(0.5)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                f,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: active
+                                      ? FontWeight.bold
+                                      : FontWeight.w400,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
 
-  Widget _buildNuruAICard() {
+                // Input field
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 4,
+                    horizontal: 14,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.07),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: const Color(0xFF4569AD).withOpacity(0.35),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.add_circle_outline,
+                        size: 18,
+                        color: Color(0xFF4569AD),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Theme(
+                          data: Theme.of(context).copyWith(
+                            textSelectionTheme: const TextSelectionThemeData(
+                              cursorColor: Colors.white70,
+                              selectionColor: Color(0x444569AD),
+                            ),
+                          ),
+                          child: TextField(
+                            controller: _todoController,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Colors.white,
+                            ),
+                            cursorColor: Colors.white70,
+                            decoration: const InputDecoration(
+                              hintText: 'Add a goal or task...',
+                              hintStyle: TextStyle(
+                                fontSize: 14,
+                                color: Colors.white38,
+                              ),
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              contentPadding: EdgeInsets.symmetric(
+                                vertical: 12,
+                              ),
+                            ),
+                            maxLines: 1,
+                            textInputAction: TextInputAction.done,
+                            onSubmitted: (_) => _addTodo(),
+                          ),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: _addTodo,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF4569AD).withOpacity(0.5),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Text(
+                            'Add',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Pending todos
+                if (pending.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  ...pending.map((todo) => _buildTodoTile(todo)),
+                ],
+
+                // Done todos
+                if (done.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    'Completed (${done.length})',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.white.withOpacity(0.4),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ...done.map((todo) => _buildTodoTile(todo)),
+                ],
+
+                // Empty state
+                if (filtered.isEmpty) ...[
+                  const SizedBox(height: 16),
+                  Center(
+                    child: Text(
+                      _todoFilter == 'Today'
+                          ? 'No tasks for today yet.\nAdd something you want to achieve!'
+                          : 'No tasks for this week yet.\nSet a goal to work towards!',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.white.withOpacity(0.45),
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTodoTile(_TodoItem todo) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: () => _toggleTodo(todo.id),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: todo.done
+                    ? const Color(0xFF4569AD).withOpacity(0.7)
+                    : Colors.transparent,
+                border: Border.all(
+                  color: todo.done
+                      ? const Color(0xFF4569AD)
+                      : Colors.white.withOpacity(0.3),
+                  width: 1.5,
+                ),
+              ),
+              child: todo.done
+                  ? const Icon(Icons.check, size: 13, color: Colors.white)
+                  : null,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              todo.text,
+              style: TextStyle(
+                fontSize: 14,
+                color: todo.done ? Colors.white.withOpacity(0.4) : Colors.white,
+                decoration: todo.done ? TextDecoration.lineThrough : null,
+                decorationColor: Colors.white.withOpacity(0.4),
+              ),
+            ),
+          ),
+          GestureDetector(
+            onTap: () => _deleteTodo(todo.id),
+            child: Icon(
+              Icons.close_rounded,
+              size: 16,
+              color: Colors.white.withOpacity(0.3),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNuruAICard(dynamic theme) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: GestureDetector(
-        onTap: () {
-          Navigator.pushNamed(context, '/nuru-ai');
-        },
+        onTap: () => Navigator.pushNamed(
+          context,
+          '/nuru-ai',
+          arguments: widget.userData,
+        ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(22),
           child: BackdropFilter(
@@ -1165,23 +1421,23 @@ class _CalmMeScreenState extends State<CalmMeScreen>
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    const Color(0xFF6C5CE7).withOpacity(0.28),
-                    _night.withOpacity(0.88),
+                    Color(0xFF6C5CE7).withOpacity(0.28),
+                    Color(0xFF081F44).withOpacity(0.88),
                   ],
                 ),
                 borderRadius: BorderRadius.circular(22),
                 border: Border.all(
-                  color: const Color(0xFF6C5CE7).withOpacity(0.50),
+                  color: Color(0xFF6C5CE7).withOpacity(0.50),
                   width: 1.5,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF6C5CE7).withOpacity(0.18),
+                    color: Color(0xFF6C5CE7).withOpacity(0.18),
                     blurRadius: 20,
                     spreadRadius: 2,
                   ),
                   BoxShadow(
-                    color: _night.withOpacity(0.5),
+                    color: Color(0xFF081F44).withOpacity(0.5),
                     blurRadius: 14,
                     offset: const Offset(0, 6),
                   ),
@@ -1189,7 +1445,6 @@ class _CalmMeScreenState extends State<CalmMeScreen>
               ),
               child: Row(
                 children: [
-                  // Lottie circle
                   Container(
                     width: 62,
                     height: 62,
@@ -1197,13 +1452,13 @@ class _CalmMeScreenState extends State<CalmMeScreen>
                       shape: BoxShape.circle,
                       gradient: RadialGradient(
                         colors: [
-                          const Color(0xFF6C5CE7).withOpacity(0.45),
-                          const Color(0xFF4E54C8).withOpacity(0.15),
+                          Color(0xFF6C5CE7).withOpacity(0.45),
+                          Color(0xFF6C5CE7).withOpacity(0.15),
                           Colors.transparent,
                         ],
                       ),
                       border: Border.all(
-                        color: const Color(0xFF6C5CE7).withOpacity(0.5),
+                        color: Color(0xFF6C5CE7).withOpacity(0.5),
                         width: 1.5,
                       ),
                     ),
@@ -1242,14 +1497,10 @@ class _CalmMeScreenState extends State<CalmMeScreen>
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color(
-                                  0xFF6C5CE7,
-                                ).withOpacity(0.25),
+                                color: Color(0xFF6C5CE7).withOpacity(0.25),
                                 borderRadius: BorderRadius.circular(6),
                                 border: Border.all(
-                                  color: const Color(
-                                    0xFF6C5CE7,
-                                  ).withOpacity(0.5),
+                                  color: Color(0xFF6C5CE7).withOpacity(0.5),
                                 ),
                               ),
                               child: const Text(
@@ -1279,10 +1530,10 @@ class _CalmMeScreenState extends State<CalmMeScreen>
                     width: 38,
                     height: 38,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF6C5CE7).withOpacity(0.22),
+                      color: Color(0xFF6C5CE7).withOpacity(0.22),
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: const Color(0xFF6C5CE7).withOpacity(0.45),
+                        color: Color(0xFF6C5CE7).withOpacity(0.45),
                       ),
                     ),
                     child: const Icon(
@@ -1300,75 +1551,13 @@ class _CalmMeScreenState extends State<CalmMeScreen>
     );
   }
 
-  // ── Lottie circle widget ─────────────────────────────────
-  Widget _lottieCircle(String url, Color color, {double size = 58}) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: RadialGradient(
-          colors: [
-            color.withOpacity(0.45),
-            color.withOpacity(0.10),
-            Colors.transparent,
-          ],
-        ),
-        border: Border.all(color: color.withOpacity(0.45), width: 1.5),
-      ),
-      child: ClipOval(
-        child: Lottie.network(
-          url,
-          fit: BoxFit.cover,
-          repeat: true,
-          errorBuilder: (_, __, ___) =>
-              Icon(Icons.circle_outlined, color: color, size: size * 0.45),
-        ),
-      ),
-    );
-  }
+  // ── Shared helpers ────────────────────────────────────────
 
-  // ── Lottie icon for cards (no circle border) ──────────────
-  Widget _lottieIcon(String url, Color color, {double size = 50}) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: RadialGradient(
-          colors: [
-            color.withOpacity(0.50),
-            color.withOpacity(0.10),
-            Colors.transparent,
-          ],
-        ),
-        border: Border.all(color: color.withOpacity(0.45), width: 1.5),
-      ),
-      child: ClipOval(
-        child: Lottie.network(
-          url,
-          fit: BoxFit.cover,
-          repeat: true,
-          errorBuilder: (_, __, ___) =>
-              Icon(Icons.circle_outlined, color: color, size: size * 0.45),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSectionLabel(String text) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 20),
-    child: Text(
-      text,
-      style: const TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.bold,
-        color: Colors.white,
-      ),
-    ),
-  );
-
-  Widget _glassCard({required Color accent, required Widget child}) {
+  Widget _glassCard({
+    required dynamic theme,
+    required Color accent,
+    required Widget child,
+  }) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
       child: BackdropFilter(
@@ -1379,13 +1568,16 @@ class _CalmMeScreenState extends State<CalmMeScreen>
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [_dive.withOpacity(0.75), _night.withOpacity(0.80)],
+              colors: [
+                Color(0xFF1F3F74).withOpacity(0.75),
+                Color(0xFF081F44).withOpacity(0.80),
+              ],
             ),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: accent.withOpacity(0.4), width: 1.5),
             boxShadow: [
               BoxShadow(
-                color: _night.withOpacity(0.5),
+                color: Color(0xFF081F44).withOpacity(0.5),
                 blurRadius: 20,
                 offset: const Offset(0, 10),
               ),
@@ -1402,21 +1594,23 @@ class _CalmMeScreenState extends State<CalmMeScreen>
     );
   }
 
-  Widget _iconCircle(IconData icon, Color color, {double size = 50}) {
+  Widget _iconCircle({
+    required dynamic theme,
+    required IconData icon,
+    required Color color,
+    double size = 50,
+  }) {
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: const Color(0xFF1F3F74).withOpacity(0.75),
+        color: Color(0xFF1F3F74).withOpacity(0.75),
         border: Border.all(color: const Color(0xFF4569AD), width: 2.0),
         boxShadow: [
+          BoxShadow(color: Color(0xFF4569AD).withOpacity(0.25), blurRadius: 10),
           BoxShadow(
-            color: const Color(0xFF4569AD).withOpacity(0.25),
-            blurRadius: 10,
-          ),
-          BoxShadow(
-            color: const Color(0xFF081F44).withOpacity(0.4),
+            color: Color(0xFF081F44).withOpacity(0.4),
             blurRadius: 6,
             offset: const Offset(0, 3),
           ),
@@ -1426,7 +1620,13 @@ class _CalmMeScreenState extends State<CalmMeScreen>
     );
   }
 
-  Widget _smallCardIcon(IconData icon, String title, String sub, Color color) {
+  Widget _smallCardIcon({
+    required dynamic theme,
+    required IconData icon,
+    required String title,
+    required String sub,
+    required Color color,
+  }) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(18),
       child: BackdropFilter(
@@ -1437,7 +1637,10 @@ class _CalmMeScreenState extends State<CalmMeScreen>
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [color.withOpacity(0.18), _night.withOpacity(0.85)],
+              colors: [
+                color.withOpacity(0.18),
+                Color(0xFF081F44).withOpacity(0.85),
+              ],
             ),
             borderRadius: BorderRadius.circular(18),
             border: Border.all(color: color.withOpacity(0.4), width: 1.2),
@@ -1445,7 +1648,7 @@ class _CalmMeScreenState extends State<CalmMeScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _iconCircle(icon, color, size: 44),
+              _iconCircle(theme: theme, icon: icon, color: color, size: 44),
               const SizedBox(height: 10),
               Text(
                 title,
@@ -1470,66 +1673,33 @@ class _CalmMeScreenState extends State<CalmMeScreen>
     );
   }
 
-  // ══════════════════════════════════════════════════════════
-  // BOTTOM NAV — identical to before
-  // ══════════════════════════════════════════════════════════
+  // ── Bottom nav ────────────────────────────────────────────
 
-  Widget _buildBottomNav() {
+  Widget _buildBottomNav(dynamic theme) {
     return Material(
-      color: _night,
+      color: const Color(0xFF081F44),
       child: LayoutBuilder(
-        builder: (context, constraints) => Stack(
+        builder: (ctx, constraints) => Stack(
           children: [
             Container(
               height: 75,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFF1F3F74),
-                    Color(0xFF081F44),
-                    Color(0xFF081F44),
-                    Color(0xFF0D2550),
-                  ],
+                  colors: theme.gradientColors,
                 ),
               ),
             ),
             Positioned(
               left: -40,
               bottom: -20,
-              child: Container(
-                width: 140,
-                height: 140,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      Colors.white.withOpacity(0.12),
-                      Colors.white.withOpacity(0.04),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-              ),
+              child: _orb(140, Colors.white.withOpacity(0.12)),
             ),
             Positioned(
               right: -30,
               top: -40,
-              child: Container(
-                width: 130,
-                height: 130,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      Colors.white.withOpacity(0.10),
-                      Colors.white.withOpacity(0.03),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-              ),
+              child: _orb(130, Colors.white.withOpacity(0.10)),
             ),
             Positioned(
               top: 0,
@@ -1548,15 +1718,25 @@ class _CalmMeScreenState extends State<CalmMeScreen>
                 ),
               ),
             ),
-            Container(
+            SizedBox(
               height: 75,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _buildNavItem(Icons.home_rounded, 'Home', 0),
-                  _buildNavItem(Icons.spa_outlined, 'CalmMe', 1),
-                  _buildNavItem(Icons.analytics_outlined, 'Analytics', 2),
-                  _buildNavItem(Icons.person_outline_rounded, 'Profile', 3),
+                  _buildNavItem(theme, Icons.home_rounded, 'Home', 0),
+                  _buildNavItem(theme, Icons.spa_outlined, 'CalmMe', 1),
+                  _buildNavItem(
+                    theme,
+                    Icons.analytics_outlined,
+                    'Analytics',
+                    2,
+                  ),
+                  _buildNavItem(
+                    theme,
+                    Icons.person_outline_rounded,
+                    'Profile',
+                    3,
+                  ),
                 ],
               ),
             ),
@@ -1566,7 +1746,18 @@ class _CalmMeScreenState extends State<CalmMeScreen>
     );
   }
 
-  Widget _buildNavItem(IconData icon, String label, int index) {
+  Widget _orb(double size, Color color) => Container(
+    width: size,
+    height: size,
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      gradient: RadialGradient(
+        colors: [color, color.withOpacity(0.3), Colors.transparent],
+      ),
+    ),
+  );
+
+  Widget _buildNavItem(dynamic theme, IconData icon, String label, int index) {
     final isSelected = _currentNavIndex == index;
     return GestureDetector(
       onTap: () {
@@ -1577,11 +1768,19 @@ class _CalmMeScreenState extends State<CalmMeScreen>
         }
         setState(() => _currentNavIndex = index);
         if (index == 2)
-          Navigator.pushNamed(context, '/analytics').then((_) {
+          Navigator.pushNamed(
+            context,
+            '/analytics',
+            arguments: widget.userData,
+          ).then((_) {
             if (mounted) setState(() => _currentNavIndex = 1);
           });
         if (index == 3)
-          Navigator.pushNamed(context, '/profile').then((_) {
+          Navigator.pushNamed(
+            context,
+            '/profile',
+            arguments: widget.userData,
+          ).then((_) {
             if (mounted) setState(() => _currentNavIndex = 1);
           });
       },
@@ -1589,14 +1788,11 @@ class _CalmMeScreenState extends State<CalmMeScreen>
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFF4569AD).withOpacity(0.4)
+              ? Color(0xFF4569AD).withOpacity(0.4)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
           border: isSelected
-              ? Border.all(
-                  color: const Color(0xFF4569AD).withOpacity(0.7),
-                  width: 2,
-                )
+              ? Border.all(color: Color(0xFF4569AD).withOpacity(0.7), width: 2)
               : null,
         ),
         child: Column(
@@ -1620,14 +1816,17 @@ class _CalmMeScreenState extends State<CalmMeScreen>
 }
 
 // ══════════════════════════════════════════════════════════════
-// MELTDOWN PREVENTION CARD — stateful widget
+// MELTDOWN CARD — separate StatefulWidget
+// Theme passed via constructor — no context.nuruTheme inside
 // ══════════════════════════════════════════════════════════════
 
 class _MeltdownCard extends StatefulWidget {
   final Map<int, Map<String, dynamic>> levelInfo;
+  final dynamic theme;
   final VoidCallback onSOS, onAnger, onBreathe, onMindful;
   const _MeltdownCard({
     required this.levelInfo,
+    required this.theme,
     required this.onSOS,
     required this.onAnger,
     required this.onBreathe,
@@ -1640,12 +1839,9 @@ class _MeltdownCard extends StatefulWidget {
 class _MeltdownCardState extends State<_MeltdownCard> {
   int _level = 1;
 
-  static const Color _night = Color(0xFF081F44);
-  static const Color _dive = Color(0xFF1F3F74);
-  static const Color _sailing = Color(0xFF4569AD);
-
   @override
   Widget build(BuildContext context) {
+    final theme = widget.theme;
     final info = widget.levelInfo[_level]!;
     final color = info['color'] as Color;
     return ClipRRect(
@@ -1658,13 +1854,19 @@ class _MeltdownCardState extends State<_MeltdownCard> {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [_dive.withOpacity(0.75), _night.withOpacity(0.88)],
+              colors: [
+                Color(0xFF1F3F74).withOpacity(0.75),
+                Color(0xFF081F44).withOpacity(0.88),
+              ],
             ),
             borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: _sailing.withOpacity(0.55), width: 1.5),
+            border: Border.all(
+              color: Color(0xFF4569AD).withOpacity(0.55),
+              width: 1.5,
+            ),
             boxShadow: [
               BoxShadow(
-                color: _night.withOpacity(0.5),
+                color: Color(0xFF081F44).withOpacity(0.5),
                 blurRadius: 18,
                 offset: const Offset(0, 8),
               ),
@@ -1673,7 +1875,6 @@ class _MeltdownCardState extends State<_MeltdownCard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Title row
               Row(
                 children: [
                   Container(
@@ -1681,18 +1882,18 @@ class _MeltdownCardState extends State<_MeltdownCard> {
                     height: 46,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: const Color(0xFF1F3F74).withOpacity(0.75),
+                      color: Color(0xFF1F3F74).withOpacity(0.75),
                       border: Border.all(
                         color: const Color(0xFF4569AD),
-                        width: 2.0,
+                        width: 2,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF4569AD).withOpacity(0.25),
+                          color: Color(0xFF4569AD).withOpacity(0.25),
                           blurRadius: 10,
                         ),
                         BoxShadow(
-                          color: const Color(0xFF081F44).withOpacity(0.4),
+                          color: Color(0xFF081F44).withOpacity(0.4),
                           blurRadius: 6,
                           offset: const Offset(0, 3),
                         ),
@@ -1700,7 +1901,7 @@ class _MeltdownCardState extends State<_MeltdownCard> {
                     ),
                     child: Icon(
                       info['icon'] as IconData,
-                      color: (info['color'] as Color),
+                      color: color,
                       size: 22,
                     ),
                   ),
@@ -1719,101 +1920,61 @@ class _MeltdownCardState extends State<_MeltdownCard> {
                         ),
                         const SizedBox(height: 3),
                         Text(
-                          'How activated am I right now?',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.white.withOpacity(0.5),
-                          ),
+                          info['label'] as String,
+                          style: TextStyle(fontSize: 12, color: color),
                         ),
                       ],
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: color.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: color.withOpacity(0.5)),
-                    ),
-                    child: Text(
-                      '${info['label']}',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: color,
-                        fontWeight: FontWeight.w700,
-                      ),
+                  Text(
+                    'Level $_level / 5',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.white.withOpacity(0.4),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 18),
-
-              // 5-step level selector
-              Row(
-                children: List.generate(5, (i) {
-                  final lvl = i + 1;
-                  final sel = _level == lvl;
-                  final dotColors = [
-                    const Color(0xFF00B894),
-                    const Color(0xFF43C6AC),
-                    const Color(0xFFFDCB6E),
-                    const Color(0xFFE17055),
-                    const Color(0xFFFF7675),
-                  ];
-                  final dc = dotColors[i];
-                  return Expanded(
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() => _level = lvl);
-                        HapticFeedback.selectionClick();
-                      },
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        margin: const EdgeInsets.symmetric(horizontal: 3),
-                        height: sel ? 44 : 36,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          gradient: LinearGradient(
-                            colors: sel
-                                ? [dc.withOpacity(0.5), _night.withOpacity(0.7)]
-                                : [
-                                    _dive.withOpacity(0.5),
-                                    _night.withOpacity(0.7),
-                                  ],
-                          ),
-                          border: Border.all(
-                            color: sel
-                                ? dc.withOpacity(0.8)
-                                : _sailing.withOpacity(0.3),
-                            width: sel ? 2 : 1,
-                          ),
-                        ),
-                        child: Center(
-                          child: Text(
-                            '$lvl',
-                            style: TextStyle(
-                              fontSize: sel ? 16 : 13,
-                              fontWeight: sel
-                                  ? FontWeight.w800
-                                  : FontWeight.w500,
-                              color: sel
-                                  ? Colors.white
-                                  : Colors.white.withOpacity(0.55),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                }),
+              const SizedBox(height: 16),
+              SliderTheme(
+                data: SliderThemeData(
+                  trackHeight: 6,
+                  activeTrackColor: color,
+                  inactiveTrackColor: Color(0xFF4569AD).withOpacity(0.2),
+                  thumbColor: color,
+                  overlayColor: color.withOpacity(0.2),
+                  thumbShape: const RoundSliderThumbShape(
+                    enabledThumbRadius: 9,
+                  ),
+                ),
+                child: Slider(
+                  value: _level.toDouble(),
+                  min: 1,
+                  max: 5,
+                  divisions: 4,
+                  onChanged: (v) => setState(() => _level = v.round()),
+                ),
               ),
-
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Calm',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.white.withOpacity(0.4),
+                    ),
+                  ),
+                  Text(
+                    'Overwhelmed',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.white.withOpacity(0.4),
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 14),
-
-              // Suggestion
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -1878,65 +2039,69 @@ class _MeltdownCardState extends State<_MeltdownCard> {
 }
 
 // ══════════════════════════════════════════════════════════════
-// PAINTERS — identical to before
+// PAINTERS — NO BuildContext, colours passed as constructor params
 // ══════════════════════════════════════════════════════════════
 
-class SubtleStarsPainter extends CustomPainter {
+class _CalmStarsPainter extends CustomPainter {
   final double twinkle;
-  SubtleStarsPainter({required this.twinkle});
+  const _CalmStarsPainter({required this.twinkle});
+  static const _stars = [
+    [0.08, 0.05],
+    [0.18, 0.15],
+    [0.25, 0.08],
+    [0.35, 0.20],
+    [0.42, 0.12],
+    [0.52, 0.18],
+    [0.62, 0.08],
+    [0.72, 0.22],
+    [0.78, 0.14],
+    [0.88, 0.10],
+    [0.12, 0.48],
+    [0.28, 0.55],
+    [0.38, 0.62],
+    [0.50, 0.58],
+    [0.65, 0.52],
+    [0.75, 0.65],
+    [0.85, 0.58],
+    [0.15, 0.82],
+    [0.45, 0.88],
+    [0.92, 0.85],
+  ];
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..style = PaintingStyle.fill;
-    final stars = [
-      [0.08, 0.05],
-      [0.18, 0.15],
-      [0.25, 0.08],
-      [0.35, 0.20],
-      [0.42, 0.12],
-      [0.52, 0.18],
-      [0.62, 0.08],
-      [0.72, 0.22],
-      [0.78, 0.14],
-      [0.88, 0.10],
-      [0.12, 0.48],
-      [0.28, 0.55],
-      [0.38, 0.62],
-      [0.50, 0.58],
-      [0.65, 0.52],
-      [0.75, 0.65],
-      [0.85, 0.58],
-      [0.15, 0.82],
-      [0.45, 0.88],
-      [0.92, 0.85],
-    ];
-    for (final star in stars) {
-      final x = size.width * star[0];
-      final y = size.height * star[1];
-      final opacity = 0.4 + (twinkle * 0.3);
-      paint.color = Colors.white.withOpacity(opacity * 0.4);
-      canvas.drawCircle(Offset(x, y), 3.5, paint);
-      paint.color = Colors.white.withOpacity(opacity * 0.6);
-      canvas.drawCircle(Offset(x, y), 2.0, paint);
-      paint.color = Colors.white.withOpacity(opacity);
-      canvas.drawCircle(Offset(x, y), 1.3, paint);
+    final p = Paint()..style = PaintingStyle.fill;
+    for (final s in _stars) {
+      final x = size.width * s[0];
+      final y = size.height * s[1];
+      final op = 0.4 + (twinkle * 0.3);
+      p.color = Colors.white.withOpacity(op * 0.4);
+      canvas.drawCircle(Offset(x, y), 3.5, p);
+      p.color = Colors.white.withOpacity(op * 0.6);
+      canvas.drawCircle(Offset(x, y), 2.0, p);
+      p.color = Colors.white.withOpacity(op);
+      canvas.drawCircle(Offset(x, y), 1.3, p);
     }
   }
 
   @override
-  bool shouldRepaint(SubtleStarsPainter old) => old.twinkle != twinkle;
+  bool shouldRepaint(_CalmStarsPainter o) => o.twinkle != twinkle;
 }
 
-class Animated3DShapesPainter extends CustomPainter {
+class _CalmShapesPainter extends CustomPainter {
   final double animation1, animation2, animation3;
-  Animated3DShapesPainter({
+  final Color accentColor, bgColor, bgEnd;
+  const _CalmShapesPainter({
     required this.animation1,
     required this.animation2,
     required this.animation3,
+    required this.accentColor,
+    required this.bgColor,
+    required this.bgEnd,
   });
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..style = PaintingStyle.fill;
-    paint.color = const Color(0xFFB7C3E8).withOpacity(0.25);
+    paint.color = accentColor.withOpacity(0.25);
     final oy1 = animation1 * 40 - 20;
     canvas.drawPath(
       Path()
@@ -1962,7 +2127,7 @@ class Animated3DShapesPainter extends CustomPainter {
         ..close(),
       paint,
     );
-    paint.color = const Color(0xFF081F44).withOpacity(0.2);
+    paint.color = bgColor.withOpacity(0.2);
     final ox2 = animation2 * 35 - 17;
     canvas.drawPath(
       Path()
@@ -1988,59 +2153,87 @@ class Animated3DShapesPainter extends CustomPainter {
         ..close(),
       paint,
     );
-    canvas.drawCircle(
-      Offset(
-        size.width * 0.75 + (animation1 * 25 - 12),
-        size.height * 0.15 + (animation2 * 20 - 10),
-      ),
-      90,
-      Paint()
-        ..shader =
-            RadialGradient(
-              colors: [
-                Colors.white.withOpacity(0.25),
-                Colors.white.withOpacity(0.05),
-              ],
-            ).createShader(
-              Rect.fromCircle(
-                center: Offset(
-                  size.width * 0.75 + (animation1 * 25 - 12),
-                  size.height * 0.15 + (animation2 * 20 - 10),
-                ),
-                radius: 90,
-              ),
-            ),
+    final c1 = Offset(
+      size.width * 0.75 + (animation1 * 25 - 12),
+      size.height * 0.15 + (animation2 * 20 - 10),
     );
     canvas.drawCircle(
-      Offset(
-        size.width * 0.3 + (animation3 * 30 - 15),
-        size.height * 0.85 + (animation1 * 20 - 10),
-      ),
+      c1,
+      90,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [
+            Colors.white.withOpacity(0.25),
+            Colors.white.withOpacity(0.05),
+          ],
+        ).createShader(Rect.fromCircle(center: c1, radius: 90)),
+    );
+    final c2 = Offset(
+      size.width * 0.3 + (animation3 * 30 - 15),
+      size.height * 0.85 + (animation1 * 20 - 10),
+    );
+    canvas.drawCircle(
+      c2,
       110,
       Paint()
-        ..shader =
-            RadialGradient(
-              colors: [
-                const Color(0xFF14366D).withOpacity(0.35),
-                const Color(0xFF14366D).withOpacity(0.10),
-                Colors.transparent,
-              ],
-              stops: const [0.0, 0.6, 1.0],
-            ).createShader(
-              Rect.fromCircle(
-                center: Offset(
-                  size.width * 0.3 + (animation3 * 30 - 15),
-                  size.height * 0.85 + (animation1 * 20 - 10),
-                ),
-                radius: 110,
-              ),
-            ),
+        ..shader = RadialGradient(
+          colors: [
+            bgEnd.withOpacity(0.35),
+            bgEnd.withOpacity(0.1),
+            Colors.transparent,
+          ],
+          stops: [0.0, 0.6, 1.0],
+        ).createShader(Rect.fromCircle(center: c2, radius: 110)),
     );
   }
 
   @override
-  bool shouldRepaint(Animated3DShapesPainter old) =>
-      old.animation1 != animation1 ||
-      old.animation2 != animation2 ||
-      old.animation3 != animation3;
+  bool shouldRepaint(_CalmShapesPainter o) =>
+      o.animation1 != animation1 ||
+      o.animation2 != animation2 ||
+      o.animation3 != animation3 ||
+      o.accentColor != accentColor ||
+      o.bgColor != bgColor;
+}
+
+// ── Todo model ────────────────────────────────────────────────────────────────
+
+class _TodoItem {
+  final String id;
+  final String text;
+  final bool done;
+  final DateTime createdAt;
+  final String filter; // 'Today' or 'This Week'
+
+  const _TodoItem({
+    required this.id,
+    required this.text,
+    this.done = false,
+    required this.createdAt,
+    required this.filter,
+  });
+
+  _TodoItem copyWith({bool? done}) => _TodoItem(
+    id: id,
+    text: text,
+    done: done ?? this.done,
+    createdAt: createdAt,
+    filter: filter,
+  );
+
+  Map<String, dynamic> toMap() => {
+    'id': id,
+    'text': text,
+    'done': done,
+    'createdAt': createdAt.toIso8601String(),
+    'filter': filter,
+  };
+
+  factory _TodoItem.fromMap(Map<String, dynamic> m) => _TodoItem(
+    id: m['id'] as String,
+    text: m['text'] as String,
+    done: m['done'] as bool? ?? false,
+    createdAt: DateTime.parse(m['createdAt'] as String),
+    filter: m['filter'] as String? ?? 'Today',
+  );
 }

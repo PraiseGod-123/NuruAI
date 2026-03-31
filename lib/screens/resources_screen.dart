@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:ui';
 import '../services/resource_service.dart';
+import 'package:provider/provider.dart';
+import '../providers/theme_provider.dart';
+import '../providers/nuru_theme_extension.dart';
 
 // ══════════════════════════════════════════════════════════════
 // RESOURCES SCREEN
@@ -24,7 +27,8 @@ class _Category {
 }
 
 class ResourcesScreen extends StatefulWidget {
-  const ResourcesScreen({Key? key}) : super(key: key);
+  final Map<String, dynamic>? userData;
+  const ResourcesScreen({Key? key, this.userData}) : super(key: key);
 
   @override
   State<ResourcesScreen> createState() => _ResourcesScreenState();
@@ -133,16 +137,16 @@ class _ResourcesScreenState extends State<ResourcesScreen>
         statusBarBrightness: Brightness.dark,
       ),
       child: Scaffold(
-        backgroundColor: const Color(0xFF1F3F74),
+        backgroundColor: context.nuruTheme.backgroundMid,
         body: Stack(
           children: [
             // Background
             Container(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [Color(0xFF4569AD), Color(0xFF14366D)],
+                  colors: context.nuruTheme.gradientColors,
                 ),
               ),
             ),

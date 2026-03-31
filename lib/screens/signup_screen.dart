@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
 import '../utils/nuru_colors.dart';
+import '../services/firebase_service.dart';
 
 // ══════════════════════════════════════════════════════════════
 // SIGNUP SCREEN
@@ -41,7 +42,8 @@ class _SignupScreenState extends State<SignupScreen>
   String? _caregiverType;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
-  bool _addCaregiver = false; // toggled by user (20–25) or forced (13–19)
+  bool _addCaregiver = false;
+  bool _isLoading = false; // toggled by user (20–25) or forced (13–19)
 
   bool get _isMinor => (_userAge ?? 0) >= 13 && (_userAge ?? 0) <= 19;
   bool get _showCaregiver => _isMinor || _addCaregiver;
@@ -121,7 +123,7 @@ class _SignupScreenState extends State<SignupScreen>
     super.dispose();
   }
 
-  void _handleSignup() {
+  Future<void> _handleSignup() async {
     if (!_formKey.currentState!.validate()) return;
 
     if (_selectedDiagnosis == null) {
@@ -135,26 +137,128 @@ class _SignupScreenState extends State<SignupScreen>
         return;
       }
       if (_caregiverNameController.text.trim().isEmpty) {
-        _showError('Please enter the caregiver\'s name');
+        _showError("Please enter the caregiver's name");
         return;
       }
     }
 
-    Navigator.pushReplacementNamed(
-      context,
-      '/facial-recognition-setup',
-      arguments: {
-        'name': _nameController.text.trim(),
-        'email': _emailController.text.trim(),
-        'age': _userAge,
-        'diagnosis': _selectedDiagnosis,
-        if (_showCaregiver) ...{
-          'caregiverType': _caregiverType,
-          'caregiverName': _caregiverNameController.text.trim(),
-          'caregiverEmail': _caregiverEmailController.text.trim(),
-          'caregiverPhone': _caregiverPhoneController.text.trim(),
-        },
-      },
+    setState(() => _isLoading = true);
+
+    final result = await NuruFirebaseService.instance.signUp(
+      email: _emailController.text.trim(),
+      password: _passwordController.text,
+      name: _nameController.text.trim(),
+      age: _userAge!,
+      diagnosis: _selectedDiagnosis!,
+      caregiverName: _showCaregiver
+          ? _caregiverNameController.text.trim()
+          : null,
+      caregiverType: _showCaregiver ? _caregiverType : null,
+      caregiverEmail: _showCaregiver
+          ? _caregiverEmailController.text.trim()
+          : null,
+      caregiverPhone: _showCaregiver
+          ? _caregiverPhoneController.text.trim()
+          : null,
+    );
+
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    if (result.success) {
+      // Show email verification notice then navigate
+      _showEmailVerificationDialog(result.uid!);
+    } else {
+      _showError(result.error ?? 'Sign up failed. Please try again.');
+    }
+  }
+
+  void _showEmailVerificationDialog(String uid) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF1F3F74),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Verify Your Email',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.mark_email_unread_outlined,
+              color: Color(0xFF4569AD),
+              size: 48,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'We sent a verification email to ${_emailController.text.trim()}. Please check your inbox and verify your account.',
+              style: const TextStyle(color: Colors.white70, height: 1.5),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'You can still use the app while unverified.',
+              style: TextStyle(color: Colors.white38, fontSize: 12),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await NuruFirebaseService.instance.resendVerificationEmail();
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Verification email resent!'),
+                  backgroundColor: Color(0xFF4CAF50),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+            child: const Text(
+              'Resend Email',
+              style: TextStyle(color: Colors.white54),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.pushReplacementNamed(
+                context,
+                '/home',
+                arguments: {
+                  'uid': uid,
+                  'name': _nameController.text.trim(),
+                  'email': _emailController.text.trim(),
+                  'age': _userAge,
+                  'diagnosis': _selectedDiagnosis,
+                  'currentStreak': 0,
+                  'totalCheckIns': 0,
+                  'avgMood': 0.0,
+                  'unreadNotifications': 0,
+                  if (_showCaregiver) ...{
+                    'caregiverType': _caregiverType,
+                    'caregiverName': _caregiverNameController.text.trim(),
+                    'caregiverEmail': _caregiverEmailController.text.trim(),
+                    'caregiverPhone': _caregiverPhoneController.text.trim(),
+                  },
+                },
+              );
+            },
+            child: const Text(
+              'Continue to App',
+              style: TextStyle(
+                color: Color(0xFF4569AD),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -402,7 +506,7 @@ class _SignupScreenState extends State<SignupScreen>
                         width: double.infinity,
                         height: 56,
                         child: ElevatedButton(
-                          onPressed: _handleSignup,
+                          onPressed: _isLoading ? null : _handleSignup,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.white,
                             foregroundColor: const Color(0xFF4569AD),

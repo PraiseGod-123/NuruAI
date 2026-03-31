@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:math' as math;
 import 'dart:ui';
+import 'package:provider/provider.dart';
+import '../providers/theme_provider.dart';
+import '../providers/nuru_theme_extension.dart';
 
 // ══════════════════════════════════════════════════════════════
 // SOS SCREEN — Immediate Calm
@@ -12,7 +15,8 @@ import 'dart:ui';
 // ══════════════════════════════════════════════════════════════
 
 class SOSScreen extends StatefulWidget {
-  const SOSScreen({Key? key}) : super(key: key);
+  final Map<String, dynamic>? userData;
+  const SOSScreen({Key? key, this.userData}) : super(key: key);
   @override
   State<SOSScreen> createState() => _SOSScreenState();
 }
@@ -22,11 +26,6 @@ class _SOSScreenState extends State<SOSScreen> with TickerProviderStateMixin {
   late AnimationController _starCtrl;
   late AnimationController _pulseCtrl;
   int _phase = 0; // 0=inhale 1=hold 2=exhale
-
-  static const Color _night = Color(0xFF081F44);
-  static const Color _dive = Color(0xFF1F3F74);
-  static const Color _sailing = Color(0xFF4569AD);
-  static const Color _deep = Color(0xFF14366D);
 
   final List<String> _messages = [
     'You are safe right now.',
@@ -102,20 +101,24 @@ class _SOSScreenState extends State<SOSScreen> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
-        statusBarColor: Color(0xFF081F44),
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
       ),
       child: Scaffold(
-        backgroundColor: _night,
+        backgroundColor: context.nuruTheme.backgroundStart,
         body: Stack(
           children: [
             Container(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [Color(0xFF0F2A5C), _night, _deep],
+                  colors: [
+                    Color(0xFF0F2A5C),
+                    context.nuruTheme.backgroundStart,
+                    context.nuruTheme.backgroundEnd,
+                  ],
                 ),
               ),
             ),
@@ -143,10 +146,12 @@ class _SOSScreenState extends State<SOSScreen> with TickerProviderStateMixin {
                             width: 42,
                             height: 42,
                             decoration: BoxDecoration(
-                              color: _dive.withOpacity(0.5),
+                              color: context.nuruTheme.backgroundMid
+                                  .withOpacity(0.5),
                               borderRadius: BorderRadius.circular(14),
                               border: Border.all(
-                                color: _sailing.withOpacity(0.4),
+                                color: context.nuruTheme.accentColor
+                                    .withOpacity(0.4),
                                 width: 1.2,
                               ),
                             ),
@@ -341,9 +346,12 @@ class _SOSScreenState extends State<SOSScreen> with TickerProviderStateMixin {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: _dive.withOpacity(0.55),
+          color: context.nuruTheme.backgroundMid.withOpacity(0.55),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: _sailing.withOpacity(0.4), width: 1),
+          border: Border.all(
+            color: context.nuruTheme.accentColor.withOpacity(0.4),
+            width: 1,
+          ),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,

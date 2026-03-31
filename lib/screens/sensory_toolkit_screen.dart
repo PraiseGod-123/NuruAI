@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:ui';
+import 'package:provider/provider.dart';
+import '../providers/theme_provider.dart';
+import '../providers/nuru_theme_extension.dart';
 
 // ══════════════════════════════════════════════════════════════
 // SENSORY TOOLKIT SCREEN
@@ -13,7 +16,8 @@ import 'dart:ui';
 // ══════════════════════════════════════════════════════════════
 
 class SensoryToolkitScreen extends StatefulWidget {
-  const SensoryToolkitScreen({Key? key}) : super(key: key);
+  final Map<String, dynamic>? userData;
+  const SensoryToolkitScreen({Key? key, this.userData}) : super(key: key);
   @override
   State<SensoryToolkitScreen> createState() => _SensoryToolkitScreenState();
 }
@@ -21,12 +25,6 @@ class SensoryToolkitScreen extends StatefulWidget {
 class _SensoryToolkitScreenState extends State<SensoryToolkitScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _starCtrl;
-
-  static const Color _night = Color(0xFF081F44);
-  static const Color _dive = Color(0xFF1F3F74);
-  static const Color _sailing = Color(0xFF4569AD);
-  static const Color _deep = Color(0xFF14366D);
-
   // What is overwhelming me right now — multi-select
   final Set<String> _active = {};
 
@@ -210,15 +208,15 @@ class _SensoryToolkitScreenState extends State<SensoryToolkitScreen>
         statusBarIconBrightness: Brightness.light,
       ),
       child: Scaffold(
-        backgroundColor: _night,
+        backgroundColor: context.nuruTheme.backgroundStart,
         body: Stack(
           children: [
             Container(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [Color(0xFF4569AD), Color(0xFF14366D)],
+                  colors: context.nuruTheme.gradientColors,
                 ),
               ),
             ),
@@ -308,17 +306,21 @@ class _SensoryToolkitScreenState extends State<SensoryToolkitScreen>
                                       colors: sel
                                           ? [
                                               color.withOpacity(0.45),
-                                              _night.withOpacity(0.75),
+                                              context.nuruTheme.backgroundStart
+                                                  .withOpacity(0.75),
                                             ]
                                           : [
-                                              _dive.withOpacity(0.6),
-                                              _night.withOpacity(0.8),
+                                              context.nuruTheme.backgroundMid
+                                                  .withOpacity(0.6),
+                                              context.nuruTheme.backgroundStart
+                                                  .withOpacity(0.8),
                                             ],
                                     ),
                                     border: Border.all(
                                       color: sel
                                           ? color.withOpacity(0.8)
-                                          : _sailing.withOpacity(0.3),
+                                          : context.nuruTheme.accentColor
+                                                .withOpacity(0.3),
                                       width: sel ? 2 : 1,
                                     ),
                                     boxShadow: sel
@@ -377,13 +379,16 @@ class _SensoryToolkitScreenState extends State<SensoryToolkitScreen>
                                     decoration: BoxDecoration(
                                       gradient: LinearGradient(
                                         colors: [
-                                          _dive.withOpacity(0.6),
-                                          _night.withOpacity(0.85),
+                                          context.nuruTheme.backgroundMid
+                                              .withOpacity(0.6),
+                                          context.nuruTheme.backgroundStart
+                                              .withOpacity(0.85),
                                         ],
                                       ),
                                       borderRadius: BorderRadius.circular(16),
                                       border: Border.all(
-                                        color: _sailing.withOpacity(0.35),
+                                        color: context.nuruTheme.accentColor
+                                            .withOpacity(0.35),
                                       ),
                                     ),
                                     child: Row(
@@ -480,10 +485,15 @@ class _SensoryToolkitScreenState extends State<SensoryToolkitScreen>
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [_dive.withOpacity(0.75), _night.withOpacity(0.80)],
+              colors: [
+                context.nuruTheme.backgroundMid.withOpacity(0.75),
+                context.nuruTheme.backgroundStart.withOpacity(0.80),
+              ],
             ),
             border: Border(
-              bottom: BorderSide(color: _sailing.withOpacity(0.4)),
+              bottom: BorderSide(
+                color: context.nuruTheme.accentColor.withOpacity(0.4),
+              ),
             ),
           ),
           child: Row(
@@ -494,10 +504,10 @@ class _SensoryToolkitScreenState extends State<SensoryToolkitScreen>
                   width: 42,
                   height: 42,
                   decoration: BoxDecoration(
-                    color: _night.withOpacity(0.5),
+                    color: context.nuruTheme.backgroundStart.withOpacity(0.5),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: _sailing.withOpacity(0.5),
+                      color: context.nuruTheme.accentColor.withOpacity(0.5),
                       width: 1.2,
                     ),
                   ),
@@ -547,10 +557,15 @@ class _SensoryToolkitScreenState extends State<SensoryToolkitScreen>
         padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 16),
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [_sailing.withOpacity(0.3), _night.withOpacity(0.7)],
+            colors: [
+              context.nuruTheme.accentColor.withOpacity(0.3),
+              context.nuruTheme.backgroundStart.withOpacity(0.7),
+            ],
           ),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: _sailing.withOpacity(0.5)),
+          border: Border.all(
+            color: context.nuruTheme.accentColor.withOpacity(0.5),
+          ),
         ),
         child: Row(
           children: [

@@ -3,6 +3,9 @@ import 'package:flutter/services.dart';
 import 'dart:math' as math;
 import 'dart:ui';
 import '../services/poetry_service.dart';
+import 'package:provider/provider.dart';
+import '../providers/theme_provider.dart';
+import '../providers/nuru_theme_extension.dart';
 
 // ══════════════════════════════════════════════════════════════
 // POETRY CORNER SCREEN
@@ -18,7 +21,8 @@ import '../services/poetry_service.dart';
 // ══════════════════════════════════════════════════════════════
 
 class PoetryCornerScreen extends StatefulWidget {
-  const PoetryCornerScreen({Key? key}) : super(key: key);
+  final Map<String, dynamic>? userData;
+  const PoetryCornerScreen({Key? key, this.userData}) : super(key: key);
   @override
   State<PoetryCornerScreen> createState() => _PoetryCornerScreenState();
 }
@@ -33,12 +37,6 @@ class _PoetryCornerScreenState extends State<PoetryCornerScreen>
   String _mood = 'all';
 
   final _svc = PoetryService.instance;
-
-  static const Color _night = Color(0xFF081F44);
-  static const Color _dive = Color(0xFF1F3F74);
-  static const Color _sailing = Color(0xFF4569AD);
-  static const Color _deep = Color(0xFF14366D);
-  static const Color _lilac = Color(0xFFB7C3E8);
 
   // Mood colours as Flutter Colors (mirrors poetry_service.dart values)
   static const Map<String, Color> _moodColors = {
@@ -68,7 +66,8 @@ class _PoetryCornerScreenState extends State<PoetryCornerScreen>
     'short': 'Quick Read',
   };
 
-  Color get _currentColor => _moodColors[_mood] ?? _lilac;
+  Color get _currentColor =>
+      _moodColors[_mood] ?? context.nuruTheme.accentColor.withOpacity(0.4);
 
   @override
   void initState() {
@@ -121,22 +120,25 @@ class _PoetryCornerScreenState extends State<PoetryCornerScreen>
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
-        statusBarColor: Color(0xFF1F3F74),
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
         statusBarBrightness: Brightness.dark,
       ),
       child: Scaffold(
-        backgroundColor: _night,
+        backgroundColor: context.nuruTheme.backgroundStart,
         body: Stack(
           children: [
             // Background
             Container(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [_sailing, _deep],
+                  colors: [
+                    context.nuruTheme.accentColor,
+                    context.nuruTheme.backgroundEnd,
+                  ],
                 ),
               ),
             ),
@@ -157,11 +159,11 @@ class _PoetryCornerScreenState extends State<PoetryCornerScreen>
                 children: [
                   _buildAppBar(),
                   _buildMoodTabs(),
-                  const SizedBox(height: 6),
+                  SizedBox(height: 6),
                   Expanded(
                     child: RefreshIndicator(
                       color: _currentColor,
-                      backgroundColor: _dive,
+                      backgroundColor: context.nuruTheme.backgroundMid,
                       onRefresh: () => _load(forceRefresh: true),
                       child: _buildBody(),
                     ),
@@ -191,10 +193,15 @@ class _PoetryCornerScreenState extends State<PoetryCornerScreen>
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [_dive.withOpacity(0.75), _night.withOpacity(0.80)],
+              colors: [
+                context.nuruTheme.backgroundMid.withOpacity(0.75),
+                context.nuruTheme.backgroundStart.withOpacity(0.80),
+              ],
             ),
             border: Border(
-              bottom: BorderSide(color: _sailing.withOpacity(0.4)),
+              bottom: BorderSide(
+                color: context.nuruTheme.accentColor.withOpacity(0.4),
+              ),
             ),
           ),
           child: Row(
@@ -242,9 +249,12 @@ class _PoetryCornerScreenState extends State<PoetryCornerScreen>
     width: 42,
     height: 42,
     decoration: BoxDecoration(
-      color: _night.withOpacity(0.5),
+      color: context.nuruTheme.backgroundStart.withOpacity(0.5),
       borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: _sailing.withOpacity(0.5), width: 1.2),
+      border: Border.all(
+        color: context.nuruTheme.accentColor.withOpacity(0.5),
+        width: 1.2,
+      ),
     ),
     child: Icon(icon, color: Colors.white, size: size),
   );
@@ -277,14 +287,20 @@ class _PoetryCornerScreenState extends State<PoetryCornerScreen>
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: sel
-                        ? [col.withOpacity(0.45), _night.withOpacity(0.75)]
-                        : [_dive.withOpacity(0.6), _night.withOpacity(0.75)],
+                        ? [
+                            col.withOpacity(0.45),
+                            context.nuruTheme.backgroundStart.withOpacity(0.75),
+                          ]
+                        : [
+                            context.nuruTheme.backgroundMid.withOpacity(0.6),
+                            context.nuruTheme.backgroundStart.withOpacity(0.75),
+                          ],
                   ),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: sel
                         ? col.withOpacity(0.7)
-                        : _sailing.withOpacity(0.3),
+                        : context.nuruTheme.accentColor.withOpacity(0.3),
                     width: sel ? 1.5 : 1,
                   ),
                   boxShadow: sel
@@ -347,7 +363,9 @@ class _PoetryCornerScreenState extends State<PoetryCornerScreen>
   // ── Poem card ─────────────────────────────────────────────
 
   Widget _buildPoemCard(Poem poem) {
-    final col = _moodColors[poem.mood] ?? _lilac;
+    final col =
+        _moodColors[poem.mood] ??
+        context.nuruTheme.accentColor.withOpacity(0.4);
 
     return GestureDetector(
       onTap: () => _openPoem(poem),
@@ -361,13 +379,16 @@ class _PoetryCornerScreenState extends State<PoetryCornerScreen>
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [col.withOpacity(0.08), _night.withOpacity(0.90)],
+                colors: [
+                  col.withOpacity(0.08),
+                  context.nuruTheme.backgroundStart.withOpacity(0.90),
+                ],
               ),
               borderRadius: BorderRadius.circular(22),
               border: Border.all(color: col.withOpacity(0.30), width: 1.2),
               boxShadow: [
                 BoxShadow(
-                  color: _night.withOpacity(0.45),
+                  color: context.nuruTheme.backgroundStart.withOpacity(0.45),
                   blurRadius: 14,
                   offset: const Offset(0, 5),
                 ),
@@ -489,7 +510,9 @@ class _PoetryCornerScreenState extends State<PoetryCornerScreen>
   // ══════════════════════════════════════════════════════════
 
   void _openPoem(Poem poem) {
-    final col = _moodColors[poem.mood] ?? _lilac;
+    final col =
+        _moodColors[poem.mood] ??
+        context.nuruTheme.accentColor.withOpacity(0.4);
 
     showModalBottomSheet(
       context: context,
@@ -510,9 +533,9 @@ class _PoetryCornerScreenState extends State<PoetryCornerScreen>
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Color.lerp(const Color(0xFF1F3F74), col, 0.12) ??
-                        const Color(0xFF1F3F74),
-                    _night.withOpacity(0.99),
+                    Color.lerp(context.nuruTheme.backgroundMid, col, 0.12) ??
+                        context.nuruTheme.backgroundMid,
+                    context.nuruTheme.backgroundStart.withOpacity(0.99),
                   ],
                 ),
                 borderRadius: const BorderRadius.vertical(
@@ -624,14 +647,15 @@ class _PoetryCornerScreenState extends State<PoetryCornerScreen>
                               ],
                             ),
 
-                            const SizedBox(height: 32),
+                            SizedBox(height: 32),
 
                             // Full poem text
                             Container(
                               width: double.infinity,
                               padding: const EdgeInsets.all(24),
                               decoration: BoxDecoration(
-                                color: _night.withOpacity(0.35),
+                                color: context.nuruTheme.backgroundStart
+                                    .withOpacity(0.35),
                                 borderRadius: BorderRadius.circular(20),
                                 border: Border.all(
                                   color: col.withOpacity(0.20),
@@ -734,15 +758,17 @@ class _PoetryCornerScreenState extends State<PoetryCornerScreen>
               height: 1.5,
             ),
           ),
-          const SizedBox(height: 18),
+          SizedBox(height: 18),
           GestureDetector(
             onTap: _load,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               decoration: BoxDecoration(
-                color: _sailing.withOpacity(0.35),
+                color: context.nuruTheme.accentColor.withOpacity(0.35),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: _sailing.withOpacity(0.55)),
+                border: Border.all(
+                  color: context.nuruTheme.accentColor.withOpacity(0.55),
+                ),
               ),
               child: const Text(
                 'Try again',
@@ -768,17 +794,17 @@ class _PoetryCornerScreenState extends State<PoetryCornerScreen>
           'No poems found for this mood.',
           style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 13),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8),
         GestureDetector(
           onTap: () => _switchMood('all'),
           child: Text(
             'See all poems',
             style: TextStyle(
-              color: _lilac,
+              color: context.nuruTheme.accentColor.withOpacity(0.4),
               fontSize: 13,
               fontWeight: FontWeight.w600,
               decoration: TextDecoration.underline,
-              decorationColor: _lilac,
+              decorationColor: context.nuruTheme.accentColor.withOpacity(0.4),
             ),
           ),
         ),

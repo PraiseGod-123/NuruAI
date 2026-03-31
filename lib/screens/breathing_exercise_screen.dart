@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:math' as math;
 import '../services/breathing_service.dart';
-import '../utils/nuru_colors.dart';
+import 'package:provider/provider.dart';
+import '../providers/theme_provider.dart';
+import '../providers/nuru_theme_extension.dart';
 
 // ══════════════════════════════════════════════════════════════
 // BREATHING EXERCISE SCREEN
@@ -201,16 +203,16 @@ class _BreathingExerciseScreenState extends State<BreathingExerciseScreen>
   String get _phaseLabel => _phaseLabels[_phase];
   IconData get _phaseIcon => _phaseIcons[_phase];
 
-  Color get _phaseColour {
+  Color _phaseColour(Color accent) {
     switch (_phase) {
       case 0:
-        return const Color(0xFF8EA2D7); // solidBlue — inhale
+        return accent.withOpacity(0.6);
       case 1:
-        return const Color(0xFFB7C3E8); // lilacBlue — hold
+        return accent.withOpacity(0.4);
       case 2:
-        return const Color(0xFF4569AD); // sailingBlue — exhale
+        return accent;
       case 3:
-        return const Color(0xFF6E7D95); // muted — hold
+        return const Color(0xFF6E7D95);
       default:
         return Colors.white;
     }
@@ -266,16 +268,19 @@ class _BreathingExerciseScreenState extends State<BreathingExerciseScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF081F44),
+      backgroundColor: context.nuruTheme.backgroundStart,
       body: Stack(
         children: [
           // ── Background gradient ──
           Container(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0xFF4569AD), Color(0xFF14366D)],
+                colors: [
+                  context.nuruTheme.accentColor,
+                  context.nuruTheme.backgroundEnd,
+                ],
               ),
             ),
           ),
@@ -294,7 +299,10 @@ class _BreathingExerciseScreenState extends State<BreathingExerciseScreen>
             animation: _shapeController,
             builder: (_, __) => CustomPaint(
               size: Size.infinite,
-              painter: _ShapesPainter(_shapeController.value),
+              painter: _ShapesPainter(
+                _shapeController.value,
+                context.nuruTheme.accentColor,
+              ),
             ),
           ),
 
@@ -329,8 +337,8 @@ class _BreathingExerciseScreenState extends State<BreathingExerciseScreen>
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
+                  children: [
+                    const Text(
                       'Breathing',
                       style: TextStyle(
                         fontSize: 24,
@@ -340,7 +348,10 @@ class _BreathingExerciseScreenState extends State<BreathingExerciseScreen>
                     ),
                     Text(
                       'Evidence-based • Autism-adapted',
-                      style: TextStyle(fontSize: 13, color: Color(0xFFB7C3E8)),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: context.nuruTheme.accentColor.withOpacity(0.4),
+                      ),
                     ),
                   ],
                 ),
@@ -471,7 +482,7 @@ class _BreathingExerciseScreenState extends State<BreathingExerciseScreen>
                   color: Colors.white.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(
-                    color: const Color(0xFF4569AD).withOpacity(0.5),
+                    color: context.nuruTheme.accentColor.withOpacity(0.5),
                     width: 1.5,
                   ),
                 ),
@@ -502,17 +513,17 @@ class _BreathingExerciseScreenState extends State<BreathingExerciseScreen>
         if (pattern[i] == 0) return const SizedBox.shrink();
         final isActive = i == active;
         return AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
+          duration: Duration(milliseconds: 300),
           margin: const EdgeInsets.symmetric(horizontal: 8),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
             color: isActive
-                ? const Color(0xFF4569AD).withOpacity(0.6)
+                ? context.nuruTheme.accentColor.withOpacity(0.6)
                 : Colors.white.withOpacity(0.08),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: isActive
-                  ? const Color(0xFF8EA2D7)
+                  ? context.nuruTheme.accentColor.withOpacity(0.6)
                   : Colors.white.withOpacity(0.15),
               width: isActive ? 1.5 : 1,
             ),
@@ -531,7 +542,9 @@ class _BreathingExerciseScreenState extends State<BreathingExerciseScreen>
                 labels[i],
                 style: TextStyle(
                   fontSize: 11,
-                  color: isActive ? const Color(0xFFB7C3E8) : Colors.white38,
+                  color: isActive
+                      ? context.nuruTheme.accentColor.withOpacity(0.4)
+                      : Colors.white38,
                 ),
               ),
             ],
@@ -565,12 +578,14 @@ class _BreathingExerciseScreenState extends State<BreathingExerciseScreen>
               shape: BoxShape.circle,
               color: Colors.transparent,
               border: Border.all(
-                color: const Color(0xFF4569AD).withOpacity(0.25 + pulse * 0.15),
+                color: context.nuruTheme.accentColor.withOpacity(
+                  0.25 + pulse * 0.15,
+                ),
                 width: 2,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF4569AD).withOpacity(0.12),
+                  color: context.nuruTheme.accentColor.withOpacity(0.12),
                   blurRadius: 30,
                   spreadRadius: 10,
                 ),
@@ -586,15 +601,17 @@ class _BreathingExerciseScreenState extends State<BreathingExerciseScreen>
               shape: BoxShape.circle,
               gradient: RadialGradient(
                 colors: [
-                  const Color(0xFF8EA2D7).withOpacity(0.9),
-                  const Color(0xFF4569AD).withOpacity(0.7),
-                  const Color(0xFF1F3F74).withOpacity(0.6),
+                  context.nuruTheme.accentColor.withOpacity(0.9),
+                  context.nuruTheme.accentColor.withOpacity(0.7),
+                  context.nuruTheme.backgroundMid.withOpacity(0.6),
                 ],
                 stops: const [0.0, 0.5, 1.0],
               ),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF4569AD).withOpacity(0.4 + t * 0.3),
+                  color: context.nuruTheme.accentColor.withOpacity(
+                    0.4 + t * 0.3,
+                  ),
                   blurRadius: 40 + t * 20,
                   spreadRadius: 5 + t * 10,
                 ),
@@ -645,7 +662,7 @@ class _BreathingExerciseScreenState extends State<BreathingExerciseScreen>
           width: 48,
           height: 3,
           decoration: BoxDecoration(
-            color: _phaseColour,
+            color: _phaseColour(context.nuruTheme.accentColor),
             borderRadius: BorderRadius.circular(2),
           ),
         ),
@@ -671,14 +688,17 @@ class _TechniqueCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(22),
         child: Container(
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF1F3F74), Color(0xFF081F44)],
+              colors: [
+                context.nuruTheme.backgroundMid,
+                context.nuruTheme.backgroundStart,
+              ],
             ),
             borderRadius: BorderRadius.circular(22),
             border: Border.all(
-              color: const Color(0xFF4569AD).withOpacity(0.4),
+              color: context.nuruTheme.accentColor.withOpacity(0.4),
               width: 1.5,
             ),
           ),
@@ -713,7 +733,7 @@ class _TechniqueCard extends StatelessWidget {
                         color: Colors.white.withOpacity(0.06),
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: const Color(0xFF4569AD).withOpacity(0.3),
+                          color: context.nuruTheme.accentColor.withOpacity(0.3),
                         ),
                       ),
                       child: Center(
@@ -738,12 +758,14 @@ class _TechniqueCard extends StatelessWidget {
                               color: Colors.white,
                             ),
                           ),
-                          const SizedBox(height: 3),
+                          SizedBox(height: 3),
                           Text(
                             technique.subtitle,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
-                              color: Color(0xFF8EA2D7),
+                              color: context.nuruTheme.accentColor.withOpacity(
+                                0.6,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -833,11 +855,14 @@ class _DetailSheetState extends State<_DetailSheet> {
       minChildSize: 0.5,
       maxChildSize: 0.96,
       builder: (_, controller) => Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFF1F3F74), Color(0xFF081F44)],
+            colors: [
+              context.nuruTheme.backgroundMid,
+              context.nuruTheme.backgroundStart,
+            ],
           ),
           borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         ),
@@ -878,9 +903,10 @@ class _DetailSheetState extends State<_DetailSheet> {
                             ),
                             Text(
                               t.subtitle,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 14,
-                                color: Color(0xFF8EA2D7),
+                                color: context.nuruTheme.accentColor
+                                    .withOpacity(0.6),
                               ),
                             ),
                           ],
@@ -901,9 +927,9 @@ class _DetailSheetState extends State<_DetailSheet> {
                     title: 'About',
                     child: Text(
                       t.description,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 15,
-                        color: Color(0xFFB7C3E8),
+                        color: context.nuruTheme.accentColor.withOpacity(0.4),
                         height: 1.6,
                       ),
                     ),
@@ -916,17 +942,17 @@ class _DetailSheetState extends State<_DetailSheet> {
                     child: Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF4569AD).withOpacity(0.15),
+                        color: context.nuruTheme.accentColor.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: const Color(0xFF4569AD).withOpacity(0.3),
+                          color: context.nuruTheme.accentColor.withOpacity(0.3),
                         ),
                       ),
                       child: Text(
                         t.autismNote,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14.5,
-                          color: Color(0xFFB7C3E8),
+                          color: context.nuruTheme.accentColor.withOpacity(0.4),
                           height: 1.6,
                         ),
                       ),
@@ -949,18 +975,20 @@ class _DetailSheetState extends State<_DetailSheet> {
                                     margin: const EdgeInsets.only(top: 4),
                                     width: 6,
                                     height: 6,
-                                    decoration: const BoxDecoration(
-                                      color: Color(0xFF8EA2D7),
+                                    decoration: BoxDecoration(
+                                      color: context.nuruTheme.accentColor
+                                          .withOpacity(0.6),
                                       shape: BoxShape.circle,
                                     ),
                                   ),
-                                  const SizedBox(width: 12),
+                                  SizedBox(width: 12),
                                   Expanded(
                                     child: Text(
                                       b,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 14.5,
-                                        color: Color(0xFFB7C3E8),
+                                        color: context.nuruTheme.accentColor
+                                            .withOpacity(0.4),
                                         height: 1.5,
                                       ),
                                     ),
@@ -980,9 +1008,9 @@ class _DetailSheetState extends State<_DetailSheet> {
                       title: '📖 Background',
                       child: Text(
                         t.wikiSummary!,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
-                          color: Color(0xFF8EA2D7),
+                          color: context.nuruTheme.accentColor.withOpacity(0.6),
                           height: 1.6,
                           fontStyle: FontStyle.italic,
                         ),
@@ -1039,9 +1067,11 @@ class _DetailSheetState extends State<_DetailSheet> {
                                           Expanded(
                                             child: Text(
                                               r.journal,
-                                              style: const TextStyle(
+                                              style: TextStyle(
                                                 fontSize: 11,
-                                                color: Color(0xFF4569AD),
+                                                color: context
+                                                    .nuruTheme
+                                                    .accentColor,
                                                 fontStyle: FontStyle.italic,
                                               ),
                                               overflow: TextOverflow.ellipsis,
@@ -1084,22 +1114,22 @@ class _DetailSheetState extends State<_DetailSheet> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.04),
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
-                        color: const Color(0xFF4569AD).withOpacity(0.2),
+                        color: context.nuruTheme.accentColor.withOpacity(0.2),
                       ),
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.verified_outlined,
-                          color: Color(0xFF4569AD),
+                          color: context.nuruTheme.accentColor,
                           size: 16,
                         ),
                         const SizedBox(width: 8),
@@ -1125,16 +1155,21 @@ class _DetailSheetState extends State<_DetailSheet> {
                     child: Container(
                       height: 58,
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF4569AD), Color(0xFF1F3F74)],
+                        gradient: LinearGradient(
+                          colors: [
+                            context.nuruTheme.accentColor,
+                            context.nuruTheme.backgroundMid,
+                          ],
                         ),
                         borderRadius: BorderRadius.circular(18),
                         border: Border.all(
-                          color: const Color(0xFF8EA2D7).withOpacity(0.4),
+                          color: context.nuruTheme.accentColor.withOpacity(0.4),
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF4569AD).withOpacity(0.4),
+                            color: context.nuruTheme.accentColor.withOpacity(
+                              0.4,
+                            ),
                             blurRadius: 20,
                             offset: const Offset(0, 6),
                           ),
@@ -1199,12 +1234,16 @@ class _DetailSheetState extends State<_DetailSheet> {
                     color: Colors.white.withOpacity(0.06),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: const Color(0xFF4569AD).withOpacity(0.3),
+                      color: context.nuruTheme.accentColor.withOpacity(0.3),
                     ),
                   ),
                   child: Column(
                     children: [
-                      Icon(icons[i], color: const Color(0xFF8EA2D7), size: 20),
+                      Icon(
+                        icons[i],
+                        color: context.nuruTheme.accentColor.withOpacity(0.6),
+                        size: 20,
+                      ),
                       const SizedBox(height: 6),
                       Text(
                         '${pattern[i]}s',
@@ -1227,11 +1266,11 @@ class _DetailSheetState extends State<_DetailSheet> {
                 ),
               ),
               if (!isLast)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.symmetric(horizontal: 6),
                   child: Icon(
                     Icons.arrow_forward_ios_rounded,
-                    color: Color(0xFF4569AD),
+                    color: context.nuruTheme.accentColor,
                     size: 12,
                   ),
                 ),
@@ -1270,11 +1309,14 @@ class _CompletionSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 32, 24, 40),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFF1F3F74), Color(0xFF081F44)],
+          colors: [
+            context.nuruTheme.backgroundMid,
+            context.nuruTheme.backgroundStart,
+          ],
         ),
         borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
       ),
@@ -1287,14 +1329,14 @@ class _CompletionSheet extends StatelessWidget {
             height: 90,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: const Color(0xFF4569AD).withOpacity(0.15),
+              color: context.nuruTheme.accentColor.withOpacity(0.15),
               border: Border.all(
-                color: const Color(0xFF8EA2D7).withOpacity(0.4),
+                color: context.nuruTheme.accentColor.withOpacity(0.4),
                 width: 2,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF4569AD).withOpacity(0.3),
+                  color: context.nuruTheme.accentColor.withOpacity(0.3),
                   blurRadius: 30,
                   spreadRadius: 8,
                 ),
@@ -1313,10 +1355,13 @@ class _CompletionSheet extends StatelessWidget {
               color: Colors.white,
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Text(
             '${technique.name} • $cyclesCompleted cycle${cyclesCompleted > 1 ? "s" : ""}',
-            style: const TextStyle(fontSize: 15, color: Color(0xFF8EA2D7)),
+            style: TextStyle(
+              fontSize: 15,
+              color: context.nuruTheme.accentColor.withOpacity(0.6),
+            ),
           ),
           const SizedBox(height: 8),
           Text(
@@ -1339,7 +1384,7 @@ class _CompletionSheet extends StatelessWidget {
                       color: Colors.white.withOpacity(0.07),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: const Color(0xFF4569AD).withOpacity(0.3),
+                        color: context.nuruTheme.accentColor.withOpacity(0.3),
                       ),
                     ),
                     alignment: Alignment.center,
@@ -1361,12 +1406,15 @@ class _CompletionSheet extends StatelessWidget {
                   child: Container(
                     height: 52,
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF4569AD), Color(0xFF1F3F74)],
+                      gradient: LinearGradient(
+                        colors: [
+                          context.nuruTheme.accentColor,
+                          context.nuruTheme.backgroundMid,
+                        ],
                       ),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: const Color(0xFF8EA2D7).withOpacity(0.3),
+                        color: context.nuruTheme.accentColor.withOpacity(0.3),
                       ),
                     ),
                     alignment: Alignment.center,
@@ -1406,7 +1454,9 @@ class _GlassButton extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.08),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF4569AD).withOpacity(0.4)),
+        border: Border.all(
+          color: context.nuruTheme.accentColor.withOpacity(0.4),
+        ),
       ),
       child: Icon(icon, color: Colors.white, size: 20),
     ),
@@ -1456,11 +1506,16 @@ class _CategoryChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.06),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF4569AD).withOpacity(0.3)),
+        border: Border.all(
+          color: context.nuruTheme.accentColor.withOpacity(0.3),
+        ),
       ),
       child: Text(
         label,
-        style: const TextStyle(fontSize: 12, color: Color(0xFF8EA2D7)),
+        style: TextStyle(
+          fontSize: 12,
+          color: context.nuruTheme.accentColor.withOpacity(0.6),
+        ),
       ),
     );
   }
@@ -1477,16 +1532,19 @@ class _InfoChip extends StatelessWidget {
     decoration: BoxDecoration(
       color: Colors.white.withOpacity(0.04),
       borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: const Color(0xFF4569AD).withOpacity(0.2)),
+      border: Border.all(color: context.nuruTheme.accentColor.withOpacity(0.2)),
     ),
     child: Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(icon, color: const Color(0xFF4569AD), size: 16),
-        const SizedBox(width: 8),
+        Icon(icon, color: context.nuruTheme.accentColor, size: 16),
+        SizedBox(width: 8),
         Text(
           label,
-          style: const TextStyle(fontSize: 13, color: Color(0xFF8EA2D7)),
+          style: TextStyle(
+            fontSize: 13,
+            color: context.nuruTheme.accentColor.withOpacity(0.6),
+          ),
         ),
       ],
     ),
@@ -1558,14 +1616,15 @@ class _StarsPainter extends CustomPainter {
 
 class _ShapesPainter extends CustomPainter {
   final double t;
-  const _ShapesPainter(this.t);
+  final Color accentColor;
+  const _ShapesPainter(this.t, this.accentColor);
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..style = PaintingStyle.fill;
     final dy = math.sin(t * math.pi) * 30;
 
-    paint.color = const Color(0xFFB7C3E8).withOpacity(0.07);
+    paint.color = accentColor.withOpacity(0.07);
     canvas.drawPath(
       Path()
         ..moveTo(0, dy)
@@ -1620,5 +1679,6 @@ class _ShapesPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_ShapesPainter o) => o.t != t;
+  bool shouldRepaint(_ShapesPainter o) =>
+      o.t != t || o.accentColor != accentColor;
 }

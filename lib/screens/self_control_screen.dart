@@ -4,6 +4,9 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
 import '../services/self_control_service.dart';
+import 'package:provider/provider.dart';
+import '../providers/theme_provider.dart';
+import '../providers/nuru_theme_extension.dart';
 
 // ══════════════════════════════════════════════════════════════
 // SELF CONTROL SCREEN
@@ -51,7 +54,8 @@ class _Plan {
 // ─────────────────────────────────────────────────────────────
 
 class SelfControlScreen extends StatefulWidget {
-  const SelfControlScreen({Key? key}) : super(key: key);
+  final Map<String, dynamic>? userData;
+  const SelfControlScreen({Key? key, this.userData}) : super(key: key);
   @override
   State<SelfControlScreen> createState() => _SelfControlScreenState();
 }
@@ -76,11 +80,6 @@ class _SelfControlScreenState extends State<SelfControlScreen>
   int _cycle = 0;
   bool _running = false;
   Timer? _timer;
-
-  static const Color _night = Color(0xFF081F44);
-  static const Color _dive = Color(0xFF1F3F74);
-  static const Color _sailing = Color(0xFF4569AD);
-  static const Color _deep = Color(0xFF14366D);
 
   // ══════════════════════════════════════════════════════════
   // SESSION PLANS — 10 guided self-control exercises
@@ -479,13 +478,13 @@ class _SelfControlScreenState extends State<SelfControlScreen>
   Color _tabColor(String id) {
     switch (id) {
       case 'techniques':
-        return const Color(0xFF6C5CE7);
+        return Color(0xFF6C5CE7);
       case 'understanding':
-        return const Color(0xFF00B894);
+        return Color(0xFF00B894);
       case 'communication':
-        return const Color(0xFFA29BFE);
+        return Color(0xFFA29BFE);
       case 'books':
-        return const Color(0xFF8EA2D7);
+        return context.nuruTheme.accentColor.withOpacity(0.6);
       default:
         return const Color(0xFF56CCF2);
     }
@@ -661,7 +660,10 @@ class _SelfControlScreenState extends State<SelfControlScreen>
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [_dive.withOpacity(0.97), _night.withOpacity(0.99)],
+                colors: [
+                  context.nuruTheme.backgroundMid.withOpacity(0.97),
+                  context.nuruTheme.backgroundStart.withOpacity(0.99),
+                ],
               ),
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(32),
@@ -764,21 +766,24 @@ class _SelfControlScreenState extends State<SelfControlScreen>
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
-        statusBarColor: Color(0xFF1F3F74),
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
         statusBarBrightness: Brightness.dark,
       ),
       child: Scaffold(
-        backgroundColor: _night,
+        backgroundColor: context.nuruTheme.backgroundStart,
         body: Stack(
           children: [
             Container(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [_sailing, _deep],
+                  colors: [
+                    context.nuruTheme.accentColor,
+                    context.nuruTheme.backgroundEnd,
+                  ],
                 ),
               ),
             ),
@@ -800,11 +805,11 @@ class _SelfControlScreenState extends State<SelfControlScreen>
                   children: [
                     _buildAppBar(),
                     _buildTabs(),
-                    const SizedBox(height: 4),
+                    SizedBox(height: 4),
                     Expanded(
                       child: RefreshIndicator(
-                        color: _sailing,
-                        backgroundColor: _dive,
+                        color: context.nuruTheme.accentColor,
+                        backgroundColor: context.nuruTheme.backgroundMid,
                         onRefresh: () => _load(forceRefresh: true),
                         child: _buildBody(),
                       ),
@@ -846,7 +851,7 @@ class _SelfControlScreenState extends State<SelfControlScreen>
                     width: 42,
                     height: 42,
                     decoration: BoxDecoration(
-                      color: _night.withOpacity(0.5),
+                      color: context.nuruTheme.backgroundStart.withOpacity(0.5),
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
                         color: plan.color.withOpacity(0.5),
@@ -1123,10 +1128,15 @@ class _SelfControlScreenState extends State<SelfControlScreen>
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [_dive.withOpacity(0.75), _night.withOpacity(0.80)],
+              colors: [
+                context.nuruTheme.backgroundMid.withOpacity(0.75),
+                context.nuruTheme.backgroundStart.withOpacity(0.80),
+              ],
             ),
             border: Border(
-              bottom: BorderSide(color: _sailing.withOpacity(0.4)),
+              bottom: BorderSide(
+                color: context.nuruTheme.accentColor.withOpacity(0.4),
+              ),
             ),
           ),
           child: Row(
@@ -1174,9 +1184,12 @@ class _SelfControlScreenState extends State<SelfControlScreen>
     width: 42,
     height: 42,
     decoration: BoxDecoration(
-      color: _night.withOpacity(0.5),
+      color: context.nuruTheme.backgroundStart.withOpacity(0.5),
       borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: _sailing.withOpacity(0.5), width: 1.2),
+      border: Border.all(
+        color: context.nuruTheme.accentColor.withOpacity(0.5),
+        width: 1.2,
+      ),
     ),
     child: Icon(icon, color: Colors.white, size: size),
   );
@@ -1207,14 +1220,20 @@ class _SelfControlScreenState extends State<SelfControlScreen>
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: sel
-                        ? [col.withOpacity(0.45), _night.withOpacity(0.75)]
-                        : [_dive.withOpacity(0.6), _night.withOpacity(0.75)],
+                        ? [
+                            col.withOpacity(0.45),
+                            context.nuruTheme.backgroundStart.withOpacity(0.75),
+                          ]
+                        : [
+                            context.nuruTheme.backgroundMid.withOpacity(0.6),
+                            context.nuruTheme.backgroundStart.withOpacity(0.75),
+                          ],
                   ),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: sel
                         ? col.withOpacity(0.7)
-                        : _sailing.withOpacity(0.3),
+                        : context.nuruTheme.accentColor.withOpacity(0.3),
                     width: sel ? 1.5 : 1,
                   ),
                   boxShadow: sel
@@ -1273,8 +1292,8 @@ class _SelfControlScreenState extends State<SelfControlScreen>
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  const Color(0xFF6C5CE7).withOpacity(0.22),
-                  _night.withOpacity(0.4),
+                  Color(0xFF6C5CE7).withOpacity(0.22),
+                  context.nuruTheme.backgroundStart.withOpacity(0.4),
                 ],
               ),
               borderRadius: BorderRadius.circular(20),
@@ -1334,7 +1353,7 @@ class _SelfControlScreenState extends State<SelfControlScreen>
                 end: Alignment.bottomRight,
                 colors: [
                   plan.color.withOpacity(0.10),
-                  _night.withOpacity(0.88),
+                  context.nuruTheme.backgroundStart.withOpacity(0.88),
                 ],
               ),
               borderRadius: BorderRadius.circular(22),
@@ -1344,7 +1363,7 @@ class _SelfControlScreenState extends State<SelfControlScreen>
               ),
               boxShadow: [
                 BoxShadow(
-                  color: _night.withOpacity(0.5),
+                  color: context.nuruTheme.backgroundStart.withOpacity(0.5),
                   blurRadius: 14,
                   offset: const Offset(0, 5),
                 ),
@@ -1498,7 +1517,7 @@ class _SelfControlScreenState extends State<SelfControlScreen>
                       end: Alignment.bottomRight,
                       colors: [
                         accent.withOpacity(0.10),
-                        _night.withOpacity(0.88),
+                        context.nuruTheme.backgroundStart.withOpacity(0.88),
                       ],
                     ),
                     borderRadius: BorderRadius.circular(20),
@@ -1638,13 +1657,18 @@ class _SelfControlScreenState extends State<SelfControlScreen>
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [_dive.withOpacity(0.97), _night.withOpacity(0.99)],
+                  colors: [
+                    context.nuruTheme.backgroundMid.withOpacity(0.97),
+                    context.nuruTheme.backgroundStart.withOpacity(0.99),
+                  ],
                 ),
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(32),
                 ),
                 border: Border(
-                  top: BorderSide(color: _sailing.withOpacity(0.4)),
+                  top: BorderSide(
+                    color: context.nuruTheme.accentColor.withOpacity(0.4),
+                  ),
                 ),
               ),
               child: ScrollConfiguration(
@@ -1683,13 +1707,19 @@ class _SelfControlScreenState extends State<SelfControlScreen>
                       ),
                     ),
                     if (item.description != null) ...[
-                      const SizedBox(height: 16),
+                      SizedBox(height: 16),
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: _night.withOpacity(0.4),
+                          color: context.nuruTheme.backgroundStart.withOpacity(
+                            0.4,
+                          ),
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: _sailing.withOpacity(0.28)),
+                          border: Border.all(
+                            color: context.nuruTheme.accentColor.withOpacity(
+                              0.28,
+                            ),
+                          ),
                         ),
                         child: Text(
                           item.description!,
@@ -1713,7 +1743,9 @@ class _SelfControlScreenState extends State<SelfControlScreen>
                             gradient: LinearGradient(
                               colors: [
                                 accent.withOpacity(0.5),
-                                _night.withOpacity(0.6),
+                                context.nuruTheme.backgroundStart.withOpacity(
+                                  0.6,
+                                ),
                               ],
                             ),
                             borderRadius: BorderRadius.circular(16),
@@ -1792,15 +1824,17 @@ class _SelfControlScreenState extends State<SelfControlScreen>
               height: 1.5,
             ),
           ),
-          const SizedBox(height: 18),
+          SizedBox(height: 18),
           GestureDetector(
             onTap: _load,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               decoration: BoxDecoration(
-                color: _sailing.withOpacity(0.35),
+                color: context.nuruTheme.accentColor.withOpacity(0.35),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: _sailing.withOpacity(0.55)),
+                border: Border.all(
+                  color: context.nuruTheme.accentColor.withOpacity(0.55),
+                ),
               ),
               child: const Text(
                 'Try again',
