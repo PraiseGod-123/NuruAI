@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 // ══════════════════════════════════════════════════════════════════════════
 // NuruAI — AnalyticsService
@@ -641,111 +643,374 @@ class AnalyticsService {
   // ══════════════════════════════════════════════════════════════════════════
 
   Future<UserAnalytics> loadUserAnalytics(String userId) async {
+    if (userId.isEmpty) return UserAnalytics.empty(userId);
     try {
-      // ── STEP 1: Read from Firebase Firestore ──────────────────────────────
-      // Uncomment when firebase_core + cloud_firestore are added to pubspec.yaml
-      //
-      // final fs = FirebaseFirestore.instance;
-      //
-      // final userSnap = await fs.collection('users').doc(userId).get();
-      // final userData = userSnap.data() ?? {};
-      //
-      // final streakSnap = await fs.collection('streaks').doc(userId).get();
-      // final streakData = streakSnap.exists
-      //     ? StreakData.fromMap(streakSnap.data()!)
-      //     : StreakData.empty();
-      //
-      // final moodSnap = await fs
-      //     .collection('mood_logs')
-      //     .where('userId', isEqualTo: userId)
-      //     .orderBy('timestamp', descending: true)
-      //     .limit(7)
-      //     .get();
-      // final recentMoods = moodSnap.docs
-      //     .map((d) => MoodEntry.fromMap(d.data()))
-      //     .toList();
-      //
-      // final activitySnap = await fs
-      //     .collection('activity_events')
-      //     .where('userId', isEqualTo: userId)
-      //     .orderBy('timestamp', descending: true)
-      //     .limit(30)
-      //     .get();
-      // final recentActivities = activitySnap.docs
-      //     .map((d) => ActivityEvent.fromMap(d.data()))
-      //     .toList();
-      //
-      // final totalPoints    = (userData['totalPoints'] as num?)?.toInt() ?? 0;
-      // final totalJournals  = (userData['totalJournals'] as num?)?.toInt() ?? 0;
-      // final totalBreaths   = (userData['totalBreaths'] as num?)?.toInt() ?? 0;
-      // final totalChats     = (userData['totalChats'] as num?)?.toInt() ?? 0;
-      // final totalCalmMe    = (userData['totalCalmMe'] as num?)?.toInt() ?? 0;
+      final fs = FirebaseFirestore.instance;
 
-      // ── STEP 2: Request ML insight from NuruAI backend ───────────────────
-      // Uncomment when your Flask server is deployed and baseUrl is set.
-      //
-      // DailyInsight? todayInsight;
-      // WeeklyReport? weeklyReport;
-      //
-      // try {
-      //   final dailyRes = await http.get(
-      //     Uri.parse('${NuruBackend.baseUrl}/analytics/$userId/daily'),
-      //     headers: NuruBackend.headers,
-      //   ).timeout(NuruBackend.timeout);
-      //
-      //   if (dailyRes.statusCode == 200) {
-      //     todayInsight = DailyInsight.fromMap(
-      //       jsonDecode(dailyRes.body) as Map<String, dynamic>,
-      //     );
-      //   }
-      //
-      //   final weeklyRes = await http.get(
-      //     Uri.parse('${NuruBackend.baseUrl}/analytics/$userId/weekly'),
-      //     headers: NuruBackend.headers,
-      //   ).timeout(NuruBackend.timeout);
-      //
-      //   if (weeklyRes.statusCode == 200) {
-      //     weeklyReport = WeeklyReport.fromMap(
-      //       jsonDecode(weeklyRes.body) as Map<String, dynamic>,
-      //     );
-      //   }
-      // } catch (_) {
-      //   // Backend not yet available — insight fields will be null.
-      //   // Screen shows "Your insights will appear here once NuruAI
-      //   // has enough data to analyse."
-      // }
+      // ── Step 1: User stats from Firestore ─────────────────────────────────
+      final userSnap = await fs.collection('users').doc(userId).get();
+      final userData = userSnap.data() ?? {};
+      final statsMap = userData['stats'] as Map<String, dynamic>? ?? {};
+      final profileMap = userData['profile'] as Map<String, dynamic>? ?? {};
 
-      // ── STEP 3: Resolve award unlock status ───────────────────────────────
-      // final awards = awardCatalogue
-      //     .map((a) => a.withUnlockStatus(totalPoints))
-      //     .toList();
+      final currentStreak = (statsMap['currentStreak'] as num?)?.toInt() ?? 0;
+      final longestStreak = (statsMap['longestStreak'] as num?)?.toInt() ?? 0;
+      final totalCheckIns = (statsMap['totalCheckIns'] as num?)?.toInt() ?? 0;
+      final totalJournals = (statsMap['totalJournals'] as num?)?.toInt() ?? 0;
+      final totalChats = (statsMap['totalChats'] as num?)?.toInt() ?? 0;
+      final avgMood = (statsMap['avgMood'] as num?)?.toDouble() ?? 0.0;
+      final lastCheckInStr = statsMap['lastCheckIn'] as String?;
 
-      // ── STEP 4: Return real UserAnalytics ─────────────────────────────────
-      // return UserAnalytics(
-      //   userId: userId,
-      //   streakData: streakData,
-      //   recentMoods: recentMoods,
-      //   recentActivities: recentActivities,
-      //   todayInsight: todayInsight,
-      //   weeklyReport: weeklyReport,
-      //   awards: awards,
-      //   totalPoints: totalPoints,
-      //   totalJournals: totalJournals,
-      //   totalBreaths: totalBreaths,
-      //   totalChats: totalChats,
-      //   totalCalmMe: totalCalmMe,
-      //   isLoaded: true,
-      // );
+      // ── Step 2: Last 30 days check-in calendar ────────────────────────────
+      final now = DateTime.now();
+      final List<bool> last30Days = List.filled(30, false);
 
-      // ── Backend not yet connected — return empty state ────────────────────
-      // The screen renders proper empty states with guidance messages.
-      // Remove this return once Firebase + backend are connected above.
-      return UserAnalytics.empty(userId);
+      final calSnap = await fs
+          .collection('users')
+          .doc(userId)
+          .collection('checkIns')
+          .orderBy('timestamp', descending: true)
+          .limit(30)
+          .get();
+
+      for (final doc in calSnap.docs) {
+        final dateStr = doc.data()['date'] as String?;
+        if (dateStr == null) continue;
+        try {
+          final d = DateTime.parse(dateStr);
+          final diff = DateTime(
+            now.year,
+            now.month,
+            now.day,
+          ).difference(DateTime(d.year, d.month, d.day)).inDays;
+          if (diff >= 0 && diff < 30) {
+            last30Days[29 - diff] = true;
+          }
+        } catch (_) {}
+      }
+
+      // ── Step 3: Last 7 mood entries for mood journey ──────────────────────
+      final List<MoodEntry> recentMoods = [];
+
+      final moodSnap = await fs
+          .collection('users')
+          .doc(userId)
+          .collection('checkIns')
+          .orderBy('timestamp', descending: true)
+          .limit(7)
+          .get();
+
+      for (final doc in moodSnap.docs) {
+        final d = doc.data();
+        final score = (d['mood'] as num?)?.toInt() ?? 5;
+        final moodVal = _scoreToMoodValue(score);
+        recentMoods.add(
+          MoodEntry(
+            id: doc.id,
+            mood: moodVal,
+            emoji: _scoreToEmoji(score),
+            label: _scoreToMoodLabel(score),
+            timestamp: d['timestamp'] != null
+                ? DateTime.parse(d['timestamp'] as String)
+                : DateTime.now(),
+            note: d['note'] as String?,
+            source: 'home',
+          ),
+        );
+      }
+
+      // ── Step 4: Recent activities (journals + chats) ──────────────────────
+      final List<ActivityEvent> recentActivities = [];
+
+      final journalSnap = await fs
+          .collection('users')
+          .doc(userId)
+          .collection('journals')
+          .orderBy('createdAt', descending: true)
+          .limit(10)
+          .get();
+
+      for (final doc in journalSnap.docs) {
+        final d = doc.data();
+        recentActivities.add(
+          ActivityEvent(
+            id: doc.id,
+            type: ActivityType.journalEntry,
+            timestamp: DateTime.parse(
+              d['createdAt'] as String? ?? DateTime.now().toIso8601String(),
+            ),
+            metadata: {
+              'title': d['title'] ?? '',
+              'mood': d['mood'] ?? '',
+              'wordCount': d['wordCount'] ?? 0,
+            },
+          ),
+        );
+      }
+
+      final chatSnap = await fs
+          .collection('users')
+          .doc(userId)
+          .collection('chatSessions')
+          .orderBy('createdAt', descending: true)
+          .limit(10)
+          .get();
+
+      for (final doc in chatSnap.docs) {
+        final d = doc.data();
+        recentActivities.add(
+          ActivityEvent(
+            id: doc.id,
+            type: ActivityType.nuruChat,
+            timestamp: DateTime.parse(
+              d['createdAt'] as String? ?? DateTime.now().toIso8601String(),
+            ),
+            metadata: {
+              'topic': d['topic'] ?? '',
+              'messageCount': d['messageCount'] ?? 0,
+            },
+          ),
+        );
+      }
+
+      recentActivities.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+      // ── Step 5: Streak data ───────────────────────────────────────────────
+      final streakData = StreakData(
+        currentStreak: currentStreak,
+        longestStreak: longestStreak,
+        totalDaysActive: totalCheckIns,
+        lastActiveDate: lastCheckInStr != null
+            ? DateTime.tryParse(lastCheckInStr)
+            : null,
+        last30Days: last30Days,
+      );
+
+      // ── Step 6: Awards — unlock by actual usage counts ───────────────────
+      final totalPoints =
+          currentStreak * 10 +
+          totalCheckIns * 5 +
+          totalJournals * 10 +
+          totalChats * 5;
+
+      final awards = awardCatalogue.map((a) {
+        bool unlocked = false;
+
+        switch (a.id) {
+          // Streak awards — by currentStreak
+          case 'streak_3':
+            unlocked = currentStreak >= 3;
+            break;
+          case 'streak_7':
+            unlocked = currentStreak >= 7;
+            break;
+          case 'streak_14':
+            unlocked = currentStreak >= 14;
+            break;
+          case 'streak_30':
+            unlocked = currentStreak >= 30;
+            break;
+          case 'streak_60':
+            unlocked = currentStreak >= 60;
+            break;
+
+          // Journal awards — by totalJournals
+          case 'journal_1':
+            unlocked = totalJournals >= 1;
+            break;
+          case 'journal_7':
+            unlocked = totalJournals >= 7;
+            break;
+          case 'journal_30':
+            unlocked = totalJournals >= 30;
+            break;
+
+          // Breathing awards — by totalBreaths (not tracked yet — keep locked)
+          case 'breath_1':
+            unlocked = false;
+            break;
+          case 'breath_10':
+            unlocked = false;
+            break;
+          case 'breath_30':
+            unlocked = false;
+            break;
+
+          // Mood awards — by totalCheckIns / streak
+          case 'mood_7':
+            unlocked = totalCheckIns >= 7;
+            break;
+          case 'mood_improve':
+            // Unlocked if last mood is higher than the oldest among recent moods
+            if (recentMoods.length >= 2) {
+              final newest = recentMoods.first.label;
+              final oldest = recentMoods.last.label;
+              unlocked = _moodLabelToScore(newest) > _moodLabelToScore(oldest);
+            }
+            break;
+
+          // Engagement awards — by totalChats
+          case 'nuru_10':
+            unlocked = totalChats >= 10;
+            break;
+
+          // Wellbeing — by avgMood
+          case 'wellbeing_8':
+            unlocked = avgMood >= 8.0;
+            break;
+
+          default:
+            unlocked = totalPoints >= a.pointsRequired;
+        }
+
+        if (unlocked) {
+          return Award(
+            id: a.id,
+            title: a.title,
+            description: a.description,
+            emoji: a.emoji,
+            tier: a.tier,
+            pointsRequired: a.pointsRequired,
+            category: a.category,
+            isUnlocked: true,
+            unlockedAt: DateTime.now(),
+          );
+        }
+        return a;
+      }).toList();
+
+      // ── Step 7: Build a daily insight from Firestore data ─────────────────
+      // No ML backend needed — derive basic insight from what we have
+      DailyInsight? todayInsight;
+      if (totalCheckIns > 0) {
+        final trend = avgMood >= 7
+            ? 'positive'
+            : avgMood >= 4
+            ? 'neutral'
+            : 'low';
+        todayInsight = DailyInsight(
+          date: now,
+          wellbeingScore: avgMood,
+          summary: _buildInsightSummary(avgMood, currentStreak, totalJournals),
+          highlights: _buildHighlights(
+            avgMood,
+            currentStreak,
+            totalJournals,
+            totalChats,
+          ),
+          suggestions: _buildSuggestions(avgMood, totalJournals),
+          isMLGenerated: false,
+          activitiesCompleted: totalCheckIns,
+        );
+      }
+
+      return UserAnalytics(
+        userId: userId,
+        streakData: streakData,
+        recentMoods: recentMoods,
+        recentActivities: recentActivities,
+        todayInsight: todayInsight,
+        awards: awards,
+        totalPoints: totalPoints,
+        totalJournals: totalJournals,
+        totalBreaths: 0,
+        totalChats: totalChats,
+        totalCalmMe: 0,
+        isLoaded: true,
+      );
     } catch (e) {
+      debugPrint('AnalyticsService.loadUserAnalytics error: $e');
       return UserAnalytics.empty(
         userId,
       ).copyWithError('Could not load your analytics. Check your connection.');
     }
+  }
+
+  // ── Firestore insight helpers ─────────────────────────────────────────────
+
+  int _moodLabelToScore(String label) {
+    switch (label) {
+      case 'excellent':
+        return 5;
+      case 'good':
+        return 4;
+      case 'neutral':
+        return 3;
+      case 'low':
+        return 2;
+      case 'difficult':
+        return 1;
+      default:
+        return 3;
+    }
+  }
+
+  String _scoreToMoodLabel(int score) {
+    if (score >= 9) return 'excellent';
+    if (score >= 7) return 'good';
+    if (score >= 5) return 'neutral';
+    if (score >= 3) return 'low';
+    return 'difficult';
+  }
+
+  MoodValue _scoreToMoodValue(int score) {
+    if (score >= 9) return MoodValue.excited;
+    if (score >= 7) return MoodValue.happy;
+    if (score >= 5) return MoodValue.calm;
+    if (score >= 3) return MoodValue.sad;
+    return MoodValue.overwhelmed;
+  }
+
+  String _scoreToEmoji(int score) {
+    if (score >= 9) return '😄';
+    if (score >= 7) return '🙂';
+    if (score >= 5) return '😐';
+    if (score >= 3) return '😔';
+    return '😢';
+  }
+
+  String _buildInsightSummary(double avgMood, int streak, int journals) {
+    if (avgMood >= 8)
+      return 'You\'ve been in a great headspace lately. Keep up the momentum.';
+    if (avgMood >= 6)
+      return 'You\'re staying consistent. Small steps every day add up.';
+    if (avgMood >= 4)
+      return 'Some tough days recently. Be kind to yourself — you\'re doing the work.';
+    return 'It\'s been a challenging period. Remember NuruAI is here whenever you need support.';
+  }
+
+  List<String> _buildHighlights(
+    double avgMood,
+    int streak,
+    int journals,
+    int chats,
+  ) {
+    final list = <String>[];
+    if (streak > 0) list.add('$streak-day check-in streak — great consistency');
+    if (journals > 0)
+      list.add('$journals journal entr${journals == 1 ? 'y' : 'ies'} written');
+    if (chats > 0)
+      list.add('$chats conversation${chats == 1 ? '' : 's'} with NuruAI');
+    if (avgMood >= 7)
+      list.add('Average mood score of ${avgMood.toStringAsFixed(1)}/10');
+    return list;
+  }
+
+  List<String> _buildSuggestions(double avgMood, int journals) {
+    if (avgMood >= 7)
+      return [
+        'Keep logging your mood daily to maintain your streak',
+        'Try a mindfulness session today',
+      ];
+    if (journals == 0)
+      return [
+        'Try writing a journal entry — it helps process your feelings',
+        'A breathing exercise can help on difficult days',
+      ];
+    return [
+      'A breathing exercise can help on difficult days',
+      'Chat with NuruAI if you need someone to talk to',
+    ];
   }
 
   // ══════════════════════════════════════════════════════════════════════════
