@@ -51,6 +51,91 @@ class NuruColors {
   static const Color darkSurface = Color(0xFF1C2532);
   static const Color darkCard = Color(0xFF2D3748);
 
+  // NEW DARK NIGHT THEME COLORS
+  // Dark Theme Backgrounds
+  static const Color nightBackground = Color(0xFF0A1628); // Deep navy
+  static const Color nightCard = Color(0xFF162036); // Card background
+  static const Color nightElevated = Color(0xFF1F2D44); // Elevated elements
+  static const Color nightAccent = Color(0xFF060D16); // Darkest navy
+
+  // Dark Theme Text
+  static const Color nightTextPrimary = Color(0xFFFFFFFF);
+  static const Color nightTextSecondary = Color(0xFFB4C5E0);
+  static const Color nightTextMuted = Color(0xFF6E7D95);
+  static const Color nightTextDisabled = Color(0xFF4A5566);
+
+  // LIGHT MORNING THEME COLORS
+  // Light Theme Backgrounds
+  static const Color morningBackground = Color(0xFFF5F8FF); // Sky blue tint
+  static const Color morningCard = Color(0xFFFFFFFF); // White cards
+  static const Color morningElevated = Color(0xFFF0F4FF); // Subtle blue
+  static const Color morningAccent = Color(0xFFE8F0FF); // Light blue accent
+
+  // Light Theme Text
+  static const Color morningTextPrimary = Color(0xFF1A2332);
+  static const Color morningTextSecondary = Color(0xFF4A5A70);
+  static const Color morningTextMuted = Color(0xFF7E8EA5);
+  static const Color morningTextDisabled = Color(0xFFB4C5E0);
+
+  // ══════════════════════════════════════════════════════════════
+  // SOFT PASTELS (Work in both themes)
+  // ══════════════════════════════════════════════════════════════
+
+  static const Color softBlue = Color(0xFF5B9FFF); // Primary NuruAI
+  static const Color softCyan = Color(0xFF7EDCFF); // Secondary
+  static const Color softTeal = Color(0xFF82E0D4); // Calm
+  static const Color softGreen = Color(0xFF82E0AA); // Success
+  static const Color softYellow = Color(0xFFFED98B); // Happy
+  static const Color softOrange = Color(0xFFFFB380); // Anxious
+  static const Color softPink = Color(0xFFFFB3D9); // Energetic
+  static const Color softRed = Color(0xFFFF9999); // Angry
+  static const Color softPurple = Color(0xFFA89FED); // Creative
+
+  // ══════════════════════════════════════════════════════════════
+  // MOOD COLORS
+  // ══════════════════════════════════════════════════════════════
+
+  static const Map<String, Color> moodColors = {
+    'happy': softYellow,
+    'sad': softCyan,
+    'angry': softRed,
+    'anxious': softOrange,
+    'calm': softTeal,
+    'tired': softPurple,
+  };
+
+  // NEW GRADIENTS
+  static const LinearGradient nightBackgroundGradient = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [nightBackground, nightAccent],
+  );
+
+  static const LinearGradient morningBackgroundGradient = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [morningBackground, morningAccent],
+  );
+
+  static const LinearGradient blueGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [softBlue, Color(0xFF4280E0)],
+  );
+
+  static const LinearGradient cyanGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [softCyan, Color(0xFF5BC0E8)],
+  );
+
+  static const LinearGradient tealGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [softTeal, Color(0xFF5FC4B8)],
+  );
+
+  // EXISTING HELPERS (Keep these)
   // Opacity Helpers
   static Color withOpacity(Color color, double opacity) {
     return color.withOpacity(opacity);
