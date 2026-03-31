@@ -29,7 +29,7 @@ import 'screens/social_scripts_screen.dart';
 import 'screens/special_interest_screen.dart';
 
 class AppRoutes {
-  // ── Route name constants ──────────────────────────────────
+  // Route name constants
   static const String splash = '/';
   static const String onboarding = '/onboarding';
   static const String ageVerification = '/age-verification';
@@ -56,7 +56,7 @@ class AppRoutes {
   static const String socialScripts = '/social-scripts';
   static const String specialInterest = '/special-interest';
 
-  // ── Static route map (used by MaterialApp.routes) ─────────
+  // Static route map (used by MaterialApp.routes)
   static Map<String, WidgetBuilder> getRoutes() {
     return {
       splash: (context) => SplashScreen(),
@@ -79,7 +79,11 @@ class AppRoutes {
             ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
         return HomeScreen(userData: args);
       },
-      calmme: (context) => CalmMeScreen(),
+      calmme: (context) {
+        final args =
+            ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+        return CalmMeScreen(userData: args);
+      },
       journal: (context) {
         final args =
             ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
@@ -100,12 +104,36 @@ class AppRoutes {
             ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
         return ProfileScreen(userData: args);
       },
-      resources: (context) => ResourcesScreen(),
-      angerManagement: (context) => const AngerManagementScreen(),
-      selfControl: (context) => const SelfControlScreen(),
-      stressRelief: (context) => const StressReliefScreen(),
-      mindfulness: (context) => const MindfulnessScreen(),
-      poetryCorner: (context) => const PoetryCornerScreen(),
+      resources: (context) {
+        final args =
+            ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+        return ResourcesScreen(userData: args);
+      },
+      angerManagement: (context) {
+        final args =
+            ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+        return AngerManagementScreen(userData: args);
+      },
+      selfControl: (context) {
+        final args =
+            ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+        return SelfControlScreen(userData: args);
+      },
+      stressRelief: (context) {
+        final args =
+            ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+        return StressReliefScreen(userData: args);
+      },
+      mindfulness: (context) {
+        final args =
+            ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+        return MindfulnessScreen(userData: args);
+      },
+      poetryCorner: (context) {
+        final args =
+            ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+        return PoetryCornerScreen(userData: args);
+      },
       analytics: (context) {
         final args =
             ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
@@ -115,7 +143,6 @@ class AppRoutes {
   }
 
   // ── onGenerateRoute (used by MaterialApp.onGenerateRoute) ──
-  // All routes use _darkFade to prevent the white flash that
   // MaterialPageRoute causes during transitions.
   static Route<dynamic>? onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -159,7 +186,10 @@ class AppRoutes {
         }
 
       case calmme:
-        return _darkFade((_) => CalmMeScreen(), settings);
+        {
+          final args = settings.arguments as Map<String, dynamic>?;
+          return _darkFade((_) => CalmMeScreen(userData: args), settings);
+        }
 
       case journal:
         {
@@ -204,22 +234,82 @@ class AppRoutes {
         return _darkFade((_) => const MindfulnessScreen(), settings);
 
       case nuruAI:
-        return _darkFade((_) => const NuruAIChatScreen(), settings);
+        {
+          final args = settings.arguments as Map<String, dynamic>?;
+          return _darkFade((_) => NuruAIChatScreen(userData: args), settings);
+        }
 
       case sos:
-        return _darkFade((_) => const SOSScreen(), settings);
+        {
+          final args = settings.arguments as Map<String, dynamic>?;
+          return _darkFade((_) => SOSScreen(userData: args), settings);
+        }
 
       case sensoryToolkit:
-        return _darkFade((_) => const SensoryToolkitScreen(), settings);
+        {
+          final args = settings.arguments as Map<String, dynamic>?;
+          return _darkFade(
+            (_) => SensoryToolkitScreen(userData: args),
+            settings,
+          );
+        }
 
       case socialScripts:
-        return _darkFade((_) => const SocialScriptsScreen(), settings);
+        {
+          final args = settings.arguments as Map<String, dynamic>?;
+          return _darkFade(
+            (_) => SocialScriptsScreen(userData: args),
+            settings,
+          );
+        }
 
       case specialInterest:
-        return _darkFade((_) => const SpecialInterestScreen(), settings);
+        {
+          final args = settings.arguments as Map<String, dynamic>?;
+          return _darkFade(
+            (_) => SpecialInterestScreen(userData: args),
+            settings,
+          );
+        }
 
       case poetryCorner:
-        return _darkFade((_) => const PoetryCornerScreen(), settings);
+        {
+          final args = settings.arguments as Map<String, dynamic>?;
+          return _darkFade((_) => PoetryCornerScreen(userData: args), settings);
+        }
+
+      case resources:
+        {
+          final args = settings.arguments as Map<String, dynamic>?;
+          return _darkFade((_) => ResourcesScreen(userData: args), settings);
+        }
+
+      case angerManagement:
+        {
+          final args = settings.arguments as Map<String, dynamic>?;
+          return _darkFade(
+            (_) => AngerManagementScreen(userData: args),
+            settings,
+          );
+        }
+
+      case selfControl:
+        {
+          final args = settings.arguments as Map<String, dynamic>?;
+          return _darkFade((_) => SelfControlScreen(userData: args), settings);
+        }
+
+      case stressRelief:
+        {
+          final args = settings.arguments as Map<String, dynamic>?;
+          return _darkFade((_) => StressReliefScreen(userData: args), settings);
+        }
+
+      case mindfulness:
+        {
+          final args = settings.arguments as Map<String, dynamic>?;
+          return _darkFade((_) => MindfulnessScreen(userData: args), settings);
+        }
 
       case analytics:
         {
@@ -254,15 +344,6 @@ class AppRoutes {
     }
   }
 
-  // ── Dark-background fade transition ───────────────────────
-  // Eliminates the white flash caused by MaterialPageRoute's
-  // slide transition revealing the scaffold background colour.
-  //
-  // Key properties:
-  //   opaque: false    — the outgoing route stays visible under
-  //                      the incoming one during the fade
-  //   barrierColor     — fills any gap with dark blue instead
-  //                      of transparent/white
   static PageRouteBuilder<T> _darkFade<T>(
     WidgetBuilder builder,
     RouteSettings settings,
