@@ -1,175 +1,179 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'routes.dart';
 import 'utils/nuru_colors.dart';
+import 'providers/theme_provider.dart';
+import 'providers/text_size_provider.dart';
 
 class NuruAIApp extends StatelessWidget {
   const NuruAIApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'NuruAI',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        // Primary Colors
-        primaryColor: NuruColors.sailingBlue,
-        // Dark blue prevents any white flash during route transitions
-        scaffoldBackgroundColor: const Color(0xFF081F44),
+    return Consumer2<NuruThemeProvider, TextSizeProvider>(
+      builder: (context, themeProvider, textProvider, _) {
+        final t = themeProvider.activeTheme;
 
-        // Color Scheme
-        colorScheme: const ColorScheme.dark(
-          primary: Color(0xFF4569AD),
-          secondary: Color(0xFF8EA2D7),
-          surface: Color(0xFF1F3F74),
-          background: Color(0xFF081F44),
-          error: Color(0xFFEF5350),
-          onPrimary: Colors.white,
-          onSecondary: Colors.white,
-          onSurface: Colors.white,
-          onBackground: Colors.white,
-          onError: Colors.white,
-        ),
+        return MaterialApp(
+          title: 'NuruAI',
+          debugShowCheckedModeBanner: false,
 
-        // App Bar Theme
-        appBarTheme: AppBarTheme(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          iconTheme: IconThemeData(color: NuruColors.sailingBlue),
-          titleTextStyle: TextStyle(
-            color: NuruColors.dive,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+          // Apply user's text scale factor across the whole app
+          builder: (context, child) {
+            return MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: TextScaler.linear(textProvider.scale)),
+              child: child!,
+            );
+          },
 
-        // Text Theme
-        textTheme: TextTheme(
-          displayLarge: TextStyle(
-            fontSize: 32,
-            fontWeight: FontWeight.bold,
-            color: NuruColors.dive,
-          ),
-          displayMedium: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            color: NuruColors.dive,
-          ),
-          displaySmall: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: NuruColors.dive,
-          ),
-          headlineMedium: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            color: NuruColors.dive,
-          ),
-          titleLarge: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: NuruColors.dive,
-          ),
-          bodyLarge: TextStyle(fontSize: 16, color: NuruColors.deepSea),
-          bodyMedium: TextStyle(fontSize: 14, color: NuruColors.deepSea),
-        ),
+          theme: ThemeData(
+            primaryColor: t.accentColor,
+            scaffoldBackgroundColor: t.backgroundStart,
 
-        // Button Theme
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: NuruColors.sailingBlue,
-            foregroundColor: NuruColors.white,
-            elevation: 0,
-            padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+            colorScheme: ColorScheme.dark(
+              primary: t.accentColor,
+              secondary: t.accentColor.withOpacity(0.7),
+              surface: t.backgroundMid,
+              background: t.backgroundStart,
+              error: NuruColors.error,
+              onPrimary: t.textColor,
+              onSecondary: t.textColor,
+              onSurface: t.textColor,
+              onBackground: t.textColor,
+              onError: Colors.white,
             ),
-            textStyle: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-          ),
-        ),
 
-        textButtonTheme: TextButtonThemeData(
-          style: TextButton.styleFrom(
-            foregroundColor: NuruColors.sailingBlue,
-            textStyle: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-          ),
-        ),
+            appBarTheme: AppBarTheme(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              iconTheme: IconThemeData(color: t.accentColor),
+              titleTextStyle: TextStyle(
+                color: t.textColor,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
 
-        // Input Decoration Theme
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: Colors.transparent,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide.none,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: NuruColors.lilacBlue, width: 2),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: NuruColors.sailingBlue, width: 2),
-          ),
-          errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: NuruColors.error, width: 2),
-          ),
-          focusedErrorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: NuruColors.error, width: 2),
-          ),
-          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        ),
+            elevatedButtonTheme: ElevatedButtonThemeData(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: t.accentColor,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 16,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
 
-        // Card Theme
-        cardTheme: CardThemeData(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                foregroundColor: t.accentColor,
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+
+            switchTheme: SwitchThemeData(
+              thumbColor: MaterialStateProperty.resolveWith(
+                (s) => s.contains(MaterialState.selected)
+                    ? Colors.white
+                    : Colors.white38,
+              ),
+              trackColor: MaterialStateProperty.resolveWith(
+                (s) => s.contains(MaterialState.selected)
+                    ? t.accentColor
+                    : Colors.white12,
+              ),
+            ),
+
+            inputDecorationTheme: InputDecorationTheme(
+              filled: true,
+              fillColor: Colors.transparent,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(
+                  color: t.accentColor.withOpacity(0.4),
+                  width: 2,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: t.accentColor, width: 2),
+              ),
+              errorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: NuruColors.error, width: 2),
+              ),
+              focusedErrorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: NuruColors.error, width: 2),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 16,
+              ),
+            ),
+
+            cardTheme: CardThemeData(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              color: t.backgroundMid,
+            ),
+
+            bottomNavigationBarTheme: BottomNavigationBarThemeData(
+              backgroundColor: t.backgroundStart,
+              selectedItemColor: t.accentColor,
+              unselectedItemColor: t.textColor.withOpacity(0.4),
+              type: BottomNavigationBarType.fixed,
+              elevation: 0,
+              selectedLabelStyle: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
+              unselectedLabelStyle: const TextStyle(fontSize: 12),
+            ),
+
+            snackBarTheme: SnackBarThemeData(
+              backgroundColor: t.backgroundMid,
+              contentTextStyle: TextStyle(color: t.textColor),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+
+            progressIndicatorTheme: ProgressIndicatorThemeData(
+              color: t.accentColor,
+            ),
+            dividerTheme: DividerThemeData(
+              color: t.accentColor.withOpacity(0.2),
+              thickness: 1,
+            ),
+            fontFamily: 'Roboto',
           ),
-          color: const Color(0xFF1F3F74),
-        ),
 
-        // Divider Theme
-        dividerTheme: DividerThemeData(
-          color: NuruColors.lilacBlue,
-          thickness: 1.5,
-        ),
-
-        // Bottom Navigation Bar Theme
-        bottomNavigationBarTheme: BottomNavigationBarThemeData(
-          backgroundColor: NuruColors.white,
-          selectedItemColor: NuruColors.sailingBlue,
-          unselectedItemColor: NuruColors.darkGray,
-          type: BottomNavigationBarType.fixed,
-          elevation: 0,
-          selectedLabelStyle: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 12,
-          ),
-          unselectedLabelStyle: TextStyle(fontSize: 12),
-        ),
-
-        // Snackbar Theme
-        snackBarTheme: SnackBarThemeData(
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-
-        // Progress Indicator Theme
-        progressIndicatorTheme: ProgressIndicatorThemeData(
-          color: NuruColors.sailingBlue,
-        ),
-
-        // Font Family
-        fontFamily: 'Roboto',
-      ),
-
-      // Routes
-      initialRoute: AppRoutes.splash,
-      onGenerateRoute: AppRoutes.onGenerateRoute,
+          initialRoute: AppRoutes.splash,
+          onGenerateRoute: AppRoutes.onGenerateRoute,
+        );
+      },
     );
   }
 }
