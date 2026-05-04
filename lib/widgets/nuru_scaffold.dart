@@ -5,31 +5,7 @@ import 'dart:math' as math;
 import '../providers/theme_provider.dart';
 import '../providers/nuru_theme_extension.dart';
 
-// ==============================================================================
 // NuruScaffold
-//
-// A theme-aware scaffold wrapper used by every screen in NuruAI.
-// It handles:
-//   - Background gradient (from active theme)
-//   - Star field animation (for themes with hasStars = true)
-//   - Status bar colour (adapts to theme text colour)
-//   - AnimatedContainer so theme transitions are smooth
-//
-// Usage — replaces Scaffold in every screen:
-//
-//   return NuruScaffold(
-//     body: SafeArea(
-//       child: Column(
-//         children: [ ... your screen content ... ],
-//       ),
-//     ),
-//   );
-//
-// Optional parameters:
-//   bottomNavigationBar — pass your existing bottom nav widget
-//   floatingActionButton — pass your FAB if needed
-//   resizeToAvoidBottomInset — default true
-// ==============================================================================
 
 class NuruScaffold extends StatefulWidget {
   final Widget body;
@@ -74,7 +50,7 @@ class _NuruScaffoldState extends State<NuruScaffold>
   Widget build(BuildContext context) {
     final t = context.nuruTheme;
 
-    // Status bar brightness adapts to the theme text colour
+    // Status bar brightness
     final isDark = t.textColor == Colors.white;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -100,8 +76,7 @@ class _NuruScaffoldState extends State<NuruScaffold>
           ),
           child: Stack(
             children: [
-              // Star field — only rendered for themes that have hasStars true,
-              // or when showStars is explicitly true and the theme supports it
+              // Star field
               if (widget.showStars)
                 IgnorePointer(
                   child: AnimatedBuilder(
@@ -129,24 +104,7 @@ class _NuruScaffoldState extends State<NuruScaffold>
   }
 }
 
-// ==============================================================================
 // NuruBottomNav
-//
-// Theme-aware bottom navigation bar used by home screens and calmme screen.
-// Usage:
-//
-//   NuruBottomNav(
-//     currentIndex: _currentNavIndex,
-//     onTap: (index) { ... },
-//     items: [
-//       NuruNavItem(icon: Icons.home_rounded, label: 'Home'),
-//       NuruNavItem(icon: Icons.spa_outlined,  label: 'CalmMe'),
-//       NuruNavItem(icon: Icons.analytics_outlined, label: 'Analytics'),
-//       NuruNavItem(icon: Icons.person_outline, label: 'Profile'),
-//     ],
-//   )
-// ==============================================================================
-
 class NuruNavItem {
   final IconData icon;
   final String label;
@@ -238,22 +196,7 @@ class NuruBottomNav extends StatelessWidget {
   }
 }
 
-// ==============================================================================
 // NuruCard
-//
-// Theme-aware card used throughout the app.
-// Replaces all the custom darkCard / glassCard containers in every screen.
-//
-// Usage:
-//   NuruCard(
-//     child: Column(children: [ ... ]),
-//   )
-//
-//   NuruCard(
-//     padding: EdgeInsets.all(20),
-//     child: Text('Hello'),
-//   )
-// ==============================================================================
 
 class NuruCard extends StatelessWidget {
   final Widget child;
@@ -293,18 +236,7 @@ class NuruCard extends StatelessWidget {
   }
 }
 
-// ==============================================================================
 // NuruAccentButton
-//
-// Theme-aware primary action button.
-//
-// Usage:
-//   NuruAccentButton(
-//     label: 'Start Breathing',
-//     icon: Icons.air_rounded,
-//     onTap: () { ... },
-//   )
-// ==============================================================================
 
 class NuruAccentButton extends StatelessWidget {
   final String label;
@@ -368,18 +300,7 @@ class NuruAccentButton extends StatelessWidget {
   }
 }
 
-// ==============================================================================
 // NuruAppBar
-//
-// Theme-aware app bar row used at the top of most screens.
-//
-// Usage:
-//   NuruAppBar(
-//     title: 'Breathing',
-//     subtitle: 'Calm your mind',
-//     onBack: () => Navigator.pop(context),
-//   )
-// ==============================================================================
 
 class NuruAppBar extends StatelessWidget {
   final String title;
@@ -451,10 +372,7 @@ class NuruAppBar extends StatelessWidget {
   }
 }
 
-// ==============================================================================
-// Star field painter — used by NuruScaffold
-// ==============================================================================
-
+// Star field painter
 class _NuruStarsPainter extends CustomPainter {
   final double t;
   final Color accentColor;
