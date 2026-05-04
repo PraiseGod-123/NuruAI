@@ -1,19 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
-// ══════════════════════════════════════════════════════════════
-// NURU AI SERVICE — Google Gemini 1.5 Flash
+// NURU AI SERVICE — Groq API
 //
-// Genuinely free — no card required.
-// Free tier: 15 requests/min, 1M tokens/day
-//
-// Setup:
-//   1. Go to: aistudio.google.com/app/apikey
-//   2. Sign in with Google
-//   3. Click "Create API Key"
-//   4. Copy the key and set it in main.dart:
-//      NuruAIService.instance.apiKey = 'YOUR_GEMINI_KEY';
-// ══════════════════════════════════════════════════════════════
+// Model: llama-3.3-70b-versatile (fast, free tier available)
+// Docs:  https://console.groq.com/docs/openai
 
 class ChatMessage {
   final String text;
@@ -31,151 +22,131 @@ class NuruAIService {
   NuruAIService._();
   static final NuruAIService instance = NuruAIService._();
 
-  // Set in main.dart — aistudio.google.com/app/apikey
   String apiKey = '';
   bool get _configured => apiKey.trim().isNotEmpty;
 
-  static const _baseUrl =
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
-  static const _timeout = Duration(seconds: 20);
+  static const _url = 'https://api.groq.com/openai/v1/chat/completions';
+  static const _model = 'llama-3.3-70b-versatile';
+  static const _timeout = Duration(seconds: 30);
 
   static const String _systemPrompt =
-      'You are NuruAI, a warm and calm AI companion inside the NuruAI app. '
-      'NuruAI is designed specifically for autistic individuals aged 13 to 25 '
-      'with ASD Level 1. '
-      'Your role: Be a supportive non-judgmental presence. Help users understand '
-      'and manage their emotions. Offer calm reassurance when they are overwhelmed. '
-      'Gently suggest tools in the app when relevant. '
-      'How you must communicate: Always use short clear sentences. '
-      'Never write long paragraphs. Never use bullet points, numbered lists, or headers. '
-      'Use warm simple language, never clinical or technical. '
+      'You are NuruAI, a warm, caring and knowledgeable AI companion inside the NuruAI app. '
+      'NuruAI is designed for autistic individuals aged 13 to 25 with ASD Level 1. '
+      'You are like a trusted, understanding older friend — not a therapist, not a robot. '
+      'You help users with a wide range of everyday topics including: '
+      'emotions and how to manage them, relationships and friendships, crushes and romantic feelings, '
+      'social situations that feel confusing or overwhelming, school or college stress, '
+      'family conflicts, loneliness, self-confidence, identity, '
+      'sensory challenges, meltdowns and shutdowns, anxiety and worry, '
+      'communication difficulties, making and keeping friends, '
+      'understanding other people\'s behaviour and intentions, '
+      'coping with change or unexpected events, and daily life challenges. '
+      'When a user is struggling, always offer practical coping mechanisms suited to their situation. '
+      'Examples include: breathing exercises, grounding techniques (5-4-3-2-1 senses), '
+      'journaling prompts, taking a sensory break, movement or physical activity, '
+      'listening to calming music, using a comfort object, stepping away from a situation temporarily, '
+      'writing down thoughts, talking to someone they trust, or acknowledging their feelings out loud. '
+      'Always explain the coping mechanism briefly and warmly — never make it feel like a chore. '
+      'When users talk about crushes, relationships, or romantic feelings — engage warmly and helpfully. '
+      'Help them understand their own feelings, think through situations, and navigate social interactions. '
+      'Give practical, age-appropriate advice about communicating feelings, reading social cues, '
+      'understanding boundaries, and handling rejection or uncertainty with self-respect. '
+      'Do not shut down these conversations — they are a normal and important part of growing up. '
+      'How you must communicate: '
+      'Always use short clear sentences. Never write long paragraphs. '
+      'Never use bullet points, numbered lists, or headers. '
+      'Use warm, simple language — never clinical or technical. '
       'Validate feelings before offering suggestions. '
       'Never tell the user how they should feel. '
-      'Safety rules: If the user expresses crisis or mentions self-harm always say: '
-      '"It sounds like you need some immediate support right now. Please tap the SOS '
-      'button on the CalmMe screen - it will guide you through this calmly." '
-      'Never give medical or clinical diagnoses. Never recommend medication. '
-      'App features you know about: The CalmMe screen has breathing exercises, music, '
-      'journaling, sensory toolkit, social scripts, calming games, meltdown prevention, '
-      'and a special interest space. The SOS screen provides immediate calm. '
-      'Keep all responses under 80 words unless the user asks for more detail.';
-
-  // ══════════════════════════════════════════════════════════
-  // SEND MESSAGE
-  // ══════════════════════════════════════════════════════════
+      'Ask gentle follow-up questions to understand their situation better before giving advice. '
+      'Be direct and practical — autistic users often appreciate clear, honest responses '
+      'rather than vague or overly cautious ones. '
+      'Keep responses under 100 words unless the user asks for more detail or the topic genuinely needs it. '
+      'Some things are beyond what you can help with. Tell the user to speak to their doctor, '
+      'caregiver, guardian, or a trusted adult when: '
+      'they describe physical health symptoms or pain, '
+      'they need a formal diagnosis or assessment, '
+      'they are dealing with abuse, neglect, or unsafe situations at home or school, '
+      'they need medication advice or changes, '
+      'they are experiencing something that has been going on for a long time and is not getting better, '
+      'or their situation clearly requires professional intervention. '
+      'When redirecting, always say something warm like: '
+      'This sounds like something important that deserves proper support. '
+      'I would really encourage you to talk to your doctor, caregiver, or a trusted adult about this. '
+      'If the user mentions self-harm, wanting to die, or being in immediate danger, say: '
+      'I am really glad you told me. Please tap the SOS button on the CalmMe screen right now. '
+      'Never give medical diagnoses. Never recommend specific medication. '
+      'App tools you can suggest when relevant: '
+      'CalmMe screen has breathing exercises, music library, journaling, sensory toolkit, '
+      'social scripts, calming games, anger management, mindfulness, stress relief, and self-control tools. '
+      'The SOS screen gives immediate calm support. '
+      'The Journal is great for processing feelings. '
+      'The Analytics screen tracks mood patterns over time.';
 
   Future<String> sendMessage(
     String userMessage,
     List<ChatMessage> history,
   ) async {
     if (!_configured) {
-      return 'I am not ready yet. Please add a Gemini API key from '
-          'aistudio.google.com/app/apikey';
+      return 'NuruAI is not set up yet. Please contact support.';
     }
 
     try {
-      final uri = Uri.parse('$_baseUrl?key=$apiKey');
-
-      // Build conversation — Gemini uses alternating user/model roles
-      final List<Map<String, dynamic>> contents = [];
+      final List<Map<String, dynamic>> messages = [
+        {'role': 'system', 'content': _systemPrompt},
+      ];
 
       final recent = history.length > 20
           ? history.sublist(history.length - 20)
           : history;
 
       for (final msg in recent) {
-        contents.add({
-          'role': msg.isUser ? 'user' : 'model',
-          'parts': [
-            {'text': msg.text},
-          ],
+        messages.add({
+          'role': msg.isUser ? 'user' : 'assistant',
+          'content': msg.text,
         });
       }
 
-      contents.add({
-        'role': 'user',
-        'parts': [
-          {'text': userMessage},
-        ],
-      });
-
-      // Prepend system prompt to first user message for v1beta compatibility
-      final List<Map<String, dynamic>> finalContents = [
-        {
-          'role': 'user',
-          'parts': [
-            {'text': _systemPrompt + '\n\nUser: ' + userMessage},
-          ],
-        },
-        {
-          'role': 'model',
-          'parts': [
-            {
-              'text':
-                  'Understood. I am NuruAI and I will follow these guidelines. How can I help you?',
-            },
-          ],
-        },
-        ...contents,
-      ];
-
-      final body = jsonEncode({
-        'contents': finalContents,
-        'generationConfig': {
-          'temperature': 0.7,
-          'topK': 40,
-          'topP': 0.95,
-          'maxOutputTokens': 300,
-        },
-        'safetySettings': [
-          {
-            'category': 'HARM_CATEGORY_HARASSMENT',
-            'threshold': 'BLOCK_MEDIUM_AND_ABOVE',
-          },
-          {
-            'category': 'HARM_CATEGORY_HATE_SPEECH',
-            'threshold': 'BLOCK_MEDIUM_AND_ABOVE',
-          },
-          {
-            'category': 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
-            'threshold': 'BLOCK_MEDIUM_AND_ABOVE',
-          },
-          {
-            'category': 'HARM_CATEGORY_DANGEROUS_CONTENT',
-            'threshold': 'BLOCK_MEDIUM_AND_ABOVE',
-          },
-        ],
-      });
+      messages.add({'role': 'user', 'content': userMessage});
 
       final res = await http
-          .post(uri, headers: {'Content-Type': 'application/json'}, body: body)
+          .post(
+            Uri.parse(_url),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ${apiKey.trim()}',
+            },
+            body: jsonEncode({
+              'model': _model,
+              'messages': messages,
+              'max_tokens': 400,
+              'temperature': 0.75,
+            }),
+          )
           .timeout(_timeout);
 
       if (res.statusCode != 200) {
         try {
-          final errData = jsonDecode(res.body) as Map<String, dynamic>;
-          final errMsg = errData['error']?['message'] as String?;
-          if (errMsg != null) return errMsg;
+          final err = jsonDecode(res.body) as Map<String, dynamic>;
+          final msg = err['error']?['message'] as String?;
+          if (msg != null) return msg;
         } catch (_) {}
-        return 'Error ' + res.statusCode.toString() + ': ' + res.body;
+        return 'Something went wrong. Please try again.';
       }
 
       final data = jsonDecode(res.body) as Map<String, dynamic>;
-      final candidates = data['candidates'] as List?;
-      if (candidates == null || candidates.isEmpty) {
+      final choices = data['choices'] as List?;
+      if (choices == null || choices.isEmpty) {
         return "I'm having a little trouble right now. Please try again in a moment.";
       }
 
-      final text = candidates[0]['content']?['parts']?[0]?['text'] as String?;
-      return text?.trim() ?? "I'm here. Could you try saying that again?";
-    } on Exception catch (e) {
+      final text = choices[0]['message']?['content'] as String?;
+      return text?.trim() ??
+          "I'm here with you. Could you try saying that again?";
+    } catch (e) {
       return 'Connection error. Please check your internet and try again.';
     }
   }
-
-  // ══════════════════════════════════════════════════════════
-  // CRISIS DETECTION
-  // ══════════════════════════════════════════════════════════
 
   static const List<String> _crisisKeywords = [
     'hurt myself',
@@ -191,6 +162,8 @@ class NuruAIService {
     'give up on life',
     'end it all',
     'end my life',
+    'not worth living',
+    'rather be dead',
   ];
 
   bool detectsCrisis(String message) {

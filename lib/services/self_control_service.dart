@@ -1,25 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
-// ══════════════════════════════════════════════════════════════
 // SELF CONTROL SERVICE
-//
-// Self control for ASD focuses on:
-//   • Impulse inhibition — pausing before acting
-//   • Delayed gratification — tolerating the wait
-//   • Emotional inhibition — not acting on every feeling
-//   • Behavioural regulation — choosing responses consciously
-//   • Urge surfing — riding out cravings/impulses without acting
-//
-// Real APIs (free, no key):
-//   Open Library — books on self-control, impulse regulation, ASD
-//   PubMed       — clinical research on self-regulation in ASD/ADHD
-//
-// NuruAI Curated Guides (offline):
-//   subcategory = 'understanding'  — what self control is & ASD
-//   subcategory = 'communication'  — setting limits with others
-// ══════════════════════════════════════════════════════════════
-
 enum SelfControlResourceType { book, research, guide, technique }
 
 class SelfControlItem {
@@ -58,14 +40,14 @@ class SelfControlServiceException implements Exception {
   String toString() => 'SelfControlServiceException: $message';
 }
 
-// ─────────────────────────────────────────────────────────────
-
 class SelfControlService {
   SelfControlService._();
   static final SelfControlService instance = SelfControlService._();
 
-  static const _openLibraryBase = 'https://openlibrary.org';
-  static const _pubmedBase = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
+  static const _openLibraryBase =
+      'https://nuruai-api-production.up.railway.app/proxy?url=https://openlibrary.org';
+  static const _pubmedBase =
+      'https://nuruai-api-production.up.railway.app/proxy?url=https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
   static const _timeout = Duration(seconds: 12);
   static const _headers = {
     'Accept': 'application/json',
@@ -74,10 +56,7 @@ class SelfControlService {
 
   List<SelfControlItem>? _cached;
 
-  // ══════════════════════════════════════════════════════════
   // PUBLIC
-  // ══════════════════════════════════════════════════════════
-
   Future<List<SelfControlItem>> fetchAll({bool forceRefresh = false}) async {
     if (!forceRefresh && _cached != null) return _cached!;
 
@@ -136,10 +115,7 @@ class SelfControlService {
 
   void clearCache() => _cached = null;
 
-  // ══════════════════════════════════════════════════════════
-  // NURURAI GUIDES — understanding + communication
-  // ══════════════════════════════════════════════════════════
-
+  // NURURAI GUIDES
   void _injectGuides(List<SelfControlItem> results) {
     for (final g in _understanding) {
       results.add(
@@ -299,10 +275,7 @@ class SelfControlService {
     ),
   ];
 
-  // ══════════════════════════════════════════════════════════
   // OPEN LIBRARY
-  // ══════════════════════════════════════════════════════════
-
   Future<void> _fetchBooks(
     String query,
     List<SelfControlItem> out, {
@@ -352,10 +325,7 @@ class SelfControlService {
     }
   }
 
-  // ══════════════════════════════════════════════════════════
   // PUBMED
-  // ══════════════════════════════════════════════════════════
-
   Future<void> _fetchPubMed(
     String query,
     List<SelfControlItem> out, {

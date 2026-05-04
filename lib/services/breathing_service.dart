@@ -1,37 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
-// ══════════════════════════════════════════════════════════════
-// BREATHING SERVICE
-//
-// Real APIs used (all free, no API key):
-//
-//  1. PubMed E-utilities — eutils.ncbi.nlm.nih.gov
-//     Fetches clinical research articles on each technique
-//     to surface real evidence backing in the detail sheet.
-//
-//  2. Wikipedia REST API — en.wikipedia.org/api/rest_v1
-//     Fetches plain-text summaries for technique background.
-//
-// Core techniques are curated in-app (BreathingTechnique objects)
-// because breathing patterns must be exact — no API returns
-// the precise inhale/hold/exhale seconds needed for the timer.
-// The APIs enrich each technique with research and background.
-// Colours/gradients live in breathing_exercise_screen.dart only.
-// ══════════════════════════════════════════════════════════════
+// Enums
+enum BreathingCategory { regulation, anxiety, focus, sleep, grounding }
 
-// ── Enums ─────────────────────────────────────────────────────
-
-enum BreathingCategory {
-  regulation, // sensory regulation / meltdown prevention
-  anxiety, // acute anxiety + panic relief
-  focus, // attention + cognitive clarity
-  sleep, // wind-down + sleep onset
-  grounding, // overwhelm + sensory overload
-}
-
-// ── Models ────────────────────────────────────────────────────
-
+// Models
 class BreathingResearch {
   final String title;
   final String authors;
@@ -55,16 +28,16 @@ class BreathingTechnique {
   final String name;
   final String subtitle;
   final String description;
-  final String autismNote; // Why this specifically helps autistic individuals
+  final String autismNote;
   final String emoji;
-  final List<int> pattern; // [inhale, hold, exhale, hold] in seconds
+  final List<int> pattern;
   final int cycles;
-  final String difficulty; // Beginner / Intermediate / Advanced
+  final String difficulty;
   final BreathingCategory category;
   final List<String> benefits;
   final String source;
-  final String wikiSlug; // Wikipedia page slug for background fetch
-  final String pubmedQuery; // PubMed query to fetch supporting research
+  final String wikiSlug;
+  final String pubmedQuery;
 
   // Enriched at runtime by the service
   String? wikiSummary;
@@ -90,15 +63,15 @@ class BreathingTechnique {
   });
 }
 
-// ── Service ───────────────────────────────────────────────────
-
+// Service
 class BreathingService {
   BreathingService._();
   static final BreathingService instance = BreathingService._();
 
   static const String _pubmedBase =
-      'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
-  static const String _wikipediaBase = 'https://en.wikipedia.org/api/rest_v1';
+      'https://nuruai-api-production.up.railway.app/proxy?url=https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
+  static const String _wikipediaBase =
+      'https://nuruai-api-production.up.railway.app/proxy?url=https://en.wikipedia.org/api/rest_v1';
   static const Duration _timeout = Duration(seconds: 10);
   static const Map<String, String> _headers = {
     'Accept': 'application/json',
@@ -108,16 +81,9 @@ class BreathingService {
   // Cache: technique id -> enriched technique
   final Map<String, BreathingTechnique> _cache = {};
 
-  // ── Curated techniques ────────────────────────────────────
-  // Patterns are clinically validated and autism-appropriate.
-  // Each technique has been selected based on:
-  //  * Evidence from peer-reviewed literature (PubMed)
-  //  * Suitability for sensory processing differences
-  //  * Predictability (important for ASD -- no surprises)
-  //  * Simple enough to use during a meltdown or overload
-
+  // Curated techniques
   static List<BreathingTechnique> get techniques => [
-    // 1 -- Box Breathing
+    //Box Breathing
     BreathingTechnique(
       id: 'box',
       name: 'Box Breathing',
@@ -148,7 +114,7 @@ class BreathingService {
       pubmedQuery: 'box breathing anxiety stress autonomic nervous system',
     ),
 
-    // 2 -- 4-7-8 Breathing
+    // 4-7-8 Breathing
     BreathingTechnique(
       id: '478',
       name: '4-7-8 Breathing',
@@ -180,7 +146,7 @@ class BreathingService {
       pubmedQuery: '4-7-8 breathing vagus nerve anxiety parasympathetic',
     ),
 
-    // 3 -- Diaphragmatic / Belly Breathing
+    // Diaphragmatic / Belly Breathing
     BreathingTechnique(
       id: 'diaphragmatic',
       name: 'Belly Breathing',
@@ -214,7 +180,7 @@ class BreathingService {
           'diaphragmatic breathing children adolescents anxiety stress reduction',
     ),
 
-    // 4 -- Resonant / Coherent Breathing
+    //Resonant / Coherent Breathing
     BreathingTechnique(
       id: 'resonant',
       name: 'Resonant Breathing',
@@ -249,7 +215,7 @@ class BreathingService {
           'resonant coherent breathing heart rate variability autism anxiety',
     ),
 
-    // 5 -- Extended Exhale
+    //Extended Exhale
     BreathingTechnique(
       id: 'extended_exhale',
       name: 'Extended Exhale',
@@ -283,7 +249,7 @@ class BreathingService {
           'extended exhale breathing parasympathetic activation anxiety',
     ),
 
-    // 6 -- Grounding Breath
+    //Grounding Breath
     BreathingTechnique(
       id: 'grounding',
       name: 'Grounding Breath',
@@ -315,7 +281,7 @@ class BreathingService {
       pubmedQuery: 'breathing grounding sensory overload autism regulation',
     ),
 
-    // 7 -- Sleep Breath
+    //Sleep Breath
     BreathingTechnique(
       id: 'sleep',
       name: 'Sleep Breath',
@@ -349,11 +315,7 @@ class BreathingService {
     ),
   ];
 
-  // ══════════════════════════════════════════════════════════
   // PUBLIC: Enrich a technique with live research from APIs.
-  // Returns a cached version if already fetched.
-  // ══════════════════════════════════════════════════════════
-
   Future<BreathingTechnique> enrichTechnique(
     BreathingTechnique technique,
   ) async {
@@ -373,8 +335,7 @@ class BreathingService {
 
   void clearCache() => _cache.clear();
 
-  // ── Wikipedia ─────────────────────────────────────────────
-
+  // Wikipedia
   Future<void> _fetchWikiSummary(BreathingTechnique technique) async {
     try {
       final slug = Uri.encodeComponent(technique.wikiSlug);
@@ -394,15 +355,14 @@ class BreathingService {
         technique.wikiSummary = '${technique.wikiSummary}.';
       }
     } catch (_) {
-      // Silently swallow -- enrichment is non-critical
+      //Silently swallow
     }
   }
 
-  // ── PubMed ────────────────────────────────────────────────
-
+  //PubMed
   Future<void> _fetchPubMedResearch(BreathingTechnique technique) async {
     try {
-      // Step 1: search for article IDs
+      //search for article IDs
       final searchUri = Uri.parse('$_pubmedBase/esearch.fcgi').replace(
         queryParameters: {
           'db': 'pubmed',
@@ -428,7 +388,7 @@ class BreathingService {
           [];
       if (idList.isEmpty) return;
 
-      // Step 2: fetch article summaries
+      //fetch article summaries
       final summaryUri = Uri.parse('$_pubmedBase/esummary.fcgi').replace(
         queryParameters: {
           'db': 'pubmed',
@@ -473,7 +433,7 @@ class BreathingService {
 
       technique.research = research;
     } catch (_) {
-      // Silently swallow -- enrichment is non-critical
+      // Silently swallow
     }
   }
 

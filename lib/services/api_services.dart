@@ -4,10 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
-// ══════════════════════════════════════════════════════════════════════════════
 // NuruAI API Service
-// ══════════════════════════════════════════════════════════════════════════════
-
 class EmotionResult {
   final bool success;
   final String emotion;
@@ -108,14 +105,25 @@ class BaselineResult {
       BaselineResult(success: false, numSamples: 0, message: message);
 }
 
-// ── Service ───────────────────────────────────────────────────────────────────
+//Service
 
 class NuruApiService {
   NuruApiService._();
   static final NuruApiService instance = NuruApiService._();
 
-  static const String baseUrl =
-      'https://interlunar-unspinnable-carola.ngrok-free.dev';
+  // Base URL config
+  static const String _devUrl = 'https://nuruai-api-production.up.railway.app';
+  static const String _prodUrl = String.fromEnvironment(
+    'NURU_API_URL',
+    defaultValue: '',
+  );
+
+  static String get baseUrl => _prodUrl.isNotEmpty ? _prodUrl : _devUrl;
+
+  bool get isConfigured =>
+      baseUrl.isNotEmpty &&
+      (baseUrl.contains('railway.app') || baseUrl.contains('up.railway'));
+
   static const Duration _timeout = Duration(seconds: 30);
   static const Map<String, String> _headers = {
     'Content-Type': 'application/json',
@@ -123,8 +131,7 @@ class NuruApiService {
     'ngrok-skip-browser-warning': 'true',
   };
 
-  // ── Health ────────────────────────────────────────────────────────────────
-
+  // Health
   Future<bool> isReachable() async {
     try {
       final response = await http
@@ -136,8 +143,7 @@ class NuruApiService {
     }
   }
 
-  // ── Baseline ──────────────────────────────────────────────────────────────
-
+  // Baseline
   Future<BaselineResult> setupBaseline({
     required String userId,
     required List<String> images,
@@ -162,8 +168,7 @@ class NuruApiService {
     }
   }
 
-  // ── Login ─────────────────────────────────────────────────────────────────
-
+  // Login
   Future<LoginResult> login({
     required String userId,
     required String imageBase64,
@@ -188,8 +193,7 @@ class NuruApiService {
     }
   }
 
-  // ── Detect emotion ────────────────────────────────────────────────────────
-
+  //Detect emotion
   Future<EmotionResult> detectEmotion({
     required String userId,
     required String imageBase64,
@@ -219,8 +223,7 @@ class NuruApiService {
     }
   }
 
-  // ── Log mood ──────────────────────────────────────────────────────────────
-
+  //Log mood
   Future<bool> logMood({required String userId, required String mood}) async {
     try {
       final response = await http
@@ -243,8 +246,7 @@ class NuruApiService {
     }
   }
 
-  // ── Log journal ───────────────────────────────────────────────────────────
-
+  //Log journal
   Future<bool> logJournal({
     required String userId,
     String? mood,
@@ -274,8 +276,7 @@ class NuruApiService {
     }
   }
 
-  // ── Log chat ──────────────────────────────────────────────────────────────
-
+  //Log chat
   Future<bool> logChat({
     required String userId,
     int messageCount = 0,
@@ -304,8 +305,7 @@ class NuruApiService {
     }
   }
 
-  // ── Emotion history ───────────────────────────────────────────────────────
-
+  //Emotion history
   Future<List<Map<String, dynamic>>> getEmotionHistory({
     required String userId,
     int limit = 50,
@@ -325,10 +325,7 @@ class NuruApiService {
     }
   }
 
-  // ── Register FCM token ────────────────────────────────────────────────────
-  // Sends the device's FCM token to Flask so the backend can push notifications.
-  // Call this after Firebase.initializeApp() and NuruNotificationService.init().
-
+  // Register FCM token
   Future<bool> registerFCMToken({
     required String userId,
     required String fcmToken,
@@ -355,10 +352,7 @@ class NuruApiService {
     }
   }
 
-  // ── Send notification via Flask ───────────────────────────────────────────
-  // Triggers a push notification from the server to a specific user.
-  // The Flask backend looks up the user's FCM token and sends via FCM.
-
+  // Send notification via Flask
   Future<bool> sendPushNotification({
     required String userId,
     required String title,

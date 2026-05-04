@@ -5,21 +5,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
-// ══════════════════════════════════════════════════════════════
-// NURU NOTIFICATION SERVICE
-//
-// Handles both:
-//   1. On-device scheduled notifications (flutter_local_notifications)
-//   2. FCM push notifications from Flask backend
-//
-// Usage:
-//   await NuruNotificationService.instance.init();
-//   await NuruNotificationService.instance.scheduleDailyMoodReminder(hour: 9, minute: 0);
-//   await NuruNotificationService.instance.scheduleJournalReminder(hour: 20, minute: 0);
-//   await NuruNotificationService.instance.scheduleStreakReminder(hour: 21, minute: 0);
-// ══════════════════════════════════════════════════════════════
-
-// Background FCM handler — must be top-level function
+// Background FCM handler
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await NuruNotificationService.instance.showFCMNotification(message);
@@ -48,7 +34,7 @@ class NuruNotificationService {
 
   bool _initialised = false;
 
-  // ── Init ─────────────────────────────────────────────────────────────────────
+  // Init
 
   Future<void> init() async {
     if (_initialised) return;
@@ -57,7 +43,7 @@ class NuruNotificationService {
     // Initialise timezones
     tz.initializeTimeZones();
 
-    // ── Local notifications setup ─────────────────────────────────────────────
+    // Local notifications setup
     const androidSettings = AndroidInitializationSettings(
       '@mipmap/ic_launcher',
     );
@@ -84,13 +70,13 @@ class NuruNotificationService {
       'Push updates from NuruAI',
     );
 
-    // ── FCM setup ─────────────────────────────────────────────────────────────
+    // FCM setup
     await _setupFCM();
 
     debugPrint('NuruNotificationService: initialised ✓');
   }
 
-  // ── FCM ──────────────────────────────────────────────────────────────────────
+  // FCM
 
   Future<void> _setupFCM() async {
     // Request permission
@@ -126,14 +112,12 @@ class NuruNotificationService {
     final token = await _fcm.getToken();
     if (token != null) {
       debugPrint('FCM Token: $token');
-      // TODO: send this token to your Flask backend so it can target this device
       // await ApiService.instance.registerFCMToken(token);
     }
 
     // Token refresh
     _fcm.onTokenRefresh.listen((newToken) {
       debugPrint('FCM Token refreshed: $newToken');
-      // TODO: update token on Flask backend
     });
   }
 
@@ -173,7 +157,7 @@ class NuruNotificationService {
     );
   }
 
-  // ── Scheduled local notifications ─────────────────────────────────────────
+  // Scheduled local notifications
 
   /// Daily mood check-in — e.g. 9:00 AM
   Future<void> scheduleDailyMoodReminder({
@@ -259,7 +243,7 @@ class NuruNotificationService {
     );
   }
 
-  /// Evening journal reminder — e.g. 8:00 PM
+  /// Evening journal reminder
   Future<void> scheduleJournalReminder({
     required int hour,
     required int minute,
@@ -297,7 +281,7 @@ class NuruNotificationService {
     );
   }
 
-  /// Streak reminder — fires if user hasn't checked in by e.g. 9:00 PM
+  /// Streak reminder
   Future<void> scheduleStreakReminder({
     required int hour,
     required int minute,
@@ -394,7 +378,7 @@ class NuruNotificationService {
     debugPrint('All notifications cancelled');
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  // Helpers
 
   Future<void> _createChannel(String id, String name, String desc) async {
     if (!Platform.isAndroid) return;
@@ -439,7 +423,6 @@ class NuruNotificationService {
     final payload = response.payload;
     debugPrint('Notification tapped: $payload');
     // Navigation is handled by the app's NavigatorKey
-    // You can use a global navigatorKey to push routes here
   }
 
   void _handleNotificationOpen(Map<String, dynamic> data) {

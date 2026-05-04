@@ -1,26 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
-// ══════════════════════════════════════════════════════════════
 // STRESS RELIEF SERVICE
-//
-// Stress for ASD is distinct from general stress — it is often
-// driven by sensory overload, unpredictability, social demands,
-// and executive function fatigue. Relief techniques need to:
-//   • Reduce physiological arousal (cortisol, adrenaline)
-//   • Restore sensory regulation
-//   • Rebuild a sense of safety and control
-//   • Work without high cognitive load
-//
-// Real APIs (free, no key):
-//   Open Library — books on stress, burnout, ASD sensory
-//   PubMed       — clinical research on stress relief in ASD
-//
-// NuruAI Curated Guides (offline):
-//   subcategory = 'understanding'  — what stress is in ASD
-//   subcategory = 'communication'  — asking for help under stress
-// ══════════════════════════════════════════════════════════════
-
 enum StressResourceType { book, research, guide, technique }
 
 class StressItem {
@@ -63,8 +44,10 @@ class StressReliefService {
   StressReliefService._();
   static final StressReliefService instance = StressReliefService._();
 
-  static const _openLibraryBase = 'https://openlibrary.org';
-  static const _pubmedBase = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
+  static const _openLibraryBase =
+      'https://nuruai-api-production.up.railway.app/proxy?url=https://openlibrary.org';
+  static const _pubmedBase =
+      'https://nuruai-api-production.up.railway.app/proxy?url=https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
   static const _timeout = Duration(seconds: 12);
   static const _headers = {
     'Accept': 'application/json',

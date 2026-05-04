@@ -1,35 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
-// ══════════════════════════════════════════════════════════════
-// RESOURCE SERVICE
-//
-// Real third-party APIs integrated (all free, no API key needed):
-//
-//  1. Open Library API   — openlibrary.org
-//     Docs: https://openlibrary.org/developers/api
-//     Base: https://openlibrary.org
-//     Used for: books on all topics
-//
-//  2. PoetryDB API       — poetrydb.org
-//     Docs: https://github.com/thundercomb/poetrydb
-//     Base: https://poetrydb.org
-//     Used for: poems by well-known authors
-//
-//  3. Wikipedia REST API — en.wikipedia.org
-//     Docs: https://en.wikipedia.org/api/rest_v1/
-//     Base: https://en.wikipedia.org/api/rest_v1
-//     Used for: article summaries on health/wellness topics
-//
-//  4. PubMed E-utilities  — eutils.ncbi.nlm.nih.gov
-//     Docs: https://www.ncbi.nlm.nih.gov/books/NBK25501/
-//     Base: https://eutils.ncbi.nlm.nih.gov/entrez/eutils
-//     Used for: clinical/research articles on Autism, ADHD, Depression
-//
-// ══════════════════════════════════════════════════════════════
-
-// ── Models ────────────────────────────────────────────────────
-
+//Models
 enum ResourceType { book, poem, article, research, guide }
 
 class ResourceItem {
@@ -70,13 +42,13 @@ class ResourceServiceException implements Exception {
   String toString() => 'ResourceServiceException: $message';
 }
 
-// ── Service ───────────────────────────────────────────────────
+//Service
 
 class ResourceService {
   ResourceService._();
   static final ResourceService instance = ResourceService._();
 
-  // ── Base URLs ──────────────────────────────────────────────
+  // Base URLs
 
   static const String _openLibraryBase = 'https://openlibrary.org';
   static const String _poetryDbBase = 'https://poetrydb.org';
@@ -84,27 +56,21 @@ class ResourceService {
   static const String _pubmedBase =
       'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
 
-  // ── In-memory cache ────────────────────────────────────────
-  //    Key: "<categoryId>" → cached list of items
-  //    Avoids re-fetching the same category within the session
-
+  //In-memory cache
   final Map<String, List<ResourceItem>> _cache = {};
 
-  // ── Timeout ────────────────────────────────────────────────
+  //Timeout
 
   static const Duration _timeout = Duration(seconds: 10);
 
-  // ── Shared headers ─────────────────────────────────────────
+  //Shared headers
 
   static const Map<String, String> _jsonHeaders = {
     'Accept': 'application/json',
     'User-Agent': 'NuruAI/1.0 (contact@nuruai.app)',
   };
 
-  // ══════════════════════════════════════════════════════════
   // PUBLIC: fetch all resources for a category
-  // ══════════════════════════════════════════════════════════
-
   Future<List<ResourceItem>> fetchCategory(String categoryId) async {
     // Return cached result if available
     if (_cache.containsKey(categoryId)) {
@@ -224,7 +190,7 @@ class ResourceService {
     return deduped;
   }
 
-  // ── Clear cache (e.g. on pull-to-refresh) ─────────────────
+  // Clear cache (e.g. on pull-to-refresh)
 
   void clearCache([String? categoryId]) {
     if (categoryId != null) {
@@ -234,21 +200,8 @@ class ResourceService {
     }
   }
 
-  // ══════════════════════════════════════════════════════════
-  // LOVE GUIDES — curated in-app relationship education
-  //
-  // Subcategories:
-  //   love_languages   — the 5 love languages explained
-  //   understand_partner — reading & connecting with your partner
-  //   commitment       — staying committed & building lasting bonds
-  //
-  // These are structured educational cards, not fetched from an
-  // external API. They surface immediately (no loading wait) and
-  // are always available offline.
-  // ══════════════════════════════════════════════════════════
-
   void _injectLoveGuides(List<ResourceItem> results) {
-    // ── 1. Love Languages ──────────────────────────────────
+    // Love Languages
     final loveLanguages = [
       _LoveGuide(
         id: 'lg_words_affirmation',
@@ -337,7 +290,7 @@ class ResourceService {
       );
     }
 
-    // ── 2. Understanding Your Partner ─────────────────────
+    //Understanding Your Partner
     final understandPartner = [
       _LoveGuide(
         id: 'up_attachment_styles',
@@ -416,7 +369,7 @@ class ResourceService {
       );
     }
 
-    // ── 3. Commitment & Staying Together ──────────────────
+    //Commitment & Staying Together
     final commitment = [
       _LoveGuide(
         id: 'cm_building_trust',
@@ -515,16 +468,6 @@ class ResourceService {
     }
   }
 
-  // ══════════════════════════════════════════════════════════
-  // OPEN LIBRARY  —  https://openlibrary.org/developers/api
-  //
-  // Endpoint: GET /search.json
-  // Params:
-  //   q      — search query
-  //   fields — comma-separated fields to return
-  //   limit  — max results
-  // ══════════════════════════════════════════════════════════
-
   Future<void> _fetchBooks(
     String query,
     List<ResourceItem> results, {
@@ -579,19 +522,10 @@ class ResourceService {
         );
       }
     } catch (e) {
-      // Swallow individual source failures — other sources still load
+      // Swallow individual source failures
       _log('Open Library error: $e');
     }
   }
-
-  // ══════════════════════════════════════════════════════════
-  // POETRYDB  —  https://poetrydb.org
-  //
-  // Endpoint: GET /{input_field}/{search_term}/{output_fields}
-  // Examples:
-  //   /author/Emily Dickinson/title,lines,linecount
-  //   /title/Ozymandias/lines
-  // ══════════════════════════════════════════════════════════
 
   Future<void> _fetchPoems(
     String author,
@@ -616,7 +550,7 @@ class ResourceService {
       final poems = jsonDecode(body) as List;
       if (poems.isEmpty) return;
 
-      // Sort by line count ascending — shorter poems display better
+      // Sort by line count ascending
       poems.sort((a, b) {
         final la = int.tryParse(a['linecount']?.toString() ?? '9999') ?? 9999;
         final lb = int.tryParse(b['linecount']?.toString() ?? '9999') ?? 9999;
@@ -654,13 +588,6 @@ class ResourceService {
       _log('PoetryDB error: $e');
     }
   }
-
-  // ══════════════════════════════════════════════════════════
-  // WIKIPEDIA REST API  —  https://en.wikipedia.org/api/rest_v1/
-  //
-  // Endpoint: GET /page/summary/{title}
-  // Returns: extract (plain text summary), thumbnail, url
-  // ══════════════════════════════════════════════════════════
 
   Future<void> _fetchWikiSummary(
     String pageTitle,
@@ -708,17 +635,6 @@ class ResourceService {
       _log('Wikipedia error: $e');
     }
   }
-
-  // ══════════════════════════════════════════════════════════
-  // PUBMED E-UTILITIES  —  https://eutils.ncbi.nlm.nih.gov
-  // National Library of Medicine — free, no API key required
-  //
-  // Step 1: esearch — get list of PMIDs matching query
-  //   GET /esearch.fcgi?db=pubmed&term=...&retmax=...&retmode=json
-  //
-  // Step 2: esummary — get titles/authors for those PMIDs
-  //   GET /esummary.fcgi?db=pubmed&id=...&retmode=json
-  // ══════════════════════════════════════════════════════════
 
   Future<void> _fetchPubMedArticles(
     String query,
@@ -813,7 +729,7 @@ class ResourceService {
     }
   }
 
-  // ── Helpers ───────────────────────────────────────────────
+  // Helpers
 
   void _checkStatus(http.Response response, String source) {
     if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -838,7 +754,7 @@ class ResourceService {
   }
 }
 
-// ── Private helper: love guide data container ─────────────────
+// Private helper: love guide data container
 
 class _LoveGuide {
   final String id;

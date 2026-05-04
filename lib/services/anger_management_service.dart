@@ -1,34 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
-// ══════════════════════════════════════════════════════════════
-// ANGER MANAGEMENT SERVICE  v3
-//
-// DATA STRUCTURE:
-//   Three distinct content types, each with its own source:
-//
-//   1. COPING TECHNIQUES  (subcategory = 'coping')
-//      Source: Open Library — books on evidence-based techniques
-//              PubMed — clinical studies on ASD anger interventions
-//      These are real, usable, step-by-step techniques drawn from
-//      clinical literature. No Wikipedia article summaries.
-//      Each technique card includes:
-//        • What it is (title + subtitle)
-//        • How to do it right now (steps)
-//        • Why it works (mechanism)
-//        • Time to effect (actionLabel)
-//
-//   2. UNDERSTANDING ANGER (subcategory = 'understanding')
-//      Source: NuruAI curated guides
-//
-//   3. COMMUNICATION       (subcategory = 'communication')
-//      Source: NuruAI curated guides
-//
-// APIs used:
-//   Open Library  — openlibrary.org/search.json
-//   PubMed        — eutils.ncbi.nlm.nih.gov/entrez/eutils
-// ══════════════════════════════════════════════════════════════
-
 enum AngerResourceType { book, research, guide, technique }
 
 class AngerResourceItem {
@@ -37,14 +9,14 @@ class AngerResourceItem {
   final String subtitle;
   final AngerResourceType type;
   final String? author;
-  final String? description; // full step-by-step content for techniques
+  final String? description;
   final String? url;
   final String? coverUrl;
   final String emoji;
   final String source;
-  final String? subcategory; // 'coping' | 'understanding' | 'communication'
-  final String? actionLabel; // e.g. "Works in 30 seconds"
-  final String? mechanism; // why it works (science note)
+  final String? subcategory;
+  final String? actionLabel;
+  final String? mechanism;
 
   const AngerResourceItem({
     required this.id,
@@ -71,14 +43,14 @@ class AngerServiceException implements Exception {
   String toString() => 'AngerServiceException: $message';
 }
 
-// ─────────────────────────────────────────────────────────────
-
 class AngerManagementService {
   AngerManagementService._();
   static final AngerManagementService instance = AngerManagementService._();
 
-  static const _openLibraryBase = 'https://openlibrary.org';
-  static const _pubmedBase = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
+  static const _openLibraryBase =
+      'https://nuruai-api-production.up.railway.app/proxy?url=https://openlibrary.org';
+  static const _pubmedBase =
+      'https://nuruai-api-production.up.railway.app/proxy?url=https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
   static const _timeout = Duration(seconds: 12);
   static const _headers = {
     'Accept': 'application/json',
@@ -87,22 +59,19 @@ class AngerManagementService {
 
   List<AngerResourceItem>? _cached;
 
-  // ══════════════════════════════════════════════════════════
   // PUBLIC
-  // ══════════════════════════════════════════════════════════
-
   Future<List<AngerResourceItem>> fetchAll({bool forceRefresh = false}) async {
     if (!forceRefresh && _cached != null) return _cached!;
 
     final results = <AngerResourceItem>[];
 
-    // 1. NuruAI offline guides (understanding + communication)
+    // NuruAI offline guides
     _injectGuides(results);
 
-    // 2. Coping techniques — structured local data (clinically sourced)
+    // Coping techniques
     _injectCopingTechniques(results);
 
-    // 3. Network: books + clinical research to supplement coping tab
+    // Network: books + clinical research to supplement coping tab
     await Future.wait([
       _fetchBooks(
         'anger management autism spectrum coping strategies',
@@ -161,25 +130,7 @@ class AngerManagementService {
 
   void clearCache() => _cached = null;
 
-  // ══════════════════════════════════════════════════════════
   // COPING TECHNIQUES
-  //
-  // 14 real, clinically-evidenced techniques.
-  // Each one is drawn from:
-  //   • CBT / DBT therapy manuals
-  //   • Occupational therapy for ASD
-  //   • Polyvagal theory (Stephen Porges)
-  //   • Applied Behaviour Analysis (ABA)
-  //   • Acceptance & Commitment Therapy (ACT)
-  //   • Clinical neuroscience (Huberman, van der Kolk)
-  //
-  // Every technique has:
-  //   - Exact steps to use RIGHT NOW
-  //   - The physiological mechanism (why it works)
-  //   - Time-to-effect label
-  //   - ASD-specific adaptations where relevant
-  // ══════════════════════════════════════════════════════════
-
   void _injectCopingTechniques(List<AngerResourceItem> results) {
     for (final t in _techniques) {
       results.add(t);
@@ -187,7 +138,7 @@ class AngerManagementService {
   }
 
   static final List<AngerResourceItem> _techniques = [
-    // ── 1. Physiological Sigh ─────────────────────────────
+    // Physiological Sigh
     AngerResourceItem(
       id: 'ct_physiological_sigh',
       title: 'Physiological Sigh',
@@ -215,7 +166,7 @@ class AngerManagementService {
           'The moment you notice your jaw tightening, fists clenching, or heart rate rising — before you\'ve lost control.',
     ),
 
-    // ── 2. Box Breathing (4-4-4-4) ───────────────────────
+    // Box Breathing (4-4-4-4)
     AngerResourceItem(
       id: 'ct_box_breathing',
       title: 'Box Breathing',
@@ -244,7 +195,7 @@ class AngerManagementService {
           'When you are at Level 2–3 and need to stop escalation. Also useful before entering a stressful situation.',
     ),
 
-    // ── 3. Progressive Muscle Relaxation ─────────────────
+    //Progressive Muscle Relaxation
     AngerResourceItem(
       id: 'ct_pmr',
       title: 'Progressive Muscle Relaxation',
@@ -277,7 +228,7 @@ class AngerManagementService {
           'When you are too agitated to just "breathe" — when your body needs a physical outlet.',
     ),
 
-    // ── 4. Cold Water Face Immersion (Dive Reflex) ───────
+    //Cold Water Face Immersion (Dive Reflex)
     AngerResourceItem(
       id: 'ct_dive_reflex',
       title: 'Cold Water Face Immersion',
@@ -305,7 +256,7 @@ class AngerManagementService {
           'Level 3–5. When you are already very angry and need to physically force your body down.',
     ),
 
-    // ── 5. Intense Physical Exercise (Discharge) ─────────
+    //Intense Physical Exercise (Discharge)
     AngerResourceItem(
       id: 'ct_intense_exercise',
       title: 'Intense Physical Discharge',
@@ -337,7 +288,7 @@ class AngerManagementService {
           'When you feel the physical urge to do something — to hit, throw, or run. Channel that urge here.',
     ),
 
-    // ── 6. 5-4-3-2-1 Sensory Grounding ──────────────────
+    //5-4-3-2-1 Sensory Grounding
     AngerResourceItem(
       id: 'ct_54321_grounding',
       title: '5-4-3-2-1 Sensory Grounding',
@@ -369,7 +320,7 @@ class AngerManagementService {
           'Level 2–3. Especially useful during sensory overload when you need to find your footing.',
     ),
 
-    // ── 7. Cold Shower / Water Exposure ──────────────────
+    //Cold Shower / Water Exposure
     AngerResourceItem(
       id: 'ct_cold_shower',
       title: 'Cold Shower Exposure',
@@ -399,7 +350,7 @@ class AngerManagementService {
           'When you are at Level 3–4 and have access to a shower. Also useful as a daily morning reset to lower your baseline reactivity.',
     ),
 
-    // ── 8. Weighted Blanket / Deep Pressure ──────────────
+    // Weighted Blanket / Deep Pressure
     AngerResourceItem(
       id: 'ct_deep_pressure',
       title: 'Deep Pressure Stimulation',
@@ -431,7 +382,7 @@ class AngerManagementService {
           'During or approaching a meltdown. Also as a daily sensory diet tool to prevent escalation.',
     ),
 
-    // ── 9. Tapping (EFT) ─────────────────────────────────
+    // Tapping (EFT)
     AngerResourceItem(
       id: 'ct_eft_tapping',
       title: 'EFT Tapping',
@@ -468,7 +419,7 @@ class AngerManagementService {
           'The structured, repetitive physical action is predictable and patterned — well-suited to ASD. The self-touch is controlled and comfortable. It can be done silently and in public without anyone noticing.',
     ),
 
-    // ── 10. STOP Skill (DBT) ─────────────────────────────
+    //STOP Skill (DBT)
     AngerResourceItem(
       id: 'ct_stop_skill',
       title: 'The STOP Skill',
@@ -503,7 +454,7 @@ class AngerManagementService {
           'The acronym provides a clear, memorisable structure. Practise saying "STOP" quietly to yourself as a cue. The predictable steps reduce cognitive load in a moment of high arousal.',
     ),
 
-    // ── 11. Vagus Nerve Humming ───────────────────────────
+    // Vagus Nerve Humming
     AngerResourceItem(
       id: 'ct_humming',
       title: 'Vagal Humming',
@@ -535,7 +486,7 @@ class AngerManagementService {
           'Many autistic individuals already hum as a stim — this is intuitively self-regulating. If you stim by humming, you are already doing this. You can also hum a favourite song or theme song — the familiar melody adds additional emotional regulation through the limbic system.',
     ),
 
-    // ── 12. Proprioceptive Heavy Work ────────────────────
+    //Proprioceptive Heavy Work
     AngerResourceItem(
       id: 'ct_heavy_work',
       title: 'Proprioceptive Heavy Work',
@@ -569,7 +520,7 @@ class AngerManagementService {
           'When you feel agitated, restless, or on the edge. Also as a daily morning and evening regulating activity.',
     ),
 
-    // ── 13. TIPP Temperature Skill (DBT) ─────────────────
+    //TIPP Temperature Skill (DBT)
     AngerResourceItem(
       id: 'ct_tipp',
       title: 'TIPP — Temperature Skill',
@@ -602,7 +553,7 @@ class AngerManagementService {
           'Level 3–5 situations. Any time thinking your way calm is not working.',
     ),
 
-    // ── 14. Safe Space Exit (Sensory Retreat) ────────────
+    //Safe Space Exit (Sensory Retreat)
     AngerResourceItem(
       id: 'ct_sensory_retreat',
       title: 'Planned Sensory Retreat',
@@ -641,9 +592,7 @@ class AngerManagementService {
     ),
   ]; // end _techniques
 
-  // ══════════════════════════════════════════════════════════
   // NURURAI GUIDES — understanding + communication only
-  // ══════════════════════════════════════════════════════════
 
   void _injectGuides(List<AngerResourceItem> results) {
     for (final g in _understanding) {
@@ -797,10 +746,7 @@ class AngerManagementService {
     ),
   ];
 
-  // ══════════════════════════════════════════════════════════
   // OPEN LIBRARY
-  // ══════════════════════════════════════════════════════════
-
   Future<void> _fetchBooks(
     String query,
     List<AngerResourceItem> out, {
@@ -850,10 +796,7 @@ class AngerManagementService {
     }
   }
 
-  // ══════════════════════════════════════════════════════════
   // PUBMED
-  // ══════════════════════════════════════════════════════════
-
   Future<void> _fetchPubMed(
     String query,
     List<AngerResourceItem> out, {

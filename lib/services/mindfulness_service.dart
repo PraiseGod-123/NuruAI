@@ -1,25 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
-// ══════════════════════════════════════════════════════════════
-// MINDFULNESS SERVICE
-//
-// Mindfulness for ASD is adapted from standard MBSR/MBCT:
-//   • Shorter sessions — attention span differences
-//   • Sensory-focused anchors (touch, sound, body) over breath
-//   • Concrete and structured — not abstract "clear your mind"
-//   • Movement-based options — sitting still is not required
-//   • Visual and tactile anchors alongside verbal instruction
-//
-// Real APIs (free, no key):
-//   Open Library — books on mindfulness, MBSR, ASD meditation
-//   PubMed       — clinical research on mindfulness and ASD
-//
-// NuruAI Curated Guides (offline):
-//   subcategory = 'understanding'  — what mindfulness is, ASD context
-//   subcategory = 'communication'  — mindful communication
-// ══════════════════════════════════════════════════════════════
-
 enum MindfulnessResourceType { book, research, guide, technique }
 
 class MindfulnessItem {
@@ -62,8 +43,10 @@ class MindfulnessService {
   MindfulnessService._();
   static final MindfulnessService instance = MindfulnessService._();
 
-  static const _openLibraryBase = 'https://openlibrary.org';
-  static const _pubmedBase = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
+  static const _openLibraryBase =
+      'https://nuruai-api-production.up.railway.app/proxy?url=https://openlibrary.org';
+  static const _pubmedBase =
+      'https://nuruai-api-production.up.railway.app/proxy?url=https://eutils.ncbi.nlm.nih.gov/entrez/eutils';
   static const _timeout = Duration(seconds: 12);
   static const _headers = {
     'Accept': 'application/json',

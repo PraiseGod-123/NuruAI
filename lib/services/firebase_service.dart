@@ -2,41 +2,24 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
-// ══════════════════════════════════════════════════════════════
-// NURU FIREBASE SERVICE
-//
-// Handles all Firebase Auth + Firestore operations:
-//   - Sign up / Login / Logout
-//   - Email verification
-//   - User profile storage
-//   - Streak tracking
-//   - Check-in logging
-//   - Live stats streaming
-// ══════════════════════════════════════════════════════════════
-
 class NuruFirebaseService {
   NuruFirebaseService._();
   static final instance = NuruFirebaseService._();
 
+  // Firebase SDK handles
   final _auth = FirebaseAuth.instance;
   final _db = FirebaseFirestore.instance;
 
-  // ── Current user ─────────────────────────────────────────────
+  //Current user
   User? get currentUser => _auth.currentUser;
   String? get currentUid => _auth.currentUser?.uid;
   bool get isLoggedIn => _auth.currentUser != null;
   bool get isEmailVerified => _auth.currentUser?.emailVerified ?? false;
 
-  // ── Auth state stream ─────────────────────────────────────────
+  // Auth state stream
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
-  // ══════════════════════════════════════════════════════════════
   // EMULATOR BYPASS
-  // Call once from main.dart after Firebase.initializeApp()
-  // Disables reCAPTCHA on Android emulators (CONFIGURATION_NOT_FOUND fix)
-  // Remove the call in main.dart before releasing to production
-  // ══════════════════════════════════════════════════════════════
-
   static Future<void> useEmulatorIfDebug() async {
     if (kDebugMode) {
       try {
@@ -54,10 +37,7 @@ class NuruFirebaseService {
     }
   }
 
-  // ══════════════════════════════════════════════════════════════
   // SIGN UP
-  // ══════════════════════════════════════════════════════════════
-
   Future<AuthResult> signUp({
     required String email,
     required String password,
@@ -69,10 +49,6 @@ class NuruFirebaseService {
     String? caregiverEmail,
     String? caregiverPhone,
   }) async {
-    // Step 1: Create Firebase Auth account
-    // createUserWithEmailAndPassword throws a PigeonUserDetails internal cast
-    // error on some firebase_auth versions. The account IS created — we detect
-    // this by checking _auth.currentUser immediately after.
     String? uid;
     try {
       final credential = await _auth.createUserWithEmailAndPassword(
@@ -89,7 +65,7 @@ class NuruFirebaseService {
       );
       return AuthResult.failure(_authErrorMessage(e.code));
     } catch (e) {
-      // Check if it's the PigeonUserDetails crash — account was still created
+      // Check if it's the PigeonUserDetails crash
       if (e.toString().contains('PigeonUserDetails') ||
           e.toString().contains('List<Object?>')) {
         uid = _auth.currentUser?.uid;
@@ -108,7 +84,7 @@ class NuruFirebaseService {
 
     final now = DateTime.now();
 
-    // Step 2: Write Firestore profile immediately — before any other calls
+    //Write Firestore profile immediately
     try {
       await _db.collection('users').doc(uid).set({
         'profile': {
@@ -118,6 +94,7 @@ class NuruFirebaseService {
           'diagnosis': diagnosis,
           'createdAt': now.toIso8601String(),
           'uid': uid,
+          'facialSetupComplete': false,
           if (caregiverName != null && caregiverName.isNotEmpty)
             'caregiverName': caregiverName,
           if (caregiverType != null && caregiverType.isNotEmpty)
@@ -140,17 +117,17 @@ class NuruFirebaseService {
       debugPrint('NuruFirebase: Firestore profile written for $uid');
     } catch (e) {
       debugPrint('NuruFirebase: Firestore write error: $e');
-      // Non-fatal — account exists, profile can be written later
+      // Non-fatal (account exists, profile can be written later)
     }
 
-    // Step 3: Update display name (non-fatal if it throws)
+    //  Update display name (non-fatal if it throws)
     try {
       await _auth.currentUser?.updateDisplayName(name.trim());
     } catch (e) {
       debugPrint('NuruFirebase: updateDisplayName warning (non-fatal): $e');
     }
 
-    // Step 4: Send email verification (non-fatal if it throws)
+    //Send email verification (non-fatal if it throws)
     try {
       await _auth.currentUser?.sendEmailVerification();
     } catch (e) {
@@ -161,10 +138,7 @@ class NuruFirebaseService {
     return AuthResult.success(uid: uid, user: _auth.currentUser!);
   }
 
-  // ══════════════════════════════════════════════════════════════
   // LOGIN
-  // ══════════════════════════════════════════════════════════════
-
   Future<AuthResult> login({
     required String email,
     required String password,
@@ -197,9 +171,6 @@ class NuruFirebaseService {
     } catch (e, stack) {
       debugPrint('NuruFirebase login error: ' + e.toString());
       debugPrint('Stack: $stack');
-
-      // PigeonUserDetails is an internal firebase_auth plugin cast error.
-      // The login itself succeeded — recover by reading the current user.
       if (e.toString().contains('PigeonUserDetails') ||
           e.toString().contains('List<Object?>')) {
         final user = _auth.currentUser;
@@ -220,19 +191,13 @@ class NuruFirebaseService {
     }
   }
 
-  // ══════════════════════════════════════════════════════════════
   // LOGOUT
-  // ══════════════════════════════════════════════════════════════
-
   Future<void> logout() async {
     await _auth.signOut();
     debugPrint('NuruFirebase: User logged out');
   }
 
-  // ══════════════════════════════════════════════════════════════
   // PASSWORD RESET
-  // ══════════════════════════════════════════════════════════════
-
   Future<AuthResult> sendPasswordReset(String email) async {
     try {
       await _auth.sendPasswordResetEmail(email: email.trim());
@@ -242,10 +207,7 @@ class NuruFirebaseService {
     }
   }
 
-  // ══════════════════════════════════════════════════════════════
   // RESEND EMAIL VERIFICATION
-  // ══════════════════════════════════════════════════════════════
-
   Future<void> resendVerificationEmail() async {
     await _auth.currentUser?.sendEmailVerification();
   }
@@ -254,10 +216,7 @@ class NuruFirebaseService {
     await _auth.currentUser?.reload();
   }
 
-  // ══════════════════════════════════════════════════════════════
   // USER DATA
-  // ══════════════════════════════════════════════════════════════
-
   Future<Map<String, dynamic>?> getUserData(String uid) async {
     try {
       final doc = await _db.collection('users').doc(uid).get();
@@ -274,7 +233,7 @@ class NuruFirebaseService {
     }
   }
 
-  // Live stream of user stats (for home screen real-time updates)
+  // Live stream of user stats
   Stream<Map<String, dynamic>> streamUserStats(String uid) {
     return _db.collection('users').doc(uid).snapshots().map((doc) {
       if (!doc.exists) return {};
@@ -285,10 +244,7 @@ class NuruFirebaseService {
     });
   }
 
-  // ══════════════════════════════════════════════════════════════
   // CHECK-IN + STREAK
-  // ══════════════════════════════════════════════════════════════
-
   Future<void> logCheckIn({
     required String uid,
     required int moodScore,
@@ -368,10 +324,7 @@ class NuruFirebaseService {
     }
   }
 
-  // ══════════════════════════════════════════════════════════════
   // NOTIFICATIONS COUNT
-  // ══════════════════════════════════════════════════════════════
-
   Future<void> incrementUnreadNotifications(String uid) async {
     await _db.collection('users').doc(uid).update({
       'stats.unreadNotifications': FieldValue.increment(1),
@@ -384,11 +337,58 @@ class NuruFirebaseService {
     });
   }
 
-  // ══════════════════════════════════════════════════════════════
-  // CHAT SESSIONS
-  // ══════════════════════════════════════════════════════════════
+  // BREATHING SESSIONS
+  Future<void> saveBreathingSession({
+    required String uid,
+    required String techniqueName,
+    required int cyclesCompleted,
+    required int durationSecs,
+  }) async {
+    try {
+      final ref = _db
+          .collection('users')
+          .doc(uid)
+          .collection('breathingSessions')
+          .doc();
 
-  /// Save a NuruAI chat session to Firestore when it ends.
+      await ref.set({
+        'id': ref.id,
+        'uid': uid,
+        'techniqueName': techniqueName,
+        'cyclesCompleted': cyclesCompleted,
+        'durationSecs': durationSecs,
+        'createdAt': DateTime.now().toIso8601String(),
+      });
+
+      await _db.collection('users').doc(uid).update({
+        'stats.totalBreaths': FieldValue.increment(1),
+      });
+
+      debugPrint('NuruFirebase: Breathing session saved — ${ref.id}');
+    } catch (e) {
+      debugPrint('NuruFirebase: saveBreathingSession error — $e');
+    }
+  }
+
+  /// Load all chat sessions for a user, newest first.
+  Future<List<Map<String, dynamic>>> getChatSessions(String uid) async {
+    try {
+      final snap = await _db
+          .collection('users')
+          .doc(uid)
+          .collection('chatSessions')
+          .orderBy('createdAt', descending: true)
+          .limit(50)
+          .get();
+      return snap.docs.map((d) => d.data()).toList();
+    } catch (e) {
+      debugPrint('NuruFirebase: getChatSessions error — $e');
+      return [];
+    }
+  }
+
+  // CHAT SESSIONS
+  // Saving  NuruAI chat session to Firestore when it ends.
   Future<void> saveChatSession({
     required String uid,
     required List<Map<String, dynamic>> messages,
@@ -423,11 +423,20 @@ class NuruFirebaseService {
     }
   }
 
-  // ══════════════════════════════════════════════════════════════
-  // UPDATE USER PROFILE
-  // ══════════════════════════════════════════════════════════════
+  // FACIAL SETUP
+  Future<void> markFacialSetupComplete(String uid) async {
+    try {
+      await _db.collection('users').doc(uid).update({
+        'profile.facialSetupComplete': true,
+      });
+      debugPrint('NuruFirebase: Facial setup marked complete for $uid');
+    } catch (e) {
+      debugPrint('NuruFirebase: markFacialSetupComplete error — $e');
+    }
+  }
 
-  /// Update specific fields in the user's Firestore profile.
+  // UPDATE USER PROFILE
+
   Future<void> updateUserProfile({
     required String uid,
     required Map<String, dynamic> fields,
@@ -444,12 +453,7 @@ class NuruFirebaseService {
     }
   }
 
-  // ══════════════════════════════════════════════════════════════
   // JOURNALS
-  // ══════════════════════════════════════════════════════════════
-
-  /// Save a journal entry to Firestore.
-  /// Returns the generated document ID.
   Future<String?> saveJournal({
     required String uid,
     required String title,
@@ -459,11 +463,7 @@ class NuruFirebaseService {
   }) async {
     try {
       final now = DateTime.now();
-      final ref = _db
-          .collection('users')
-          .doc(uid)
-          .collection('journals')
-          .doc(); // auto-generated ID
+      final ref = _db.collection('users').doc(uid).collection('journals').doc();
 
       await ref.set({
         'id': ref.id,
@@ -489,7 +489,36 @@ class NuruFirebaseService {
     }
   }
 
-  /// Stream all journal entries for a user, newest first.
+  // Update an existing journal entry in Firestore.
+  Future<void> updateJournal({
+    required String uid,
+    required String entryId,
+    required String title,
+    required String content,
+    required String mood,
+    required DateTime date,
+  }) async {
+    try {
+      await _db
+          .collection('users')
+          .doc(uid)
+          .collection('journals')
+          .doc(entryId)
+          .update({
+            'title': title,
+            'content': content,
+            'mood': mood,
+            'date': _dateKey(date),
+            'wordCount': content.trim().split(RegExp(r'\s+')).length,
+            'updatedAt': DateTime.now().toIso8601String(),
+          });
+      debugPrint('NuruFirebase: Journal updated — $entryId');
+    } catch (e) {
+      debugPrint('NuruFirebase: updateJournal error — $e');
+    }
+  }
+
+  // Stream all journal entries for a user, newest first.
   Stream<List<Map<String, dynamic>>> streamJournals(String uid) {
     return _db
         .collection('users')
@@ -497,7 +526,14 @@ class NuruFirebaseService {
         .collection('journals')
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snap) => snap.docs.map((d) => d.data()).toList());
+        .map(
+          (snap) => snap.docs.map((d) {
+            final data = d.data();
+
+            data['id'] = d.id;
+            return data;
+          }).toList(),
+        );
   }
 
   /// Permanently delete a journal entry.
@@ -524,9 +560,7 @@ class NuruFirebaseService {
     }
   }
 
-  // ══════════════════════════════════════════════════════════════
   // HELPERS
-  // ══════════════════════════════════════════════════════════════
 
   String _dateKey(DateTime dt) =>
       '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
@@ -557,7 +591,7 @@ class NuruFirebaseService {
   }
 }
 
-// ── Result model ──────────────────────────────────────────────
+// Result model
 
 class AuthResult {
   final bool success;

@@ -3,21 +3,6 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 
-// ══════════════════════════════════════════════════════════════
-// MUSIC SERVICE
-//
-// PRIMARY  → Jamendo API — free Creative Commons full MP3 streams
-//            Register free at: https://devportal.jamendo.com
-//            Set before first call:
-//              MusicService.instance.jamendoClientId = 'YOUR_ID';
-//
-// FALLBACK → iTunes Search API — no key, 30s previews
-//            Works immediately with no setup.
-//
-// RECORDINGS → flutter_sound saves .aac files locally
-//              Manifest stored in app documents directory
-// ══════════════════════════════════════════════════════════════
-
 class MusicTrack {
   final String id;
   final String title;
@@ -45,6 +30,26 @@ class MusicTrack {
   }
 
   bool get isLocal => source == 'recording';
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'title': title,
+    'artist': artist,
+    'albumArt': albumArt,
+    'audioUrl': audioUrl,
+    'durationSecs': durationSecs,
+    'source': source,
+  };
+
+  factory MusicTrack.fromJson(Map<String, dynamic> j) => MusicTrack(
+    id: j['id'] as String? ?? '',
+    title: j['title'] as String? ?? 'Untitled',
+    artist: j['artist'] as String? ?? 'Unknown',
+    albumArt: j['albumArt'] as String? ?? '',
+    audioUrl: j['audioUrl'] as String? ?? '',
+    durationSecs: (j['durationSecs'] as num?)?.toInt() ?? 0,
+    source: j['source'] as String? ?? 'itunes',
+  );
 }
 
 class MusicMood {
@@ -105,8 +110,6 @@ class RecordingMeta {
     createdAt: DateTime.tryParse(j['createdAt'] ?? '') ?? DateTime.now(),
   );
 }
-
-// ─────────────────────────────────────────────────────────────
 
 class MusicService {
   MusicService._();
@@ -280,7 +283,7 @@ class MusicService {
     }
   }
 
-  // ── Recordings ────────────────────────────────────────────
+  // Recordings
 
   Future<Directory> get _recDir async {
     final docs = await getApplicationDocumentsDirectory();
@@ -355,5 +358,32 @@ class MusicService {
       print('[MusicService] $m');
       return true;
     }());
+  }
+
+  //Favourites
+
+  Future<File> get _favsFile async =>
+      File('${(await _recDir).path}/favourites.json');
+
+  Future<List<MusicTrack>> loadFavourites() async {
+    try {
+      final f = await _favsFile;
+      if (!await f.exists()) return [];
+      final list = jsonDecode(await f.readAsString()) as List;
+      return list
+          .map((j) => MusicTrack.fromJson(j as Map<String, dynamic>))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> saveFavourites(List<MusicTrack> favs) async {
+    try {
+      final f = await _favsFile;
+      await f.writeAsString(jsonEncode(favs.map((t) => t.toJson()).toList()));
+    } catch (e) {
+      _log('saveFavourites error: $e');
+    }
   }
 }

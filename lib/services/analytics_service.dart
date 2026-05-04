@@ -3,44 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-// ══════════════════════════════════════════════════════════════════════════
-// NuruAI — AnalyticsService
-//
-// ALL data is sourced from real user interactions.
-// There is NO mock data, NO hardcoded values, NO fake scores.
-//
-// Data pipeline:
-//   User action (journal / mood / breathing / chat / micro-expression)
-//       ↓
-//   logXxx() writes event to Firebase Firestore
-//       ↓
-//   _postToBackend() sends event to NuruAI Flask/PyTorch server
-//       ↓
-//   ML model processes: sentiment, emotion patterns, engagement
-//       ↓
-//   loadUserAnalytics() reads computed insights back from backend
-//       ↓
-//   AnalyticsScreen renders real results
-//
-// Until your Python backend is deployed:
-//   - Firebase writes are stubbed with TODO comments
-//   - Backend POST calls are present but gated behind the TODO
-//   - The screen receives UserAnalytics.empty() and shows
-//     proper empty states ("Start logging to see your insights")
-//
-// When you are ready to connect:
-//   1. Add firebase_core + cloud_firestore to pubspec.yaml
-//   2. Uncomment the Firestore blocks below
-//   3. Set NuruBackend.baseUrl to your Flask server address
-//   4. Uncomment the http.post / http.get calls
-//   Everything else is already wired.
-// ══════════════════════════════════════════════════════════════════════════
-
-// ── Backend config ─────────────────────────────────────────────────────────
+//Backend config
 class NuruBackend {
-  // Set this to your Flask server once deployed.
-  // e.g. 'https://nuruai.yourdomain.com/api/v1'
-  // During local dev, use your machine's LAN IP or ngrok tunnel.
   static const String baseUrl = 'http://YOUR_FLASK_SERVER/api/v1';
   static const Duration timeout = Duration(seconds: 15);
   static const Map<String, String> headers = {
@@ -49,8 +13,7 @@ class NuruBackend {
   };
 }
 
-// ── Enums ───────────────────────────────────────────────────────────────────
-
+//Enums
 enum MoodValue { happy, calm, anxious, sad, angry, tired, overwhelmed, excited }
 
 enum ActivityType {
@@ -76,10 +39,7 @@ enum InsightType {
   wellbeingScore,
 }
 
-// ── Models ───────────────────────────────────────────────────────────────────
-
-/// One mood entry — logged by the user explicitly (home screen,
-/// journal) or detected automatically via micro-expression model.
+//Models
 class MoodEntry {
   final String id;
   final MoodValue mood;
@@ -88,12 +48,9 @@ class MoodEntry {
   final DateTime timestamp;
   final String? note;
 
-  /// 'journal' | 'home' | 'micro_expression'
+  // 'journal' | 'home' | 'micro_expression'
   final String? source;
 
-  /// Sentiment score set by the PyTorch model after processing.
-  /// -1.0 = very negative, 1.0 = very positive.
-  /// Null until backend has processed this entry.
   final double? sentimentScore;
 
   const MoodEntry({
@@ -140,12 +97,6 @@ class ActivityEvent {
   final DateTime timestamp;
   final int durationSeconds;
 
-  /// Flexible metadata per type:
-  ///   journalEntry  → wordCount, mood, title
-  ///   breathingSession → techniqueId, techniqueName, cyclesCompleted
-  ///   nuruChat      → messageCount, topic
-  ///   calmMe        → activity
-  ///   moodLog       → mood
   final Map<String, dynamic> metadata;
 
   /// Engagement quality score set by the ML backend (0.0–1.0).
@@ -183,14 +134,14 @@ class ActivityEvent {
   );
 }
 
-/// Streak data read directly from Firestore.
+// Streak data read directly from Firestore.
 class StreakData {
   final int currentStreak;
   final int longestStreak;
   final int totalDaysActive;
   final DateTime? lastActiveDate;
 
-  /// 30 booleans — index 0 = 30 days ago, index 29 = today.
+  // 30 booleans — index 0 = 30 days ago, index 29 = today.
   final List<bool> last30Days;
 
   const StreakData({
@@ -228,38 +179,28 @@ class StreakData {
   };
 }
 
-/// Daily wellbeing insight produced by the NuruAI PyTorch model.
-///
-/// The model computes this from:
-///   - Mood logs (explicit + micro-expression detected)
-///   - Journal entry sentiment (NLP analysis)
-///   - Breathing session patterns
-///   - Chat tone and topic analysis
-///   - Engagement frequency and duration
-///
-/// ALL fields are nullable. The screen checks isMLGenerated and
-/// shows appropriate empty states when backend is not yet connected.
+// Daily wellbeing insight produced by the NuruAI PyTorch model.
 class DailyInsight {
   final DateTime date;
 
-  /// 0.0–10.0 composite wellbeing score.
-  /// Null until the ML model has processed enough data for today.
+  // 0.0–10.0 composite wellbeing score.
+  // Null until the ML model has processed enough data for today.
   final double? wellbeingScore;
 
   /// Plain-English summary written by the model.
   final String? summary;
 
-  /// Key observations the model detected today.
+  // Key observations the model detected today.
   final List<String> highlights;
 
-  /// Actionable suggestions personalised to this user's patterns.
+  // Actionable suggestions personalised to this user's patterns.
   final List<String> suggestions;
 
   final InsightType? primaryInsight;
   final int activitiesCompleted;
 
-  /// True = came from the PyTorch backend.
-  /// False = backend not yet connected; screen shows pending state.
+  // True = came from the PyTorch backend.
+  // False = backend not yet connected; screen shows pending state.
   final bool isMLGenerated;
 
   const DailyInsight({
@@ -290,15 +231,15 @@ class DailyInsight {
   );
 }
 
-/// Weekly report produced by the NuruAI PyTorch model.
+// Weekly report produced by the NuruAI PyTorch model.
 class WeeklyReport {
   final DateTime weekStart;
   final DateTime weekEnd;
 
-  /// All null until the backend has a full week of data.
+  // All null until the backend has a full week of data.
   final double? avgWellbeingScore;
-  final double? wellbeingTrend; // positive = improving, negative = declining
-  final List<double> dailyScores; // 7 values Mon–Sun, empty until backend ready
+  final double? wellbeingTrend;
+  final List<double> dailyScores;
   final List<MoodEntry> moodHistory;
 
   final int totalJournalEntries;
@@ -347,8 +288,7 @@ class WeeklyReport {
   );
 }
 
-/// Award definition. Unlock status is resolved at runtime
-/// against the user's real totalPoints from Firestore.
+// Award definition
 class Award {
   final String id;
   final String title;
@@ -407,16 +347,16 @@ class Award {
   );
 }
 
-/// The full analytics payload for one user session.
-/// Every field is populated from real Firebase + backend data.
+// The full analytics payload for one user session.
+// Every field is populated from real Firebase + backend data.
 class UserAnalytics {
   final String userId;
   final StreakData streakData;
-  final List<MoodEntry> recentMoods; // last 7 days from Firestore
-  final List<ActivityEvent> recentActivities; // last 30 from Firestore
-  final DailyInsight? todayInsight; // null until ML backend responds
-  final WeeklyReport? weeklyReport; // null until ML backend responds
-  final List<Award> awards; // unlock status from real totalPoints
+  final List<MoodEntry> recentMoods;
+  final List<ActivityEvent> recentActivities;
+  final DailyInsight? todayInsight;
+  final WeeklyReport? weeklyReport;
+  final List<Award> awards;
   final int totalPoints;
   final int totalJournals;
   final int totalBreaths;
@@ -442,7 +382,7 @@ class UserAnalytics {
     this.errorMessage,
   });
 
-  /// Shown before any data is available — new user or offline.
+  // Shown before any data is available — new user or offline.
   factory UserAnalytics.empty(String userId) => UserAnalytics(
     userId: userId,
     streakData: StreakData.empty(),
@@ -475,24 +415,14 @@ class UserAnalytics {
   );
 }
 
-// ── Service ─────────────────────────────────────────────────────────────────
-
+//Service
 class AnalyticsService {
   AnalyticsService._();
   static final AnalyticsService instance = AnalyticsService._();
 
-  // ── Award catalogue ──────────────────────────────────────────────────────
-  // These are fixed definitions. Unlock status is computed at runtime
-  // from the user's real totalPoints read from Firestore.
-  // Points are earned from real interactions only:
-  //   App open per day  = 10 pts
-  //   Journal entry     = 10 pts
-  //   Breathing session = 10 pts
-  //   Every 10 NuruAI messages = 10 pts
-  //   CalmMe session    = 10 pts
-
+  //Award catalogue
   static List<Award> get awardCatalogue => const [
-    // ── Streak ──────────────────────────────────────────────
+    //Streak
     Award(
       id: 'streak_3',
       title: 'Getting Started',
@@ -538,7 +468,7 @@ class AnalyticsService {
       pointsRequired: 600,
       category: 'streak',
     ),
-    // ── Journal ─────────────────────────────────────────────
+    //Journal
     Award(
       id: 'journal_1',
       title: 'First Words',
@@ -566,7 +496,7 @@ class AnalyticsService {
       pointsRequired: 300,
       category: 'journal',
     ),
-    // ── Breathing ───────────────────────────────────────────
+    //Breathing
     Award(
       id: 'breath_1',
       title: 'First Breath',
@@ -594,7 +524,7 @@ class AnalyticsService {
       pointsRequired: 300,
       category: 'breathing',
     ),
-    // ── Mood ────────────────────────────────────────────────
+    //Mood
     Award(
       id: 'mood_7',
       title: 'Mood Tracker',
@@ -613,7 +543,7 @@ class AnalyticsService {
       pointsRequired: 100,
       category: 'mood',
     ),
-    // ── Engagement ──────────────────────────────────────────
+    // Engagement
     Award(
       id: 'nuru_10',
       title: 'Chatty',
@@ -634,20 +564,13 @@ class AnalyticsService {
     ),
   ];
 
-  // ══════════════════════════════════════════════════════════════════════════
   // LOAD USER ANALYTICS
-  //
-  // Reads real data from Firebase then requests ML insight from backend.
-  // Returns UserAnalytics.empty() if no data exists yet or connection fails.
-  // The screen handles all empty/pending states gracefully.
-  // ══════════════════════════════════════════════════════════════════════════
-
   Future<UserAnalytics> loadUserAnalytics(String userId) async {
     if (userId.isEmpty) return UserAnalytics.empty(userId);
     try {
       final fs = FirebaseFirestore.instance;
 
-      // ── Step 1: User stats from Firestore ─────────────────────────────────
+      //User stats from Firestore
       final userSnap = await fs.collection('users').doc(userId).get();
       final userData = userSnap.data() ?? {};
       final statsMap = userData['stats'] as Map<String, dynamic>? ?? {};
@@ -661,7 +584,7 @@ class AnalyticsService {
       final avgMood = (statsMap['avgMood'] as num?)?.toDouble() ?? 0.0;
       final lastCheckInStr = statsMap['lastCheckIn'] as String?;
 
-      // ── Step 2: Last 30 days check-in calendar ────────────────────────────
+      //Last 30 days check-in calendar
       final now = DateTime.now();
       final List<bool> last30Days = List.filled(30, false);
 
@@ -689,7 +612,7 @@ class AnalyticsService {
         } catch (_) {}
       }
 
-      // ── Step 3: Last 7 mood entries for mood journey ──────────────────────
+      //Last 7 mood entries for mood journey
       final List<MoodEntry> recentMoods = [];
 
       final moodSnap = await fs
@@ -719,7 +642,7 @@ class AnalyticsService {
         );
       }
 
-      // ── Step 4: Recent activities (journals + chats) ──────────────────────
+      //Recent activities (journals + chats)
       final List<ActivityEvent> recentActivities = [];
 
       final journalSnap = await fs
@@ -775,7 +698,34 @@ class AnalyticsService {
 
       recentActivities.sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
-      // ── Step 5: Streak data ───────────────────────────────────────────────
+      //Count real breathing sessions
+      final breathSnap = await fs
+          .collection('users')
+          .doc(userId)
+          .collection('breathingSessions')
+          .get();
+      final totalBreaths = breathSnap.docs.length;
+
+      // Also add recent breathing to activities
+      for (final doc in breathSnap.docs.take(10)) {
+        final d = doc.data();
+        recentActivities.add(
+          ActivityEvent(
+            id: doc.id,
+            type: ActivityType.breathingSession,
+            timestamp: DateTime.parse(
+              d['createdAt'] as String? ?? DateTime.now().toIso8601String(),
+            ),
+            metadata: {
+              'techniqueName': d['techniqueName'] ?? '',
+              'cycles': d['cyclesCompleted'] ?? 0,
+            },
+          ),
+        );
+      }
+      recentActivities.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+      //Streak data
       final streakData = StreakData(
         currentStreak: currentStreak,
         longestStreak: longestStreak,
@@ -786,7 +736,7 @@ class AnalyticsService {
         last30Days: last30Days,
       );
 
-      // ── Step 6: Awards — unlock by actual usage counts ───────────────────
+      //Awards — unlock by actual usage counts
       final totalPoints =
           currentStreak * 10 +
           totalCheckIns * 5 +
@@ -797,7 +747,7 @@ class AnalyticsService {
         bool unlocked = false;
 
         switch (a.id) {
-          // Streak awards — by currentStreak
+          // Streak awards
           case 'streak_3':
             unlocked = currentStreak >= 3;
             break;
@@ -814,7 +764,7 @@ class AnalyticsService {
             unlocked = currentStreak >= 60;
             break;
 
-          // Journal awards — by totalJournals
+          // Journal awards
           case 'journal_1':
             unlocked = totalJournals >= 1;
             break;
@@ -825,23 +775,22 @@ class AnalyticsService {
             unlocked = totalJournals >= 30;
             break;
 
-          // Breathing awards — by totalBreaths (not tracked yet — keep locked)
+          // Breathing awards
           case 'breath_1':
-            unlocked = false;
+            unlocked = totalBreaths >= 1;
             break;
           case 'breath_10':
-            unlocked = false;
+            unlocked = totalBreaths >= 10;
             break;
           case 'breath_30':
-            unlocked = false;
+            unlocked = totalBreaths >= 30;
             break;
 
-          // Mood awards — by totalCheckIns / streak
+          // Mood awards
           case 'mood_7':
             unlocked = totalCheckIns >= 7;
             break;
           case 'mood_improve':
-            // Unlocked if last mood is higher than the oldest among recent moods
             if (recentMoods.length >= 2) {
               final newest = recentMoods.first.label;
               final oldest = recentMoods.last.label;
@@ -879,28 +828,23 @@ class AnalyticsService {
         return a;
       }).toList();
 
-      // ── Step 7: Build a daily insight from Firestore data ─────────────────
-      // No ML backend needed — derive basic insight from what we have
+      //Build a daily insight from Firestore data
       DailyInsight? todayInsight;
-      if (totalCheckIns > 0) {
-        final trend = avgMood >= 7
-            ? 'positive'
-            : avgMood >= 4
-            ? 'neutral'
-            : 'low';
+      if (totalCheckIns > 0 || totalBreaths > 0 || totalJournals > 0) {
         todayInsight = DailyInsight(
           date: now,
-          wellbeingScore: avgMood,
+          wellbeingScore: avgMood > 0 ? avgMood : null,
           summary: _buildInsightSummary(avgMood, currentStreak, totalJournals),
           highlights: _buildHighlights(
             avgMood,
             currentStreak,
             totalJournals,
             totalChats,
+            totalBreaths,
           ),
           suggestions: _buildSuggestions(avgMood, totalJournals),
           isMLGenerated: false,
-          activitiesCompleted: totalCheckIns,
+          activitiesCompleted: totalCheckIns + totalBreaths + totalJournals,
         );
       }
 
@@ -911,9 +855,14 @@ class AnalyticsService {
         recentActivities: recentActivities,
         todayInsight: todayInsight,
         awards: awards,
-        totalPoints: totalPoints,
+        totalPoints:
+            currentStreak * 10 +
+            totalCheckIns * 5 +
+            totalJournals * 10 +
+            totalChats * 5 +
+            totalBreaths * 3,
         totalJournals: totalJournals,
-        totalBreaths: 0,
+        totalBreaths: totalBreaths,
         totalChats: totalChats,
         totalCalmMe: 0,
         isLoaded: true,
@@ -926,8 +875,7 @@ class AnalyticsService {
     }
   }
 
-  // ── Firestore insight helpers ─────────────────────────────────────────────
-
+  // Firestore insight helpers
   int _moodLabelToScore(String label) {
     switch (label) {
       case 'excellent':
@@ -984,6 +932,7 @@ class AnalyticsService {
     int streak,
     int journals,
     int chats,
+    int breaths,
   ) {
     final list = <String>[];
     if (streak > 0) list.add('$streak-day check-in streak — great consistency');
@@ -991,6 +940,10 @@ class AnalyticsService {
       list.add('$journals journal entr${journals == 1 ? 'y' : 'ies'} written');
     if (chats > 0)
       list.add('$chats conversation${chats == 1 ? '' : 's'} with NuruAI');
+    if (breaths > 0)
+      list.add(
+        '$breaths breathing session${breaths == 1 ? '' : 's'} completed',
+      );
     if (avgMood >= 7)
       list.add('Average mood score of ${avgMood.toStringAsFixed(1)}/10');
     return list;
@@ -1013,24 +966,8 @@ class AnalyticsService {
     ];
   }
 
-  // ══════════════════════════════════════════════════════════════════════════
   // EVENT LOGGERS
-  //
-  // Call these from each screen when a real user action occurs.
-  // They write to Firestore and forward to the ML backend so the
-  // PyTorch model can update the user's profile incrementally.
-  //
-  // The ML model uses these signals:
-  //   journalEntry    → NLP sentiment + writing pattern analysis
-  //   moodLog         → explicit emotion + source context
-  //   breathingSession → regulation behaviour + consistency
-  //   nuruChat        → conversation tone + topic tracking
-  //   calmMe          → coping strategy usage
-  //   appOpen         → streak + engagement frequency
-  //   microExpression → automatic emotion detection (from your CV model)
-  // ══════════════════════════════════════════════════════════════════════════
-
-  /// Call from journal_entry_screen.dart when user saves a journal entry.
+  // Call from journal_entry_screen.dart when user saves a journal entry.
   Future<void> logJournalEntry({
     required String userId,
     required String entryId,
@@ -1051,24 +988,26 @@ class AnalyticsService {
       },
     );
 
-    // TODO: Firestore write
-    // await FirebaseFirestore.instance
-    //     .collection('activity_events')
-    //     .doc(entryId)
-    //     .set({...event.toMap(), 'userId': userId});
-    //
-    // await FirebaseFirestore.instance
-    //     .collection('users')
-    //     .doc(userId)
-    //     .update({
-    //       'totalJournals': FieldValue.increment(1),
-    //       'totalPoints':   FieldValue.increment(10),
-    //     });
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('activityEvents')
+          .doc(event.id)
+          .set({...event.toMap(), 'userId': userId});
+
+      await FirebaseFirestore.instance.collection('users').doc(userId).update({
+        'stats.totalJournals': FieldValue.increment(1),
+        'stats.totalPoints': FieldValue.increment(10),
+      });
+    } catch (e) {
+      debugPrint('AnalyticsService.logJournal Firestore error: $e');
+    }
 
     await _postEventToBackend(userId, event);
   }
 
-  /// Call from breathing_exercise_screen.dart on session complete.
+  // Call from breathing_exercise_screen.dart on session complete.
   Future<void> logBreathingSession({
     required String userId,
     required String techniqueId,
@@ -1088,31 +1027,49 @@ class AnalyticsService {
       },
     );
 
-    // TODO: Firestore write + FieldValue.increment
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('activityEvents')
+          .doc(event.id)
+          .set({...event.toMap(), 'userId': userId});
+
+      await FirebaseFirestore.instance.collection('users').doc(userId).update({
+        'stats.totalBreaths': FieldValue.increment(1),
+        'stats.totalPoints': FieldValue.increment(10),
+      });
+    } catch (e) {
+      debugPrint('AnalyticsService.logBreathing Firestore error: $e');
+    }
 
     await _postEventToBackend(userId, event);
   }
 
-  /// Call from home screen mood widget and journal screen mood selector.
+  // Call from home screen mood widget and journal screen mood selector.
   Future<void> logMood({
     required String userId,
     required MoodEntry entry,
   }) async {
-    // TODO: Firestore write
-    // await FirebaseFirestore.instance
-    //     .collection('mood_logs')
-    //     .doc(entry.id)
-    //     .set({...entry.toMap(), 'userId': userId});
-    //
-    // await FirebaseFirestore.instance
-    //     .collection('users')
-    //     .doc(userId)
-    //     .update({'totalPoints': FieldValue.increment(5)});
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('moodLogs')
+          .doc(entry.id)
+          .set({...entry.toMap(), 'userId': userId});
+
+      await FirebaseFirestore.instance.collection('users').doc(userId).update({
+        'stats.totalPoints': FieldValue.increment(5),
+      });
+    } catch (e) {
+      debugPrint('AnalyticsService.logMood Firestore error: $e');
+    }
 
     await _postMoodToBackend(userId, entry);
   }
 
-  /// Call from NuruAI chat screen after each conversation ends.
+  // Call from NuruAI chat screen after each conversation ends.
   Future<void> logNuruChat({
     required String userId,
     required int messageCount,
@@ -1127,12 +1084,28 @@ class AnalyticsService {
       metadata: {'messageCount': messageCount, 'topic': topic},
     );
 
-    // TODO: Firestore write + points increment (messageCount / 10 * 10)
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('activityEvents')
+          .doc(event.id)
+          .set({...event.toMap(), 'userId': userId});
+
+      final pts = ((messageCount / 10).floor() * 10).clamp(0, 50);
+      if (pts > 0) {
+        await FirebaseFirestore.instance.collection('users').doc(userId).update(
+          {'stats.totalPoints': FieldValue.increment(pts)},
+        );
+      }
+    } catch (e) {
+      debugPrint('AnalyticsService.logNuruChat Firestore error: $e');
+    }
 
     await _postEventToBackend(userId, event);
   }
 
-  /// Call from calmme_screen.dart when a CalmMe activity completes.
+  // Call from calmme_screen.dart when a CalmMe activity completes.
   Future<void> logCalmMeSession({
     required String userId,
     required String activity,
@@ -1146,57 +1119,95 @@ class AnalyticsService {
       metadata: {'activity': activity},
     );
 
-    // TODO: Firestore write + points increment
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('activityEvents')
+          .doc(event.id)
+          .set({...event.toMap(), 'userId': userId});
+
+      await FirebaseFirestore.instance.collection('users').doc(userId).update({
+        'stats.totalPoints': FieldValue.increment(5),
+      });
+    } catch (e) {
+      debugPrint('AnalyticsService.logCalmMe Firestore error: $e');
+    }
 
     await _postEventToBackend(userId, event);
   }
 
-  /// Call on every app open to update streak in Firestore.
+  // Call on every app open to update streak in Firestore.
   Future<void> logAppOpen(String userId) async {
-    // TODO:
-    // final fs = FirebaseFirestore.instance;
-    // final doc = fs.collection('streaks').doc(userId);
-    // final snap = await doc.get();
-    // final today = DateTime(now.year, now.month, now.day);
-    //
-    // if snap exists:
-    //   lastActive = DateTime.parse(snap.data()!['lastActiveDate'])
-    //   if lastActive.date == today: return (already counted)
-    //   if lastActive.date == yesterday:
-    //     increment currentStreak, totalDaysActive
-    //   else:
-    //     reset currentStreak to 1, increment totalDaysActive
-    //   update longestStreak if currentStreak > longestStreak
-    //   update last30Days array (shift + append true)
-    // else:
-    //   create doc with currentStreak=1, longestStreak=1, totalDaysActive=1
-    //
-    // await fs.collection('users').doc(userId)
-    //     .update({'totalPoints': FieldValue.increment(10)});
+    try {
+      final fs = FirebaseFirestore.instance;
+      final userRef = fs.collection('users').doc(userId);
+      final now = DateTime.now();
+      final todayKey =
+          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
+      await fs.runTransaction((tx) async {
+        final snap = await tx.get(userRef);
+        if (!snap.exists) return;
+
+        final stats = snap.data()?['stats'] as Map<String, dynamic>? ?? {};
+        final lastActive = stats['lastCheckIn'] as String?;
+        final currentStreak = (stats['currentStreak'] as num?)?.toInt() ?? 0;
+        final longestStreak = (stats['longestStreak'] as num?)?.toInt() ?? 0;
+        final totalDays = (stats['totalDaysActive'] as num?)?.toInt() ?? 0;
+
+        if (lastActive == todayKey) return; // already counted today
+
+        int newStreak = 1;
+        if (lastActive != null) {
+          final last = DateTime.parse(lastActive);
+          final diff = DateTime(
+            now.year,
+            now.month,
+            now.day,
+          ).difference(DateTime(last.year, last.month, last.day)).inDays;
+          newStreak = diff == 1 ? currentStreak + 1 : 1;
+        }
+
+        tx.update(userRef, {
+          'stats.currentStreak': newStreak,
+          'stats.longestStreak': newStreak > longestStreak
+              ? newStreak
+              : longestStreak,
+          'stats.totalDaysActive': totalDays + 1,
+          'stats.lastCheckIn': todayKey,
+          'stats.totalPoints': FieldValue.increment(10),
+        });
+      });
+    } catch (e) {
+      debugPrint('AnalyticsService.logAppOpen error: $e');
+    }
   }
 
-  /// Call from your micro-expression CV model when an emotion is detected.
-  /// This is the core ML integration point — the PyTorch model that detects
-  /// micro-expressions feeds directly into the analytics pipeline.
+  // Call from your micro-expression CV model when an emotion is detected.
   Future<void> logMicroExpression({
     required String userId,
     required String detectedEmotion,
     required double confidence,
     required String context, // 'chat' | 'journal' | 'home'
   }) async {
-    // TODO: Firestore write to 'micro_expressions' collection
-    // await FirebaseFirestore.instance
-    //     .collection('micro_expressions')
-    //     .add({
-    //       'userId': userId,
-    //       'emotion': detectedEmotion,
-    //       'confidence': confidence,
-    //       'context': context,
-    //       'timestamp': DateTime.now().toIso8601String(),
-    //     });
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('microExpressions')
+          .add({
+            'userId': userId,
+            'emotion': detectedEmotion,
+            'confidence': confidence,
+            'context': context,
+            'timestamp': DateTime.now().toIso8601String(),
+          });
+    } catch (e) {
+      debugPrint('AnalyticsService.logMicroExpression Firestore error: $e');
+    }
 
     // POST to ML backend so model can correlate micro-expression
-    // with concurrent mood log, journal entry, or chat session.
     try {
       await http
           .post(
@@ -1216,8 +1227,7 @@ class AnalyticsService {
     }
   }
 
-  // ── Internal backend POST helpers ─────────────────────────────────────────
-
+  // Internal backend POST helpers
   Future<void> _postEventToBackend(String userId, ActivityEvent event) async {
     try {
       await http
@@ -1227,9 +1237,7 @@ class AnalyticsService {
             body: jsonEncode({'userId': userId, ...event.toMap()}),
           )
           .timeout(NuruBackend.timeout);
-    } catch (_) {
-      // Silently fail — queue for offline retry via local SQLite.
-    }
+    } catch (_) {}
   }
 
   Future<void> _postMoodToBackend(String userId, MoodEntry entry) async {
@@ -1246,8 +1254,7 @@ class AnalyticsService {
     }
   }
 
-  // ── Static helpers ─────────────────────────────────────────────────────────
-
+  // Static helpers
   static String moodEmoji(MoodValue mood) {
     const map = {
       MoodValue.happy: '\ud83d\ude0a',
