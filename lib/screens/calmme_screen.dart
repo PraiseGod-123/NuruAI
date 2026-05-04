@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 import 'package:flutter/services.dart';
 import 'dart:ui';
 import 'package:lottie/lottie.dart';
@@ -24,14 +25,31 @@ class _CalmMeScreenState extends State<CalmMeScreen>
   int _currentNavIndex = 1;
   int _feelingLevel = 0;
 
-  // ── Todo state ────────────────────────────────────────────
+  // Todo state
   final List<_TodoItem> _todos = [];
   final TextEditingController _todoController = TextEditingController();
   String _todoFilter = 'Today'; // 'Today' or 'This Week'
 
+  final _rng = math.Random();
+  final List<_Star> _stars = [];
+
   @override
   void initState() {
     super.initState();
+    // Build star field — same as analytics screen
+    for (int i = 0; i < 70; i++) {
+      _stars.add(
+        _Star(
+          x: _rng.nextDouble(),
+          y: _rng.nextDouble(),
+          size: _rng.nextDouble() < 0.5
+              ? 1.2
+              : (_rng.nextDouble() < 0.7 ? 1.8 : 2.6),
+          phase: _rng.nextDouble() * math.pi * 2,
+          speed: 0.5 + _rng.nextDouble() * 0.9,
+        ),
+      );
+    }
     _floatController1 = AnimationController(
       duration: const Duration(seconds: 4),
       vsync: this,
@@ -61,7 +79,7 @@ class _CalmMeScreenState extends State<CalmMeScreen>
     super.dispose();
   }
 
-  // ── Todo helpers ──────────────────────────────────────────
+  // Todo helpers
 
   void _addTodo() {
     final text = _todoController.text.trim();
@@ -126,13 +144,15 @@ class _CalmMeScreenState extends State<CalmMeScreen>
   Widget build(BuildContext context) {
     final theme = context.nuruTheme;
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle(
-        statusBarColor: const Color(0xFF081F44),
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Color(0xFF081F44),
         statusBarIconBrightness: Brightness.light,
         statusBarBrightness: Brightness.dark,
+        systemNavigationBarColor: Color(0xFF081F44),
+        systemNavigationBarIconBrightness: Brightness.light,
       ),
       child: Scaffold(
-        backgroundColor: const Color(0xFF4569AD),
+        backgroundColor: context.nuruTheme.accentColor,
         body: Stack(
           children: [
             Container(
@@ -140,7 +160,7 @@ class _CalmMeScreenState extends State<CalmMeScreen>
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: const [Color(0xFF4569AD), Color(0xFF14366D)],
+                  colors: context.nuruTheme.gradientColors,
                 ),
               ),
             ),
@@ -157,23 +177,25 @@ class _CalmMeScreenState extends State<CalmMeScreen>
                     animation1: _floatController1.value,
                     animation2: _floatController2.value,
                     animation3: _floatController3.value,
-                    accentColor: const Color(0xFF4569AD),
-                    bgColor: const Color(0xFF081F44),
-                    bgEnd: const Color(0xFF14366D),
+                    accentColor: context.nuruTheme.accentColor,
+                    bgColor: context.nuruTheme.backgroundStart,
+                    bgEnd: context.nuruTheme.backgroundMid,
                   ),
                 ),
               ),
             ),
             IgnorePointer(
-              child: AnimatedBuilder(
-                animation: _starController,
-                builder: (_, __) => CustomPaint(
-                  size: Size.infinite,
-                  painter: _CalmStarsPainter(twinkle: _starController.value),
+              child: SizedBox.expand(
+                child: AnimatedBuilder(
+                  animation: _starController,
+                  builder: (_, __) => CustomPaint(
+                    painter: _StarsPainter(_stars, _starController.value),
+                  ),
                 ),
               ),
             ),
             SafeArea(
+              top: false,
               child: ScrollConfiguration(
                 behavior: ScrollConfiguration.of(
                   context,
@@ -240,7 +262,7 @@ class _CalmMeScreenState extends State<CalmMeScreen>
     );
   }
 
-  // ── Section label ─────────────────────────────────────────
+  //  Section label
   Widget _buildSectionLabel(String text) => Padding(
     padding: const EdgeInsets.symmetric(horizontal: 20),
     child: Text(
@@ -253,7 +275,7 @@ class _CalmMeScreenState extends State<CalmMeScreen>
     ),
   );
 
-  // ── Header ────────────────────────────────────────────────
+  // Header
   Widget _buildHeader(dynamic theme) {
     return ClipRRect(
       borderRadius: const BorderRadius.only(
@@ -263,19 +285,17 @@ class _CalmMeScreenState extends State<CalmMeScreen>
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Container(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+          padding: EdgeInsets.fromLTRB(
+            20,
+            MediaQuery.of(context).padding.top + 16,
+            20,
+            24,
+          ),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0xFF1F3F74).withOpacity(0.75),
-                Color(0xFF081F44).withOpacity(0.80),
-              ],
-            ),
+            color: const Color(0xFF081F44).withOpacity(0.85),
             border: Border(
               bottom: BorderSide(
-                color: Color(0xFF4569AD).withOpacity(0.45),
+                color: context.nuruTheme.accentColor.withOpacity(0.45),
                 width: 1.5,
               ),
             ),
@@ -289,21 +309,17 @@ class _CalmMeScreenState extends State<CalmMeScreen>
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Color(0xFF4569AD).withOpacity(0.5),
-                      Color(0xFF081F44).withOpacity(0.80),
+                      context.nuruTheme.accentColor.withOpacity(0.5),
+                      context.nuruTheme.backgroundStart.withOpacity(0.80),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: Color(0xFF4569AD).withOpacity(0.55),
+                    color: context.nuruTheme.accentColor.withOpacity(0.55),
                     width: 1.5,
                   ),
                 ),
-                child: const Icon(
-                  Icons.spa_outlined,
-                  color: Colors.white,
-                  size: 26,
-                ),
+                child: Icon(Icons.spa_outlined, color: Colors.white, size: 26),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -336,7 +352,7 @@ class _CalmMeScreenState extends State<CalmMeScreen>
     );
   }
 
-  // ── SOS ───────────────────────────────────────────────────
+  // SOS section
   Widget _buildSOS(dynamic theme) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -350,22 +366,15 @@ class _CalmMeScreenState extends State<CalmMeScreen>
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFF1F3F74).withOpacity(0.75),
-                    Color(0xFF081F44).withOpacity(0.88),
-                  ],
-                ),
+                color: const Color(0xFF081F44).withOpacity(0.85),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: Color(0xFF4569AD).withOpacity(0.55),
+                  color: context.nuruTheme.accentColor.withOpacity(0.55),
                   width: 1.5,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Color(0xFF081F44).withOpacity(0.5),
+                    color: const Color(0xFF081F44).withOpacity(0.85),
                     blurRadius: 16,
                     offset: const Offset(0, 8),
                   ),
@@ -378,24 +387,26 @@ class _CalmMeScreenState extends State<CalmMeScreen>
                     height: 52,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Color(0xFF1F3F74).withOpacity(0.75),
+                      color: const Color(0xFF081F44).withOpacity(0.85),
                       border: Border.all(
-                        color: const Color(0xFF4569AD),
+                        color: context.nuruTheme.accentColor,
                         width: 2.0,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Color(0xFF4569AD).withOpacity(0.25),
+                          color: context.nuruTheme.accentColor.withOpacity(
+                            0.25,
+                          ),
                           blurRadius: 10,
                         ),
                         BoxShadow(
-                          color: Color(0xFF081F44).withOpacity(0.4),
+                          color: const Color(0xFF081F44).withOpacity(0.85),
                           blurRadius: 6,
                           offset: const Offset(0, 3),
                         ),
                       ],
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.warning_amber_rounded,
                       color: Color(0xFFFF6B6B),
                       size: 26,
@@ -442,7 +453,7 @@ class _CalmMeScreenState extends State<CalmMeScreen>
     );
   }
 
-  // ── Traffic light ─────────────────────────────────────────
+  // Traffic light
   Widget _buildTrafficLight(dynamic theme) {
     final feelings = [
       {
@@ -486,24 +497,26 @@ class _CalmMeScreenState extends State<CalmMeScreen>
                   gradient: LinearGradient(
                     colors: sel
                         ? [
-                            Color(0xFF4569AD).withOpacity(0.55),
-                            Color(0xFF081F44).withOpacity(0.75),
+                            context.nuruTheme.accentColor.withOpacity(0.55),
+                            context.nuruTheme.backgroundStart.withOpacity(0.75),
                           ]
                         : [
-                            Color(0xFF1F3F74).withOpacity(0.6),
-                            Color(0xFF081F44).withOpacity(0.80),
+                            context.nuruTheme.backgroundMid.withOpacity(0.6),
+                            context.nuruTheme.backgroundStart.withOpacity(0.80),
                           ],
                   ),
                   border: Border.all(
                     color: sel
-                        ? const Color(0xFF4569AD)
-                        : Color(0xFF4569AD).withOpacity(0.35),
+                        ? context.nuruTheme.accentColor
+                        : context.nuruTheme.accentColor.withOpacity(0.35),
                     width: sel ? 2 : 1,
                   ),
                   boxShadow: sel
                       ? [
                           BoxShadow(
-                            color: Color(0xFF4569AD).withOpacity(0.35),
+                            color: context.nuruTheme.accentColor.withOpacity(
+                              0.35,
+                            ),
                             blurRadius: 14,
                             spreadRadius: 1,
                           ),
@@ -587,7 +600,7 @@ class _CalmMeScreenState extends State<CalmMeScreen>
     );
   }
 
-  // ── Quick access ──────────────────────────────────────────
+  // Quick access
   Widget _buildQuickAccess(dynamic theme) {
     final items = [
       {
@@ -660,18 +673,20 @@ class _CalmMeScreenState extends State<CalmMeScreen>
                     height: 58,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Color(0xFF1F3F74).withOpacity(0.75),
+                      color: const Color(0xFF081F44).withOpacity(0.85),
                       border: Border.all(
-                        color: const Color(0xFF4569AD),
+                        color: context.nuruTheme.accentColor,
                         width: 2.0,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Color(0xFF4569AD).withOpacity(0.25),
+                          color: context.nuruTheme.accentColor.withOpacity(
+                            0.25,
+                          ),
                           blurRadius: 10,
                         ),
                         BoxShadow(
-                          color: Color(0xFF081F44).withOpacity(0.4),
+                          color: const Color(0xFF081F44).withOpacity(0.85),
                           blurRadius: 6,
                           offset: const Offset(0, 3),
                         ),
@@ -704,7 +719,7 @@ class _CalmMeScreenState extends State<CalmMeScreen>
     );
   }
 
-  // ── Meltdown card ─────────────────────────────────────────
+  // Meltdown card
   Widget _buildMeltdownCard(dynamic theme) {
     final levelInfo = {
       1: {
@@ -764,7 +779,7 @@ class _CalmMeScreenState extends State<CalmMeScreen>
     );
   }
 
-  // ── Sensory toolkit ───────────────────────────────────────
+  // Sensory toolkit
   Widget _buildSensoryToolkitCard(dynamic theme) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -821,7 +836,7 @@ class _CalmMeScreenState extends State<CalmMeScreen>
     );
   }
 
-  // ── Resource grid ─────────────────────────────────────────
+  // Resource grid
   Widget _buildResourceGrid(dynamic theme) {
     final resources = [
       {
@@ -869,22 +884,15 @@ class _CalmMeScreenState extends State<CalmMeScreen>
                 child: Container(
                   padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Color(0xFF1F3F74).withOpacity(0.75),
-                        Color(0xFF081F44).withOpacity(0.88),
-                      ],
-                    ),
+                    color: const Color(0xFF081F44).withOpacity(0.85),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: Color(0xFF4569AD).withOpacity(0.55),
+                      color: context.nuruTheme.accentColor.withOpacity(0.55),
                       width: 1.5,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Color(0xFF081F44).withOpacity(0.4),
+                        color: const Color(0xFF081F44).withOpacity(0.85),
                         blurRadius: 16,
                         offset: const Offset(0, 8),
                       ),
@@ -920,7 +928,7 @@ class _CalmMeScreenState extends State<CalmMeScreen>
     );
   }
 
-  // ── Music card ────────────────────────────────────────────
+  // Music card
   Widget _buildMusicCard(dynamic theme) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -929,13 +937,13 @@ class _CalmMeScreenState extends State<CalmMeScreen>
             Navigator.pushNamed(context, '/music', arguments: widget.userData),
         child: _glassCard(
           theme: theme,
-          accent: Color(0xFF4569AD).withOpacity(0.4),
+          accent: context.nuruTheme.accentColor.withOpacity(0.4),
           child: Row(
             children: [
               _iconCircle(
                 theme: theme,
                 icon: Icons.music_note_rounded,
-                color: Color(0xFF4569AD).withOpacity(0.4),
+                color: context.nuruTheme.accentColor.withOpacity(0.4),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -964,7 +972,7 @@ class _CalmMeScreenState extends State<CalmMeScreen>
               ),
               Icon(
                 Icons.arrow_forward_ios_rounded,
-                color: Color(0xFF4569AD).withOpacity(0.6),
+                color: context.nuruTheme.accentColor.withOpacity(0.6),
                 size: 16,
               ),
             ],
@@ -974,7 +982,7 @@ class _CalmMeScreenState extends State<CalmMeScreen>
     );
   }
 
-  // ── Poetry + Games row ────────────────────────────────────
+  // Poetry + Games row
   Widget _buildPoetryGamesRow(dynamic theme) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -1014,7 +1022,7 @@ class _CalmMeScreenState extends State<CalmMeScreen>
     );
   }
 
-  // ── Social scripts ────────────────────────────────────────
+  // Social scripts
   Widget _buildSocialScriptsCard(dynamic theme) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -1071,7 +1079,7 @@ class _CalmMeScreenState extends State<CalmMeScreen>
     );
   }
 
-  // ── Special interest ──────────────────────────────────────
+  // Special interest
   Widget _buildSpecialInterestCard(dynamic theme) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -1128,8 +1136,8 @@ class _CalmMeScreenState extends State<CalmMeScreen>
     );
   }
 
-  // ── NuruAI card ───────────────────────────────────────────
-  // ── Todo Section ──────────────────────────────────────────
+  //  NuruAI card
+  // Todo Section
   Widget _buildTodoSection(dynamic theme) {
     final filtered = _todos.where((t) => t.filter == _todoFilter).toList();
     final pending = filtered.where((t) => !t.done).toList();
@@ -1144,17 +1152,10 @@ class _CalmMeScreenState extends State<CalmMeScreen>
           child: Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  const Color(0xFF1F3F74).withOpacity(0.75),
-                  const Color(0xFF081F44).withOpacity(0.88),
-                ],
-              ),
+              color: const Color(0xFF081F44).withOpacity(0.85),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: const Color(0xFF4569AD).withOpacity(0.4),
+                color: context.nuruTheme.accentColor.withOpacity(0.4),
                 width: 1.2,
               ),
             ),
@@ -1182,7 +1183,7 @@ class _CalmMeScreenState extends State<CalmMeScreen>
                         color: Colors.white.withOpacity(0.08),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: const Color(0xFF4569AD).withOpacity(0.3),
+                          color: context.nuruTheme.accentColor.withOpacity(0.3),
                         ),
                       ),
                       child: Row(
@@ -1199,7 +1200,9 @@ class _CalmMeScreenState extends State<CalmMeScreen>
                               ),
                               decoration: BoxDecoration(
                                 color: active
-                                    ? const Color(0xFF4569AD).withOpacity(0.5)
+                                    ? context.nuruTheme.accentColor.withOpacity(
+                                        0.5,
+                                      )
                                     : Colors.transparent,
                                 borderRadius: BorderRadius.circular(20),
                               ),
@@ -1232,15 +1235,15 @@ class _CalmMeScreenState extends State<CalmMeScreen>
                     color: Colors.white.withOpacity(0.07),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: const Color(0xFF4569AD).withOpacity(0.35),
+                      color: context.nuruTheme.accentColor.withOpacity(0.35),
                     ),
                   ),
                   child: Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.add_circle_outline,
                         size: 18,
-                        color: Color(0xFF4569AD),
+                        color: context.nuruTheme.accentColor,
                       ),
                       const SizedBox(width: 10),
                       Expanded(
@@ -1285,7 +1288,9 @@ class _CalmMeScreenState extends State<CalmMeScreen>
                             vertical: 6,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF4569AD).withOpacity(0.5),
+                            color: context.nuruTheme.accentColor.withOpacity(
+                              0.5,
+                            ),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: const Text(
@@ -1362,17 +1367,17 @@ class _CalmMeScreenState extends State<CalmMeScreen>
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: todo.done
-                    ? const Color(0xFF4569AD).withOpacity(0.7)
+                    ? context.nuruTheme.accentColor.withOpacity(0.7)
                     : Colors.transparent,
                 border: Border.all(
                   color: todo.done
-                      ? const Color(0xFF4569AD)
+                      ? context.nuruTheme.accentColor
                       : Colors.white.withOpacity(0.3),
                   width: 1.5,
                 ),
               ),
               child: todo.done
-                  ? const Icon(Icons.check, size: 13, color: Colors.white)
+                  ? Icon(Icons.check, size: 13, color: Colors.white)
                   : null,
             ),
           ),
@@ -1422,7 +1427,7 @@ class _CalmMeScreenState extends State<CalmMeScreen>
                   end: Alignment.bottomRight,
                   colors: [
                     Color(0xFF6C5CE7).withOpacity(0.28),
-                    Color(0xFF081F44).withOpacity(0.88),
+                    context.nuruTheme.backgroundStart.withOpacity(0.88),
                   ],
                 ),
                 borderRadius: BorderRadius.circular(22),
@@ -1437,7 +1442,7 @@ class _CalmMeScreenState extends State<CalmMeScreen>
                     spreadRadius: 2,
                   ),
                   BoxShadow(
-                    color: Color(0xFF081F44).withOpacity(0.5),
+                    color: const Color(0xFF081F44).withOpacity(0.85),
                     blurRadius: 14,
                     offset: const Offset(0, 6),
                   ),
@@ -1466,7 +1471,7 @@ class _CalmMeScreenState extends State<CalmMeScreen>
                       child: Lottie.network(
                         'https://assets10.lottiefiles.com/packages/lf20_ysrn2iwp.json',
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const Icon(
+                        errorBuilder: (_, __, ___) => Icon(
                           Icons.smart_toy_outlined,
                           color: Color(0xFFA29BFE),
                           size: 28,
@@ -1536,7 +1541,7 @@ class _CalmMeScreenState extends State<CalmMeScreen>
                         color: Color(0xFF6C5CE7).withOpacity(0.45),
                       ),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.arrow_forward_rounded,
                       color: Color(0xFFA29BFE),
                       size: 18,
@@ -1551,7 +1556,7 @@ class _CalmMeScreenState extends State<CalmMeScreen>
     );
   }
 
-  // ── Shared helpers ────────────────────────────────────────
+  // Shared helpers
 
   Widget _glassCard({
     required dynamic theme,
@@ -1565,19 +1570,12 @@ class _CalmMeScreenState extends State<CalmMeScreen>
         child: Container(
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0xFF1F3F74).withOpacity(0.75),
-                Color(0xFF081F44).withOpacity(0.80),
-              ],
-            ),
+            color: const Color(0xFF081F44).withOpacity(0.85),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: accent.withOpacity(0.4), width: 1.5),
             boxShadow: [
               BoxShadow(
-                color: Color(0xFF081F44).withOpacity(0.5),
+                color: const Color(0xFF081F44).withOpacity(0.85),
                 blurRadius: 20,
                 offset: const Offset(0, 10),
               ),
@@ -1605,12 +1603,15 @@ class _CalmMeScreenState extends State<CalmMeScreen>
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: Color(0xFF1F3F74).withOpacity(0.75),
-        border: Border.all(color: const Color(0xFF4569AD), width: 2.0),
+        color: const Color(0xFF081F44).withOpacity(0.85),
+        border: Border.all(color: context.nuruTheme.accentColor, width: 2.0),
         boxShadow: [
-          BoxShadow(color: Color(0xFF4569AD).withOpacity(0.25), blurRadius: 10),
           BoxShadow(
-            color: Color(0xFF081F44).withOpacity(0.4),
+            color: context.nuruTheme.accentColor.withOpacity(0.25),
+            blurRadius: 10,
+          ),
+          BoxShadow(
+            color: const Color(0xFF081F44).withOpacity(0.85),
             blurRadius: 6,
             offset: const Offset(0, 3),
           ),
@@ -1639,7 +1640,7 @@ class _CalmMeScreenState extends State<CalmMeScreen>
               end: Alignment.bottomRight,
               colors: [
                 color.withOpacity(0.18),
-                Color(0xFF081F44).withOpacity(0.85),
+                context.nuruTheme.backgroundStart.withOpacity(0.85),
               ],
             ),
             borderRadius: BorderRadius.circular(18),
@@ -1673,23 +1674,17 @@ class _CalmMeScreenState extends State<CalmMeScreen>
     );
   }
 
-  // ── Bottom nav ────────────────────────────────────────────
+  // Bottom nav
 
   Widget _buildBottomNav(dynamic theme) {
     return Material(
-      color: const Color(0xFF081F44),
+      color: const Color(0xFF081F44).withOpacity(0.85),
       child: LayoutBuilder(
         builder: (ctx, constraints) => Stack(
           children: [
             Container(
               height: 75,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: theme.gradientColors,
-                ),
-              ),
+              decoration: const BoxDecoration(color: Color(0xFF081F44)),
             ),
             Positioned(
               left: -40,
@@ -1788,11 +1783,14 @@ class _CalmMeScreenState extends State<CalmMeScreen>
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected
-              ? Color(0xFF4569AD).withOpacity(0.4)
+              ? context.nuruTheme.accentColor.withOpacity(0.4)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
           border: isSelected
-              ? Border.all(color: Color(0xFF4569AD).withOpacity(0.7), width: 2)
+              ? Border.all(
+                  color: context.nuruTheme.accentColor.withOpacity(0.7),
+                  width: 2,
+                )
               : null,
         ),
         child: Column(
@@ -1815,11 +1813,7 @@ class _CalmMeScreenState extends State<CalmMeScreen>
   }
 }
 
-// ══════════════════════════════════════════════════════════════
-// MELTDOWN CARD — separate StatefulWidget
-// Theme passed via constructor — no context.nuruTheme inside
-// ══════════════════════════════════════════════════════════════
-
+// MELTDOWN CARD
 class _MeltdownCard extends StatefulWidget {
   final Map<int, Map<String, dynamic>> levelInfo;
   final dynamic theme;
@@ -1851,22 +1845,15 @@ class _MeltdownCardState extends State<_MeltdownCard> {
         child: Container(
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0xFF1F3F74).withOpacity(0.75),
-                Color(0xFF081F44).withOpacity(0.88),
-              ],
-            ),
+            color: const Color(0xFF081F44).withOpacity(0.85),
             borderRadius: BorderRadius.circular(22),
             border: Border.all(
-              color: Color(0xFF4569AD).withOpacity(0.55),
+              color: context.nuruTheme.accentColor.withOpacity(0.55),
               width: 1.5,
             ),
             boxShadow: [
               BoxShadow(
-                color: Color(0xFF081F44).withOpacity(0.5),
+                color: const Color(0xFF081F44).withOpacity(0.85),
                 blurRadius: 18,
                 offset: const Offset(0, 8),
               ),
@@ -1882,18 +1869,20 @@ class _MeltdownCardState extends State<_MeltdownCard> {
                     height: 46,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Color(0xFF1F3F74).withOpacity(0.75),
+                      color: const Color(0xFF081F44).withOpacity(0.85),
                       border: Border.all(
-                        color: const Color(0xFF4569AD),
+                        color: context.nuruTheme.accentColor,
                         width: 2,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Color(0xFF4569AD).withOpacity(0.25),
+                          color: context.nuruTheme.accentColor.withOpacity(
+                            0.25,
+                          ),
                           blurRadius: 10,
                         ),
                         BoxShadow(
-                          color: Color(0xFF081F44).withOpacity(0.4),
+                          color: const Color(0xFF081F44).withOpacity(0.85),
                           blurRadius: 6,
                           offset: const Offset(0, 3),
                         ),
@@ -1940,7 +1929,9 @@ class _MeltdownCardState extends State<_MeltdownCard> {
                 data: SliderThemeData(
                   trackHeight: 6,
                   activeTrackColor: color,
-                  inactiveTrackColor: Color(0xFF4569AD).withOpacity(0.2),
+                  inactiveTrackColor: context.nuruTheme.accentColor.withOpacity(
+                    0.2,
+                  ),
                   thumbColor: color,
                   overlayColor: color.withOpacity(0.2),
                   thumbShape: const RoundSliderThumbShape(
@@ -1984,7 +1975,7 @@ class _MeltdownCardState extends State<_MeltdownCard> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.lightbulb_outline_rounded,
                       color: Color(0xFFFDCB6E),
                       size: 18,
@@ -2038,53 +2029,42 @@ class _MeltdownCardState extends State<_MeltdownCard> {
   }
 }
 
-// ══════════════════════════════════════════════════════════════
-// PAINTERS — NO BuildContext, colours passed as constructor params
-// ══════════════════════════════════════════════════════════════
+// PAINTERS
+//  Stars painter (same as analytics screen)
+class _StarsPainter extends CustomPainter {
+  final List<_Star> stars;
+  final double t;
+  const _StarsPainter(this.stars, this.t);
 
-class _CalmStarsPainter extends CustomPainter {
-  final double twinkle;
-  const _CalmStarsPainter({required this.twinkle});
-  static const _stars = [
-    [0.08, 0.05],
-    [0.18, 0.15],
-    [0.25, 0.08],
-    [0.35, 0.20],
-    [0.42, 0.12],
-    [0.52, 0.18],
-    [0.62, 0.08],
-    [0.72, 0.22],
-    [0.78, 0.14],
-    [0.88, 0.10],
-    [0.12, 0.48],
-    [0.28, 0.55],
-    [0.38, 0.62],
-    [0.50, 0.58],
-    [0.65, 0.52],
-    [0.75, 0.65],
-    [0.85, 0.58],
-    [0.15, 0.82],
-    [0.45, 0.88],
-    [0.92, 0.85],
-  ];
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()..style = PaintingStyle.fill;
-    for (final s in _stars) {
-      final x = size.width * s[0];
-      final y = size.height * s[1];
-      final op = 0.4 + (twinkle * 0.3);
-      p.color = Colors.white.withOpacity(op * 0.4);
-      canvas.drawCircle(Offset(x, y), 3.5, p);
-      p.color = Colors.white.withOpacity(op * 0.6);
-      canvas.drawCircle(Offset(x, y), 2.0, p);
-      p.color = Colors.white.withOpacity(op);
-      canvas.drawCircle(Offset(x, y), 1.3, p);
+    final paint = Paint()..style = PaintingStyle.fill;
+    for (final s in stars) {
+      final flicker =
+          0.4 +
+          0.6 * (0.5 + 0.5 * math.sin(s.phase + t * s.speed * math.pi * 2));
+      paint.color = Colors.white.withOpacity(flicker * 0.85);
+      canvas.drawCircle(
+        Offset(s.x * size.width, s.y * size.height),
+        s.size,
+        paint,
+      );
     }
   }
 
   @override
-  bool shouldRepaint(_CalmStarsPainter o) => o.twinkle != twinkle;
+  bool shouldRepaint(_StarsPainter o) => o.t != t;
+}
+
+class _Star {
+  final double x, y, size, phase, speed;
+  const _Star({
+    required this.x,
+    required this.y,
+    required this.size,
+    required this.phase,
+    required this.speed,
+  });
 }
 
 class _CalmShapesPainter extends CustomPainter {
@@ -2196,7 +2176,7 @@ class _CalmShapesPainter extends CustomPainter {
       o.bgColor != bgColor;
 }
 
-// ── Todo model ────────────────────────────────────────────────────────────────
+// Todo model
 
 class _TodoItem {
   final String id;

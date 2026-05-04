@@ -1,24 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:async';
 import 'dart:math' as math;
 import '../services/breathing_service.dart';
+import '../services/firebase_service.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/nuru_theme_extension.dart';
 
-// ══════════════════════════════════════════════════════════════
 // BREATHING EXERCISE SCREEN
-//
-// Design language: NuruAI Night Blue — same stars + glassmorphism
-// as journal and home screens. No bright coloured gradients.
-//
-// Flow:
-//   1. Technique grid → tap to open detail sheet
-//   2. Detail sheet: description, autism note, pattern, research
-//   3. Start → full-screen breathing animation with animated circle
-//   4. Complete → celebration + option to repeat or go back
-// ══════════════════════════════════════════════════════════════
-
 class BreathingExerciseScreen extends StatefulWidget {
   final Map<String, dynamic>? userData;
   const BreathingExerciseScreen({Key? key, this.userData}) : super(key: key);
@@ -30,21 +20,25 @@ class BreathingExerciseScreen extends StatefulWidget {
 
 class _BreathingExerciseScreenState extends State<BreathingExerciseScreen>
     with TickerProviderStateMixin {
-  // ── Animation controllers ────────────────────────────────
+  // Animation controllers
   late final AnimationController _starController;
   late final AnimationController _shapeController;
-  late final AnimationController _circleController; // breathing orb
-  late final AnimationController _pulseController; // outer ring pulse
+  late final AnimationController _circleController;
+  late final AnimationController _pulseController;
 
-  // ── Breathing state ──────────────────────────────────────
-  BreathingTechnique? _active; // currently running technique
-  int _phase = 0; // 0=inhale 1=hold 2=exhale 3=hold
+  // Breathing state
+  BreathingTechnique? _active;
+  int _phase = 0;
   int _countdown = 0;
   int _cycle = 0;
   bool _running = false;
   Timer? _timer;
+  DateTime? _sessionStart;
 
-  // ── Star painter data ────────────────────────────────────
+  // Category filter
+  BreathingCategory? _selectedCategory;
+
+  //  Star painter data
   final List<_Star> _stars = [];
   final math.Random _rng = math.Random(42);
 
@@ -98,7 +92,7 @@ class _BreathingExerciseScreenState extends State<BreathingExerciseScreen>
     super.dispose();
   }
 
-  // ── Breathing engine ─────────────────────────────────────
+  // Breathing engine
 
   void _start(BreathingTechnique t) {
     _timer?.cancel();
@@ -108,6 +102,7 @@ class _BreathingExerciseScreenState extends State<BreathingExerciseScreen>
       _cycle = 0;
       _running = true;
       _countdown = _firstNonZeroPhase(t.pattern);
+      _sessionStart = DateTime.now();
     });
     _animatePhase();
     _tick();
@@ -190,7 +185,7 @@ class _BreathingExerciseScreenState extends State<BreathingExerciseScreen>
     });
   }
 
-  // ── Phase helpers ────────────────────────────────────────
+  // Phase helpers
 
   static const _phaseLabels = ['Breathe In', 'Hold', 'Breathe Out', 'Hold'];
   static const _phaseIcons = [
@@ -218,7 +213,7 @@ class _BreathingExerciseScreenState extends State<BreathingExerciseScreen>
     }
   }
 
-  // ── Sheets ───────────────────────────────────────────────
+  // Sheets
 
   void _showDetailSheet(BreathingTechnique technique) {
     // Kick off API enrichment in background
@@ -241,6 +236,20 @@ class _BreathingExerciseScreenState extends State<BreathingExerciseScreen>
   }
 
   void _showCompletionSheet() {
+    // Save session to Firestore
+    final uid = widget.userData?['uid'] as String? ?? '';
+    if (uid.isNotEmpty && _active != null) {
+      final durationSecs = _sessionStart != null
+          ? DateTime.now().difference(_sessionStart!).inSeconds
+          : (_active!.pattern.fold<int>(0, (a, b) => a + b) * (_cycle + 1));
+      NuruFirebaseService.instance.saveBreathingSession(
+        uid: uid,
+        techniqueName: _active!.name,
+        cyclesCompleted: _cycle + 1,
+        durationSecs: durationSecs,
+      );
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -251,7 +260,10 @@ class _BreathingExerciseScreenState extends State<BreathingExerciseScreen>
         cyclesCompleted: _cycle + 1,
         onDone: () {
           Navigator.pop(context);
-          setState(() => _active = null);
+          setState(() {
+            _active = null;
+            _sessionStart = null;
+          });
         },
         onRepeat: () {
           Navigator.pop(context);
@@ -261,72 +273,81 @@ class _BreathingExerciseScreenState extends State<BreathingExerciseScreen>
     );
   }
 
-  // ══════════════════════════════════════════════════════════
   // BUILD
-  // ══════════════════════════════════════════════════════════
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: context.nuruTheme.backgroundStart,
-      body: Stack(
-        children: [
-          // ── Background gradient ──
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Color(0xFF081F44),
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+        systemNavigationBarColor: Color(0xFF081F44),
+        systemNavigationBarIconBrightness: Brightness.light,
+      ),
+      child: Scaffold(
+        backgroundColor: const Color(0xFF081F44),
+        body: Stack(
+          children: [
+            // ── Background gradient ──
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: context.nuruTheme.gradientColors,
+                ),
+              ),
+            ),
+
+            // ── Stars ──
+            AnimatedBuilder(
+              animation: _starController,
+              builder: (_, __) => CustomPaint(
+                size: Size.infinite,
+                painter: _StarsPainter(_stars, _starController.value),
+              ),
+            ),
+
+            // ── Organic shapes ──
+            AnimatedBuilder(
+              animation: _shapeController,
+              builder: (_, __) => CustomPaint(
+                size: Size.infinite,
+                painter: _ShapesPainter(
+                  _shapeController.value,
                   context.nuruTheme.accentColor,
-                  context.nuruTheme.backgroundEnd,
-                ],
+                ),
               ),
             ),
-          ),
 
-          // ── Stars ──
-          AnimatedBuilder(
-            animation: _starController,
-            builder: (_, __) => CustomPaint(
-              size: Size.infinite,
-              painter: _StarsPainter(_stars, _starController.value),
+            // ── Content ──
+            SafeArea(
+              top: false,
+              child: _running ? _buildExerciseView() : _buildSelectorView(),
             ),
-          ),
-
-          // ── Organic shapes ──
-          AnimatedBuilder(
-            animation: _shapeController,
-            builder: (_, __) => CustomPaint(
-              size: Size.infinite,
-              painter: _ShapesPainter(
-                _shapeController.value,
-                context.nuruTheme.accentColor,
-              ),
-            ),
-          ),
-
-          // ── Content ──
-          SafeArea(
-            child: _running ? _buildExerciseView() : _buildSelectorView(),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  // ══════════════════════════════════════════════════════════
   // TECHNIQUE SELECTOR
-  // ══════════════════════════════════════════════════════════
-
   Widget _buildSelectorView() {
-    final techniques = BreathingService.techniques;
+    final allTechniques = BreathingService.techniques;
+    final techniques = _selectedCategory == null
+        ? allTechniques
+        : allTechniques.where((t) => t.category == _selectedCategory).toList();
 
     return Column(
       children: [
         // Header
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+          padding: EdgeInsets.fromLTRB(
+            20,
+            MediaQuery.of(context).padding.top + 12,
+            20,
+            0,
+          ),
           child: Row(
             children: [
               _GlassButton(
@@ -350,7 +371,7 @@ class _BreathingExerciseScreenState extends State<BreathingExerciseScreen>
                       'Evidence-based • Autism-adapted',
                       style: TextStyle(
                         fontSize: 13,
-                        color: context.nuruTheme.accentColor.withOpacity(0.4),
+                        color: Colors.white.withOpacity(0.5),
                       ),
                     ),
                   ],
@@ -360,22 +381,37 @@ class _BreathingExerciseScreenState extends State<BreathingExerciseScreen>
           ),
         ),
 
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
 
-        // Category legend
+        // Category filter chips
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              children: BreathingCategory.values
-                  .map(
-                    (c) => Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: _CategoryChip(category: c),
+              children: [
+                // "All" chip
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: _CategoryChip(
+                    label: 'All',
+                    emoji: '✨',
+                    isSelected: _selectedCategory == null,
+                    onTap: () => setState(() => _selectedCategory = null),
+                  ),
+                ),
+                ...BreathingCategory.values.map(
+                  (c) => Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: _CategoryChip(
+                      label: c.name[0].toUpperCase() + c.name.substring(1),
+                      emoji: _categoryEmoji(c),
+                      isSelected: _selectedCategory == c,
+                      onTap: () => setState(() => _selectedCategory = c),
                     ),
-                  )
-                  .toList(),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -384,31 +420,58 @@ class _BreathingExerciseScreenState extends State<BreathingExerciseScreen>
 
         // Technique cards
         Expanded(
-          child: ListView.separated(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
-            itemCount: techniques.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 14),
-            itemBuilder: (_, i) => _TechniqueCard(
-              technique: techniques[i],
-              onTap: () => _showDetailSheet(techniques[i]),
-            ),
-          ),
+          child: techniques.isEmpty
+              ? Center(
+                  child: Text(
+                    'No techniques in this category',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.5),
+                      fontSize: 14,
+                    ),
+                  ),
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+                  itemCount: techniques.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 14),
+                  itemBuilder: (_, i) => _TechniqueCard(
+                    technique: techniques[i],
+                    onTap: () => _showDetailSheet(techniques[i]),
+                  ),
+                ),
         ),
       ],
     );
   }
 
-  // ══════════════════════════════════════════════════════════
-  // EXERCISE VIEW
-  // ══════════════════════════════════════════════════════════
+  String _categoryEmoji(BreathingCategory cat) {
+    switch (cat) {
+      case BreathingCategory.regulation:
+        return '🧩';
+      case BreathingCategory.anxiety:
+        return '⚡';
+      case BreathingCategory.focus:
+        return '🎯';
+      case BreathingCategory.sleep:
+        return '🌙';
+      case BreathingCategory.grounding:
+        return '🌿';
+    }
+  }
 
+  // EXERCISE VIEW
   Widget _buildExerciseView() {
     final t = _active!;
     return Column(
       children: [
         // Header
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+          padding: EdgeInsets.fromLTRB(
+            20,
+            MediaQuery.of(context).padding.top + 12,
+            20,
+            0,
+          ),
           child: Row(
             children: [
               _GlassButton(icon: Icons.close_rounded, onTap: _stop),
@@ -585,7 +648,7 @@ class _BreathingExerciseScreenState extends State<BreathingExerciseScreen>
               ),
               boxShadow: [
                 BoxShadow(
-                  color: context.nuruTheme.accentColor.withOpacity(0.12),
+                  color: context.nuruTheme.accentColor.withOpacity(0.28),
                   blurRadius: 30,
                   spreadRadius: 10,
                 ),
@@ -671,10 +734,7 @@ class _BreathingExerciseScreenState extends State<BreathingExerciseScreen>
   }
 }
 
-// ══════════════════════════════════════════════════════════════
 // TECHNIQUE CARD
-// ══════════════════════════════════════════════════════════════
-
 class _TechniqueCard extends StatelessWidget {
   final BreathingTechnique technique;
   final VoidCallback onTap;
@@ -688,14 +748,7 @@ class _TechniqueCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(22),
         child: Container(
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                context.nuruTheme.backgroundMid,
-                context.nuruTheme.backgroundStart,
-              ],
-            ),
+            color: const Color(0xFF081F44),
             borderRadius: BorderRadius.circular(22),
             border: Border.all(
               color: context.nuruTheme.accentColor.withOpacity(0.4),
@@ -832,10 +885,7 @@ class _PatternPreview extends StatelessWidget {
   }
 }
 
-// ══════════════════════════════════════════════════════════════
 // DETAIL SHEET
-// ══════════════════════════════════════════════════════════════
-
 class _DetailSheet extends StatefulWidget {
   final BreathingTechnique technique;
   final VoidCallback onStart;
@@ -856,14 +906,7 @@ class _DetailSheetState extends State<_DetailSheet> {
       maxChildSize: 0.96,
       builder: (_, controller) => Container(
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              context.nuruTheme.backgroundMid,
-              context.nuruTheme.backgroundStart,
-            ],
-          ),
+          color: const Color(0xFF081F44),
           borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         ),
         child: Column(
@@ -1033,9 +1076,8 @@ class _DetailSheetState extends State<_DetailSheet> {
                                   color: Colors.white.withOpacity(0.04),
                                   borderRadius: BorderRadius.circular(14),
                                   border: Border.all(
-                                    color: const Color(
-                                      0xFF4569AD,
-                                    ).withOpacity(0.2),
+                                    color: context.nuruTheme.accentColor
+                                        .withOpacity(0.2),
                                   ),
                                 ),
                                 child: Column(
@@ -1288,10 +1330,7 @@ class _DetailSheetState extends State<_DetailSheet> {
   }
 }
 
-// ══════════════════════════════════════════════════════════════
 // COMPLETION SHEET
-// ══════════════════════════════════════════════════════════════
-
 class _CompletionSheet extends StatelessWidget {
   final BreathingTechnique technique;
   final int cyclesCompleted;
@@ -1310,14 +1349,7 @@ class _CompletionSheet extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 32, 24, 40),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            context.nuruTheme.backgroundMid,
-            context.nuruTheme.backgroundStart,
-          ],
-        ),
+        color: const Color(0xFF081F44),
         borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
       ),
       child: Column(
@@ -1437,10 +1469,7 @@ class _CompletionSheet extends StatelessWidget {
   }
 }
 
-// ══════════════════════════════════════════════════════════════
 // SMALL WIDGETS
-// ══════════════════════════════════════════════════════════════
-
 class _GlassButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
@@ -1495,26 +1524,62 @@ class _DifficultyBadge extends StatelessWidget {
 }
 
 class _CategoryChip extends StatelessWidget {
-  final BreathingCategory category;
-  const _CategoryChip({required this.category});
+  final String label;
+  final String emoji;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _CategoryChip({
+    required this.label,
+    required this.emoji,
+    required this.isSelected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final label = category.name[0].toUpperCase() + category.name.substring(1);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: context.nuruTheme.accentColor.withOpacity(0.3),
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? context.nuruTheme.accentColor
+              : const Color(0xFF081F44),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: isSelected
+                ? context.nuruTheme.accentColor
+                : Colors.white.withOpacity(0.25),
+            width: 1.5,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: context.nuruTheme.accentColor.withOpacity(0.4),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : [],
         ),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 12,
-          color: context.nuruTheme.accentColor.withOpacity(0.6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 14)),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: isSelected
+                    ? Colors.white
+                    : Colors.white.withOpacity(0.85),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -1530,20 +1595,21 @@ class _InfoChip extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
     decoration: BoxDecoration(
-      color: Colors.white.withOpacity(0.04),
+      color: const Color(0xFF081F44),
       borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: context.nuruTheme.accentColor.withOpacity(0.2)),
+      border: Border.all(color: Colors.white.withOpacity(0.25)),
     ),
     child: Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(icon, color: context.nuruTheme.accentColor, size: 16),
+        Icon(icon, color: Colors.white, size: 16),
         SizedBox(width: 8),
         Text(
           label,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 13,
-            color: context.nuruTheme.accentColor.withOpacity(0.6),
+            color: Colors.white,
+            fontWeight: FontWeight.w500,
           ),
         ),
       ],
@@ -1574,10 +1640,7 @@ class _SheetSection extends StatelessWidget {
   );
 }
 
-// ══════════════════════════════════════════════════════════════
 // PAINTERS
-// ══════════════════════════════════════════════════════════════
-
 class _Star {
   final double x, y, size, phase, speed;
   const _Star({
@@ -1624,7 +1687,7 @@ class _ShapesPainter extends CustomPainter {
     final paint = Paint()..style = PaintingStyle.fill;
     final dy = math.sin(t * math.pi) * 30;
 
-    paint.color = accentColor.withOpacity(0.07);
+    paint.color = accentColor.withOpacity(0.22);
     canvas.drawPath(
       Path()
         ..moveTo(0, dy)

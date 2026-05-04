@@ -8,25 +8,8 @@ import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/nuru_theme_extension.dart';
 
-// ══════════════════════════════════════════════════════════════
 // ANGER MANAGEMENT SCREEN
-//
-// Two modes:
-//   1. BROWSE   — grid of technique cards, each with a short
-//                 description and "Start" button.
-//   2. SESSION  — full-screen guided exercise. The user is
-//                 walked through the technique step by step
-//                 with a countdown timer, animated visual,
-//                 and spoken step prompts. No reading required.
-//
-// Each technique defines a session plan: a list of Steps.
-// A Step has:
-//   • instruction — what to do RIGHT NOW (1 line)
-//   • durationSec — how long to hold this step
-//   • visual      — what the animated orb does (expand/contract/pulse/still)
-// ══════════════════════════════════════════════════════════════
-
-// ── Session data model ────────────────────────────────────────
+//  Session data model
 
 enum _Visual { expand, contract, pulse, still, shake }
 
@@ -41,10 +24,10 @@ class _SessionPlan {
   final String id;
   final String title;
   final String emoji;
-  final String why; // one-line science note shown during session
+  final String why;
   final Color color;
   final List<_Step> steps;
-  final int repeatCycles; // how many times to loop the steps
+  final int repeatCycles;
   const _SessionPlan({
     required this.id,
     required this.title,
@@ -56,8 +39,6 @@ class _SessionPlan {
   });
 }
 
-// ─────────────────────────────────────────────────────────────
-
 class AngerManagementScreen extends StatefulWidget {
   final Map<String, dynamic>? userData;
   const AngerManagementScreen({Key? key, this.userData}) : super(key: key);
@@ -67,13 +48,13 @@ class AngerManagementScreen extends StatefulWidget {
 
 class _AngerManagementScreenState extends State<AngerManagementScreen>
     with TickerProviderStateMixin {
-  // ── Controllers ───────────────────────────────────────────
+  // Controllers
   late final AnimationController _starCtrl;
   late final AnimationController _orbCtrl;
   late final AnimationController _pulseCtrl;
   late final AnimationController _shakeCtrl;
 
-  // ── Data ──────────────────────────────────────────────────
+  // Data
   bool _loading = false;
   String? _error;
   List<AngerResourceItem> _items = [];
@@ -81,21 +62,17 @@ class _AngerManagementScreenState extends State<AngerManagementScreen>
 
   final _svc = AngerManagementService.instance;
 
-  // ── Active session state ──────────────────────────────────
-  _SessionPlan? _session; // currently running plan
+  // Active session state
+  _SessionPlan? _session;
   int _stepIndex = 0;
   int _countdown = 0;
   int _cycle = 0;
   bool _running = false;
   Timer? _timer;
 
-  // ── Palette ───────────────────────────────────────────────
+  // Palette
 
-  // ══════════════════════════════════════════════════════════
-  // SESSION PLANS — each is a full guided exercise
-  // Ordered fastest → slowest (30 sec → 5 min)
-  // ══════════════════════════════════════════════════════════
-
+  // SESSION PLANS
   static final List<_SessionPlan> _plans = [
     _SessionPlan(
       id: 'physiological_sigh',
@@ -289,7 +266,7 @@ class _AngerManagementScreenState extends State<AngerManagementScreen>
     ),
   ];
 
-  // ── Tabs ──────────────────────────────────────────────────
+  // Tabs
 
   static const _tabs = [
     {'id': 'techniques', 'label': 'Techniques', 'emoji': '🛠️'},
@@ -346,7 +323,7 @@ class _AngerManagementScreenState extends State<AngerManagementScreen>
     super.dispose();
   }
 
-  // ── Data loading ──────────────────────────────────────────
+  // Data loading
 
   Future<void> _load({bool forceRefresh = false}) async {
     setState(() {
@@ -386,10 +363,7 @@ class _AngerManagementScreenState extends State<AngerManagementScreen>
     }
   }
 
-  // ══════════════════════════════════════════════════════════
   // SESSION ENGINE
-  // ══════════════════════════════════════════════════════════
-
   void _startSession(_SessionPlan plan) {
     _timer?.cancel();
     _orbCtrl.stop();
@@ -491,14 +465,7 @@ class _AngerManagementScreenState extends State<AngerManagementScreen>
           child: Container(
             padding: const EdgeInsets.fromLTRB(28, 28, 28, 48),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  context.nuruTheme.backgroundMid.withOpacity(0.97),
-                  context.nuruTheme.backgroundStart.withOpacity(0.99),
-                ],
-              ),
+              color: const Color(0xFF081F44),
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(32),
               ),
@@ -599,17 +566,16 @@ class _AngerManagementScreenState extends State<AngerManagementScreen>
     );
   }
 
-  // ══════════════════════════════════════════════════════════
   // BUILD
-  // ══════════════════════════════════════════════════════════
-
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Color(0xFF081F44),
         statusBarIconBrightness: Brightness.light,
         statusBarBrightness: Brightness.dark,
+        systemNavigationBarColor: Color(0xFF081F44),
+        systemNavigationBarIconBrightness: Brightness.light,
       ),
       child: Scaffold(
         backgroundColor: context.nuruTheme.backgroundStart,
@@ -621,10 +587,7 @@ class _AngerManagementScreenState extends State<AngerManagementScreen>
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [
-                    context.nuruTheme.accentColor,
-                    context.nuruTheme.backgroundEnd,
-                  ],
+                  colors: context.nuruTheme.gradientColors,
                 ),
               ),
             ),
@@ -643,6 +606,7 @@ class _AngerManagementScreenState extends State<AngerManagementScreen>
               _buildActiveSession(_session!)
             else
               SafeArea(
+                top: false,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -666,10 +630,7 @@ class _AngerManagementScreenState extends State<AngerManagementScreen>
     );
   }
 
-  // ══════════════════════════════════════════════════════════
   // ACTIVE SESSION UI
-  // ══════════════════════════════════════════════════════════
-
   Widget _buildActiveSession(_SessionPlan plan) {
     final step = plan.steps[_stepIndex];
     final totalSteps = plan.steps.length;
@@ -683,7 +644,7 @@ class _AngerManagementScreenState extends State<AngerManagementScreen>
     return SafeArea(
       child: Column(
         children: [
-          // ── Top bar ───────────────────────────────────────
+          // Top bar
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
             child: Row(
@@ -694,7 +655,7 @@ class _AngerManagementScreenState extends State<AngerManagementScreen>
                     width: 42,
                     height: 42,
                     decoration: BoxDecoration(
-                      color: context.nuruTheme.backgroundStart.withOpacity(0.5),
+                      color: const Color(0xFF081F44),
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
                         color: plan.color.withOpacity(0.5),
@@ -737,7 +698,7 @@ class _AngerManagementScreenState extends State<AngerManagementScreen>
             ),
           ),
 
-          // ── Progress bar ──────────────────────────────────
+          // Progress bar
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
             child: ClipRRect(
@@ -751,7 +712,7 @@ class _AngerManagementScreenState extends State<AngerManagementScreen>
             ),
           ),
 
-          // ── Step dots ─────────────────────────────────────
+          //  Step dots
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
             child: Row(
@@ -777,7 +738,7 @@ class _AngerManagementScreenState extends State<AngerManagementScreen>
             ),
           ),
 
-          // ── Orb ───────────────────────────────────────────
+          // Orb
           Expanded(
             child: Center(
               child: AnimatedBuilder(
@@ -787,7 +748,7 @@ class _AngerManagementScreenState extends State<AngerManagementScreen>
             ),
           ),
 
-          // ── Countdown ─────────────────────────────────────
+          // Countdown
           Text(
             '$_countdown',
             style: TextStyle(
@@ -807,7 +768,7 @@ class _AngerManagementScreenState extends State<AngerManagementScreen>
 
           const SizedBox(height: 24),
 
-          // ── Instruction ───────────────────────────────────
+          // Instruction
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 28),
             child: AnimatedSwitcher(
@@ -839,7 +800,7 @@ class _AngerManagementScreenState extends State<AngerManagementScreen>
 
           const SizedBox(height: 16),
 
-          // ── Why it works note ─────────────────────────────
+          // Why it works note
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 28),
             child: Text(
@@ -855,7 +816,7 @@ class _AngerManagementScreenState extends State<AngerManagementScreen>
 
           const SizedBox(height: 32),
 
-          // ── Stop button ───────────────────────────────────
+          // Stop button
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
             child: GestureDetector(
@@ -960,10 +921,7 @@ class _AngerManagementScreenState extends State<AngerManagementScreen>
     );
   }
 
-  // ══════════════════════════════════════════════════════════
   // BROWSE UI
-  // ══════════════════════════════════════════════════════════
-
   Widget _buildAppBar() {
     return ClipRRect(
       borderRadius: const BorderRadius.only(
@@ -973,16 +931,14 @@ class _AngerManagementScreenState extends State<AngerManagementScreen>
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Container(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          padding: EdgeInsets.fromLTRB(
+            20,
+            MediaQuery.of(context).padding.top + 12,
+            20,
+            20,
+          ),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                context.nuruTheme.backgroundMid.withOpacity(0.75),
-                context.nuruTheme.backgroundStart.withOpacity(0.80),
-              ],
-            ),
+            color: const Color(0xFF081F44),
             border: Border(
               bottom: BorderSide(
                 color: context.nuruTheme.accentColor.withOpacity(0.4),
@@ -1034,7 +990,7 @@ class _AngerManagementScreenState extends State<AngerManagementScreen>
     width: 42,
     height: 42,
     decoration: BoxDecoration(
-      color: context.nuruTheme.backgroundStart.withOpacity(0.5),
+      color: const Color(0xFF081F44),
       borderRadius: BorderRadius.circular(14),
       border: Border.all(
         color: context.nuruTheme.accentColor.withOpacity(0.5),
@@ -1129,7 +1085,7 @@ class _AngerManagementScreenState extends State<AngerManagementScreen>
     return _buildGenericList(items);
   }
 
-  // ── Technique grid ────────────────────────────────────────
+  // Technique grid
 
   Widget _buildTechniqueGrid() {
     return ScrollConfiguration(
@@ -1217,7 +1173,7 @@ class _AngerManagementScreenState extends State<AngerManagementScreen>
               ),
               boxShadow: [
                 BoxShadow(
-                  color: context.nuruTheme.backgroundStart.withOpacity(0.5),
+                  color: const Color(0xFF081F44),
                   blurRadius: 14,
                   offset: const Offset(0, 5),
                 ),
@@ -1366,7 +1322,7 @@ class _AngerManagementScreenState extends State<AngerManagementScreen>
     return s > 0 ? '~${m}m ${s}s' : '~${m}m';
   }
 
-  // ── Generic list (guides, books, research) ────────────────
+  // Generic list (guides, books, research)
 
   Widget _buildGenericList(List<AngerResourceItem> items) {
     final accent = _tabColor(_tab);
@@ -1529,14 +1485,7 @@ class _AngerManagementScreenState extends State<AngerManagementScreen>
             filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
             child: Container(
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    context.nuruTheme.backgroundMid.withOpacity(0.97),
-                    context.nuruTheme.backgroundStart.withOpacity(0.99),
-                  ],
-                ),
+                color: const Color(0xFF081F44),
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(32),
                 ),
@@ -1586,9 +1535,7 @@ class _AngerManagementScreenState extends State<AngerManagementScreen>
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: context.nuruTheme.backgroundStart.withOpacity(
-                            0.4,
-                          ),
+                          color: const Color(0xFF081F44),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
                             color: context.nuruTheme.accentColor.withOpacity(
@@ -1630,7 +1577,7 @@ class _AngerManagementScreenState extends State<AngerManagementScreen>
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.open_in_new_rounded,
                                 color: Colors.white,
                                 size: 16,
@@ -1733,7 +1680,7 @@ class _AngerManagementScreenState extends State<AngerManagementScreen>
   );
 }
 
-// ── Stars ─────────────────────────────────────────────────────
+// Stars
 
 class _StarsPainter extends CustomPainter {
   final double twinkle;

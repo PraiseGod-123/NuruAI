@@ -113,7 +113,7 @@ class _FacialRecognitionSetupScreenState
 
         _cameraController = CameraController(
           frontCamera,
-          ResolutionPreset.low, // low resolution — enough for face detection
+          ResolutionPreset.low, // low resolution
           enableAudio: false,
         );
 
@@ -197,10 +197,7 @@ class _FacialRecognitionSetupScreenState
     );
   }
 
-  // ── Convert image file to compressed base64 string ────────────────────────
-  // Resizes the image to max 480px wide before encoding.
-  // This reduces a typical 1-2MB camera image to ~50KB,
-  // making the upload to the Flask API 20x faster.
+  // Convert image file to compressed base64 string
 
   Future<String> _imageToBase64(String imagePath) async {
     final bytes = await File(imagePath).readAsBytes();
@@ -222,12 +219,10 @@ class _FacialRecognitionSetupScreenState
     }
   }
 
-  // ── Complete setup — fire-and-forget, then show success immediately ──────────
-  // The API upload runs in the background. The user sees the success
-  // screen straight away and can continue without waiting.
+  // Complete setup — fire-and-forget, then show success immediately
 
   void _completeSetup() {
-    // Fire the API call in the background — do not block the user
+    // Fire the API call in the background
     _sendBaselineToApi();
 
     // Show the success dialog immediately
@@ -235,6 +230,7 @@ class _FacialRecognitionSetupScreenState
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1F3F74),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -254,7 +250,7 @@ class _FacialRecognitionSetupScreenState
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
-                color: NuruColors.dive,
+                color: Colors.white,
               ),
             ),
             SizedBox(height: 12),
@@ -263,7 +259,7 @@ class _FacialRecognitionSetupScreenState
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
-                color: NuruColors.deepSea,
+                color: Colors.white.withOpacity(0.8),
                 height: 1.5,
               ),
             ),
@@ -312,11 +308,10 @@ class _FacialRecognitionSetupScreenState
   }
 
   Future<void> _sendBaselineToApi() async {
-    // Fire and forget — runs silently in background, does not block UI
     if (mounted) setState(() => _isSendingToApi = true);
 
     try {
-      // Get the user ID — use Firebase UID if available, otherwise fall back
+      // Get the user ID
       final userId =
           widget.userData?['uid'] as String? ??
           widget.userData?['email'] as String? ??
@@ -345,7 +340,6 @@ class _FacialRecognitionSetupScreenState
       );
 
       if (!result.success) {
-        // Not a fatal error — user can still continue, baseline can be retried
         debugPrint('Baseline setup warning: ${result.message}');
       }
     } catch (e) {

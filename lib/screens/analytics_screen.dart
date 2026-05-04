@@ -6,26 +6,6 @@ import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/nuru_theme_extension.dart';
 
-// ══════════════════════════════════════════════════════════════════════════
-// NuruAI — AnalyticsScreen
-//
-// Renders ONLY real data from UserAnalytics (Firebase + ML backend).
-// Every section has a proper empty state for when:
-//   - The user is new and has no data yet
-//   - The ML backend is not yet connected
-//   - The user is offline
-//
-// Sections:
-//   1. Header           — greeting, points, streak (from Firebase)
-//   2. Today's Insight  — ML-generated wellbeing summary
-//   3. Wellbeing Score  — animated ring, 7-day sparkline (from backend)
-//   4. Mood Journey     — real logged moods from Firestore
-//   5. This Week        — real activity counts from Firestore
-//   6. Streak Calendar  — real 30-day activity from Firestore
-//   7. Weekly Report    — ML-generated weekly analysis
-//   8. Awards           — unlocked by real totalPoints from Firestore
-// ══════════════════════════════════════════════════════════════════════════
-
 class AnalyticsScreen extends StatefulWidget {
   final Map<String, dynamic>? userData;
   const AnalyticsScreen({Key? key, this.userData}) : super(key: key);
@@ -36,7 +16,6 @@ class AnalyticsScreen extends StatefulWidget {
 
 class _AnalyticsScreenState extends State<AnalyticsScreen>
     with TickerProviderStateMixin {
-  // ── Animation controllers ─────────────────────────────────────────────────
   late final AnimationController _starController;
   late final AnimationController _shapeController;
   late final AnimationController _scoreController;
@@ -46,38 +25,32 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
   late final Animation<Offset> _slideAnim;
   Animation<double>? _scoreAnim;
 
-  // ── State ─────────────────────────────────────────────────────────────────
   bool _loading = true;
   UserAnalytics? _analytics;
 
   final List<_Star> _stars = [];
   final math.Random _rng = math.Random();
-  String _selectedPeriod = 'Week';
+  String _selectedPeriod = 'Today';
 
   @override
   void initState() {
     super.initState();
-
     _starController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 3),
     )..repeat(reverse: true);
-
     _shapeController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 12),
     )..repeat(reverse: true);
-
     _scoreController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1800),
     );
-
     _entranceController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
     );
-
     _fadeAnim = CurvedAnimation(
       parent: _entranceController,
       curve: Curves.easeOut,
@@ -86,7 +59,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
         .animate(
           CurvedAnimation(parent: _entranceController, curve: Curves.easeOut),
         );
-
     for (int i = 0; i < 63; i++) {
       _stars.add(
         _Star(
@@ -100,7 +72,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
         ),
       );
     }
-
     _loadData();
   }
 
@@ -119,10 +90,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
         widget.userData?['id'] as String? ??
         '';
     final analytics = await AnalyticsService.instance.loadUserAnalytics(userId);
-
     if (!mounted) return;
-
-    // Only animate the score ring if we actually have a score from the backend.
     final score = analytics.todayInsight?.wellbeingScore;
     if (score != null) {
       _scoreAnim = Tween<double>(begin: 0, end: score).animate(
@@ -130,19 +98,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
       );
       _scoreController.forward();
     }
-
     setState(() {
       _analytics = analytics;
       _loading = false;
     });
-
     _entranceController.forward();
   }
 
-  // ── Colour helpers ────────────────────────────────────────────────────────
-
   Color _scoreColour(double score) {
-    if (score >= 8) return Color(0xFF43E97B);
+    if (score >= 8) return const Color(0xFF43E97B);
     if (score >= 6) return context.nuruTheme.accentColor.withOpacity(0.6);
     if (score >= 4) return const Color(0xFFFFA751);
     return const Color(0xFFFA709A);
@@ -151,15 +115,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
   Color _moodColour(MoodValue mood) {
     switch (mood) {
       case MoodValue.happy:
-        return Color(0xFF43E97B);
+        return const Color(0xFF43E97B);
       case MoodValue.excited:
-        return Color(0xFFFFA751);
+        return const Color(0xFFFFA751);
       case MoodValue.calm:
         return context.nuruTheme.accentColor.withOpacity(0.6);
       case MoodValue.tired:
-        return Color(0xFF6E7D95);
+        return const Color(0xFF6E7D95);
       case MoodValue.anxious:
-        return Color(0xFFFFC107);
+        return const Color(0xFFFFC107);
       case MoodValue.sad:
         return context.nuruTheme.accentColor;
       case MoodValue.angry:
@@ -191,9 +155,32 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
     return 'Good evening, $first';
   }
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // BUILD
-  // ══════════════════════════════════════════════════════════════════════════
+  String _scoreLabel(double s) {
+    if (s >= 9) return 'Excellent';
+    if (s >= 7.5) return 'Great';
+    if (s >= 6) return 'Good';
+    if (s >= 4) return 'Fair';
+    return 'Needs attention';
+  }
+
+  String _slotDayLabel(DateTime date) {
+    final now = DateTime.now();
+    final diff = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).difference(DateTime(date.year, date.month, date.day)).inDays;
+    if (diff == 0) return 'Today';
+    if (diff == 1) return 'Yest';
+    const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return labels[date.weekday - 1];
+  }
+
+  String _weekRangeLabel() {
+    final now = DateTime.now();
+    final start = now.subtract(Duration(days: now.weekday - 1));
+    return '${start.day}/${start.month} – ${now.day}/${now.month}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -269,17 +256,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
     );
   }
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // HEADER
-  // ══════════════════════════════════════════════════════════════════════════
-
   Widget _buildHeader(UserAnalytics a) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Row 1 — back button + greeting
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -332,14 +314,13 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
             ],
           ),
           const SizedBox(height: 12),
-          // Row 2 — chips
           Row(
             children: [
               _GlassChip(
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('\u2728', style: TextStyle(fontSize: 14)),
+                    const Text('✨', style: TextStyle(fontSize: 14)),
                     const SizedBox(width: 5),
                     Text(
                       '${a.totalPoints} pts',
@@ -357,7 +338,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('\ud83d\udd25', style: TextStyle(fontSize: 14)),
+                    const Text('🔥', style: TextStyle(fontSize: 14)),
                     const SizedBox(width: 5),
                     Text(
                       '${a.streakData.currentStreak} day${a.streakData.currentStreak == 1 ? '' : 's'}',
@@ -377,10 +358,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
     );
   }
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // PERIOD SELECTOR
-  // ══════════════════════════════════════════════════════════════════════════
-
   Widget _buildPeriodSelector() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
@@ -390,13 +367,13 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
           return GestureDetector(
             onTap: () => setState(() => _selectedPeriod = p),
             child: AnimatedContainer(
-              duration: Duration(milliseconds: 220),
+              duration: const Duration(milliseconds: 220),
               margin: const EdgeInsets.only(right: 10),
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
               decoration: BoxDecoration(
                 color: active
                     ? context.nuruTheme.accentColor.withOpacity(0.45)
-                    : Colors.white.withOpacity(0.06),
+                    : const Color(0xFF081F44),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
                   color: active
@@ -420,18 +397,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
     );
   }
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // ══════════════════════════════════════════════════════════════════════════
-  // TODAY'S INSIGHT  — activity radar chart + mood distribution chart
-  // Shows real data when available; clean empty chart skeleton when not.
-  // ══════════════════════════════════════════════════════════════════════════
-
   Widget _buildTodayInsight(UserAnalytics a) {
     final insight = a.todayInsight;
     final moods = a.recentMoods;
     final activities = a.recentActivities;
-
-    // Count today's activity types from real data
     final todayStart = DateTime(
       DateTime.now().year,
       DateTime.now().month,
@@ -440,7 +409,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
     final todayActs = activities
         .where((e) => e.timestamp.isAfter(todayStart))
         .toList();
-
     final int journals = todayActs
         .where((e) => e.type == ActivityType.journalEntry)
         .length;
@@ -456,13 +424,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
     final int moodLogs = todayActs
         .where((e) => e.type == ActivityType.moodLog)
         .length;
-
-    // Today's mood from most recent entry
     final todayMood =
         moods.isNotEmpty && moods.first.timestamp.isAfter(todayStart)
         ? moods.first
         : null;
-
     final hasData = todayActs.isNotEmpty || todayMood != null;
     final score = insight?.wellbeingScore;
 
@@ -470,7 +435,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Section header ─────────────────────────────────────────────
           Row(
             children: [
               Container(
@@ -527,10 +491,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
             ],
           ),
           const SizedBox(height: 20),
-
-          // ── Activity radar chart ────────────────────────────────────────
-          // Shows real counts for today's 5 activity types.
-          // Renders as an empty skeleton with axis labels when no data yet.
           SizedBox(
             height: 200,
             child: CustomPaint(
@@ -551,221 +511,56 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                   'Mood',
                 ],
                 maxValue: 5,
-                colour: score != null
-                    ? _scoreColour(score)
-                    : context.nuruTheme.accentColor.withOpacity(0.6),
+                colour: context.nuruTheme.accentColor,
                 isEmpty: !hasData,
               ),
             ),
           ),
           const SizedBox(height: 16),
-
-          // ── Mood + score row ────────────────────────────────────────────
           Row(
             children: [
-              // Today's mood pill
               Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 12,
-                    horizontal: 14,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.05),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.white.withOpacity(0.08)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Mood today',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF6E7D95),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      todayMood != null
-                          ? Row(
-                              children: [
-                                Text(
-                                  todayMood.emoji,
-                                  style: const TextStyle(fontSize: 20),
-                                ),
-                                const SizedBox(width: 6),
-                                Flexible(
-                                  child: Text(
-                                    todayMood.label,
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.white,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                    maxLines: 1,
-                                  ),
-                                ),
-                              ],
-                            )
-                          : const Text(
-                              'Not logged yet',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Color(0xFF6E7D95),
-                              ),
-                            ),
-                    ],
-                  ),
+                child: _miniTile(
+                  'Mood today',
+                  todayMood != null
+                      ? '${todayMood.emoji} ${todayMood.label}'
+                      : 'Not logged',
+                  hasValue: todayMood != null,
                 ),
               ),
               const SizedBox(width: 10),
-              // Score pill
               Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 12,
-                    horizontal: 14,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.05),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.white.withOpacity(0.08)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Wellbeing',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF6E7D95),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      score != null
-                          ? Row(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  score.toStringAsFixed(1),
-                                  style: TextStyle(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.bold,
-                                    color: _scoreColour(score),
-                                  ),
-                                ),
-                                const Text(
-                                  ' /10',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Color(0xFF6E7D95),
-                                  ),
-                                ),
-                              ],
-                            )
-                          : const Text(
-                              'Pending',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Color(0xFF6E7D95),
-                              ),
-                            ),
-                    ],
-                  ),
+                child: _miniTile(
+                  'Wellbeing',
+                  score != null ? '${score.toStringAsFixed(1)}/10' : '—',
+                  hasValue: score != null,
                 ),
               ),
               const SizedBox(width: 10),
-              // Activities today pill
               Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 12,
-                    horizontal: 14,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.05),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.white.withOpacity(0.08)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Activities',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF6E7D95),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        todayActs.isNotEmpty ? '${todayActs.length}' : '0',
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
+                child: _miniTile(
+                  'Activities',
+                  '${todayActs.length}',
+                  hasValue: hasData,
                 ),
               ),
             ],
           ),
-
-          // ── ML summary text (only when backend is live) ─────────────────
           if (insight?.isMLGenerated == true && insight?.summary != null) ...[
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.04),
+                color: const Color(0xFF081F44),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white.withOpacity(0.07)),
+                border: Border.all(color: Colors.white.withOpacity(0.12)),
               ),
               child: Text(
                 insight!.summary!,
                 style: TextStyle(
                   fontSize: 13.5,
-                  color: context.nuruTheme.accentColor.withOpacity(0.4),
+                  color: Colors.white.withOpacity(0.75),
                   height: 1.6,
-                ),
-              ),
-            ),
-          ],
-
-          // ── Suggestions (only when backend is live) ─────────────────────
-          if (insight?.isMLGenerated == true &&
-              (insight?.suggestions.isNotEmpty ?? false)) ...[
-            const SizedBox(height: 10),
-            ...insight!.suggestions.map(
-              (s) => Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      margin: const EdgeInsets.only(top: 6),
-                      width: 5,
-                      height: 5,
-                      decoration: BoxDecoration(
-                        color: context.nuruTheme.accentColor.withOpacity(0.6),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        s,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: context.nuruTheme.accentColor.withOpacity(0.6),
-                          height: 1.5,
-                        ),
-                      ),
-                    ),
-                  ],
                 ),
               ),
             ),
@@ -775,18 +570,49 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
     );
   }
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // WELLBEING SCORE  — from ML backend
-  // ══════════════════════════════════════════════════════════════════════════
+  Widget _miniTile(String label, String value, {bool hasValue = true}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF081F44),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withOpacity(0.12)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(fontSize: 11, color: Color(0xFF6E7D95)),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: hasValue ? Colors.white : const Color(0xFF6E7D95),
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildWellbeingScore(UserAnalytics a) {
     final score = a.todayInsight?.wellbeingScore;
     final scores = a.weeklyReport?.dailyScores ?? [];
-
     return _GlassSection(
       title: 'Wellbeing Score',
       child: score == null
-          ? _buildScorePending()
+          ? const _PendingBlock(
+              icon: '📊',
+              title: 'Score not yet available',
+              body:
+                  'Your wellbeing score will be calculated by NuruAI after it has enough data from your mood logs, journal entries, and activity.',
+            )
           : Row(
               children: [
                 SizedBox(
@@ -882,40 +708,14 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
     );
   }
 
-  Widget _buildScorePending() => const _PendingBlock(
-    icon: '\ud83d\udcca',
-    title: 'Score not yet available',
-    body:
-        'Your wellbeing score will be calculated by NuruAI after it has '
-        'enough data from your mood logs, journal entries, and activity.',
-  );
-
-  String _scoreLabel(double s) {
-    if (s >= 9) return 'Excellent';
-    if (s >= 7.5) return 'Great';
-    if (s >= 6) return 'Good';
-    if (s >= 4) return 'Fair';
-    return 'Needs attention';
-  }
-
-  // ══════════════════════════════════════════════════════════════════════════
-  // MOOD JOURNEY  — real logged moods from Firestore
-  // ══════════════════════════════════════════════════════════════════════════
-
   Widget _buildMoodJourney(UserAnalytics a) {
-    // moods come newest-first from Firestore
-    // We always show 7 slots: index 0 = 6 days ago, index 6 = today
-    final moods = a.recentMoods; // newest first
-
-    // Build a map of date-string → MoodEntry for fast lookup
+    final moods = a.recentMoods;
     final moodByDate = <String, MoodEntry>{};
     for (final m in moods) {
       final key =
           '${m.timestamp.year}-${m.timestamp.month.toString().padLeft(2, '0')}-${m.timestamp.day.toString().padLeft(2, '0')}';
       moodByDate.putIfAbsent(key, () => m);
     }
-
-    // Build 7 slots from 6 days ago → today
     final today = DateTime.now();
     final slots = List.generate(7, (i) {
       final date = today.subtract(Duration(days: 6 - i));
@@ -923,7 +723,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
           '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
       return _MoodSlot(date: date, entry: moodByDate[key]);
     });
-
     final loggedCount = slots.where((s) => s.entry != null).length;
 
     return _GlassSection(
@@ -931,86 +730,64 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
       subtitle: loggedCount == 0 ? 'No data yet' : 'Last 7 days',
       child: moods.isEmpty
           ? const _PendingBlock(
-              icon: '\ud83d\ude0c',
+              icon: '😌',
               title: 'No mood logs yet',
               body:
-                  'Log your mood each day from the home screen. '
-                  'Your mood history will appear here.',
+                  'Log your mood each day from the home screen. Your mood history will appear here.',
             )
-          : Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: List.generate(7, (i) {
-                    final slot = slots[i];
-                    final entry = slot.entry;
-                    final label = _slotDayLabel(slot.date);
-                    return Column(
-                      children: [
-                        AnimatedContainer(
-                          duration: Duration(milliseconds: 300 + i * 60),
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: entry != null
-                                ? _moodColour(entry.mood).withOpacity(0.18)
-                                : Colors.white.withOpacity(0.04),
-                            border: Border.all(
-                              color: entry != null
-                                  ? _moodColour(entry.mood).withOpacity(0.55)
-                                  : Colors.white.withOpacity(0.08),
-                              width: 1.5,
-                            ),
-                          ),
-                          child: Center(
-                            child: Text(
-                              entry?.emoji ?? '\u2014',
-                              style: TextStyle(
-                                fontSize: entry != null ? 18 : 10,
-                                color: entry != null ? null : Colors.white24,
-                              ),
-                            ),
-                          ),
+          : Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: List.generate(7, (i) {
+                final slot = slots[i];
+                final entry = slot.entry;
+                final label = _slotDayLabel(slot.date);
+                return Column(
+                  children: [
+                    AnimatedContainer(
+                      duration: Duration(milliseconds: 300 + i * 60),
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: entry != null
+                            ? _moodColour(entry.mood).withOpacity(0.18)
+                            : Colors.white.withOpacity(0.04),
+                        border: Border.all(
+                          color: entry != null
+                              ? _moodColour(entry.mood).withOpacity(0.55)
+                              : Colors.white.withOpacity(0.08),
+                          width: 1.5,
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          label,
+                      ),
+                      child: Center(
+                        child: Text(
+                          entry?.emoji ?? '—',
                           style: TextStyle(
-                            fontSize: 10,
-                            color: label == 'Today'
-                                ? Colors.white70
-                                : const Color(0xFF6E7D95),
-                            fontWeight: label == 'Today'
-                                ? FontWeight.w600
-                                : FontWeight.normal,
+                            fontSize: entry != null ? 18 : 10,
+                            color: entry != null ? null : Colors.white24,
                           ),
                         ),
-                      ],
-                    );
-                  }),
-                ),
-              ],
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: label == 'Today'
+                            ? Colors.white70
+                            : const Color(0xFF6E7D95),
+                        fontWeight: label == 'Today'
+                            ? FontWeight.w600
+                            : FontWeight.normal,
+                      ),
+                    ),
+                  ],
+                );
+              }),
             ),
     );
   }
-
-  String _slotDayLabel(DateTime date) {
-    final now = DateTime.now();
-    final diff = DateTime(
-      now.year,
-      now.month,
-      now.day,
-    ).difference(DateTime(date.year, date.month, date.day)).inDays;
-    if (diff == 0) return 'Today';
-    if (diff == 1) return 'Yest';
-    const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    return labels[date.weekday - 1];
-  }
-
-  // ══════════════════════════════════════════════════════════════════════════
-  // THIS WEEK STATS  — real counts from Firestore
-  // ══════════════════════════════════════════════════════════════════════════
 
   Widget _buildWeekStats(UserAnalytics a) {
     final report = a.weeklyReport;
@@ -1058,22 +835,16 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
               ],
             )
           : const _PendingBlock(
-              icon: '\ud83d\uddd3\ufe0f',
+              icon: '🗓️',
               title: 'No activity this week',
               body:
-                  'Your weekly activity counts will appear here as you '
-                  'journal, practise breathing, and use the app each day.',
+                  'Your weekly activity counts will appear here as you journal, practise breathing, and use the app each day.',
             ),
     );
   }
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // STREAK CALENDAR  — real data from Firestore
-  // ══════════════════════════════════════════════════════════════════════════
-
   Widget _buildStreakSection(UserAnalytics a) {
     final s = a.streakData;
-
     return _GlassSection(
       title: 'Streak',
       child: Column(
@@ -1084,7 +855,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                 child: _StreakCounter(
                   label: 'Current',
                   value: s.currentStreak,
-                  icon: '\ud83d\udd25',
+                  icon: '🔥',
                 ),
               ),
               const SizedBox(width: 12),
@@ -1092,7 +863,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                 child: _StreakCounter(
                   label: 'Longest',
                   value: s.longestStreak,
-                  icon: '\ud83c\udfc6',
+                  icon: '🏆',
                 ),
               ),
               const SizedBox(width: 12),
@@ -1100,7 +871,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                 child: _StreakCounter(
                   label: 'Total Days',
                   value: s.totalDaysActive,
-                  icon: '\u2b50',
+                  icon: '⭐',
                 ),
               ),
             ],
@@ -1116,11 +887,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
           const SizedBox(height: 10),
           s.last30Days.isEmpty
               ? const _PendingBlock(
-                  icon: '\ud83d\udcc5',
+                  icon: '📅',
                   title: 'Start your streak today',
                   body:
-                      'Open the app each day to build your streak. '
-                      'Your 30-day calendar will fill in as you go.',
+                      'Open the app each day to build your streak. Your 30-day calendar will fill in as you go.',
                 )
               : GridView.builder(
                   shrinkWrap: true,
@@ -1134,18 +904,17 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                   itemCount: 30,
                   itemBuilder: (_, i) {
                     final active = i < s.last30Days.length && s.last30Days[i];
+                    final isToday = i == s.last30Days.length - 1;
+                    final colour = context.nuruTheme.accentColor;
                     return Container(
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: active
-                            ? context.nuruTheme.accentColor.withOpacity(0.65)
+                            ? colour.withOpacity(0.65)
                             : Colors.white.withOpacity(0.05),
-                        border: Border.all(
-                          color: active
-                              ? context.nuruTheme.accentColor.withOpacity(0.45)
-                              : Colors.white.withOpacity(0.08),
-                          width: 1,
-                        ),
+                        border: isToday
+                            ? Border.all(color: colour, width: 1)
+                            : null,
                       ),
                     );
                   },
@@ -1155,24 +924,17 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
     );
   }
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // WEEKLY REPORT  — ML backend content or pending state
-  // ══════════════════════════════════════════════════════════════════════════
-
   Widget _buildWeeklyReport(UserAnalytics a) {
     final report = a.weeklyReport;
-
     return _GlassSection(
       title: 'Weekly Report',
       subtitle: _weekRangeLabel(),
       child: report == null || !report.isMLGenerated
           ? const _PendingBlock(
-              icon: '\ud83d\udcdd',
+              icon: '📝',
               title: 'Report not yet generated',
               body:
-                  'NuruAI will generate your weekly report once it has '
-                  'analysed a full week of your mood logs, journal entries, '
-                  'breathing sessions, and micro-expression data.',
+                  'NuruAI will generate your weekly report once it has analysed a full week of your mood logs, journal entries, breathing sessions, and micro-expression data.',
             )
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1205,142 +967,24 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                     ],
                   ),
                 if (report.overallSummary != null) ...[
-                  SizedBox(height: 12),
+                  const SizedBox(height: 12),
                   Text(
                     report.overallSummary!,
                     style: TextStyle(
-                      fontSize: 14.5,
-                      color: context.nuruTheme.accentColor.withOpacity(0.4),
+                      fontSize: 13.5,
+                      color: Colors.white.withOpacity(0.75),
                       height: 1.6,
                     ),
                   ),
                 ],
-                if (report.dailyScores.length == 7) ...[
-                  const SizedBox(height: 20),
-                  _buildDailyBars(report.dailyScores),
-                ],
-                if (report.weeklyHighlights.isNotEmpty) ...[
-                  const SizedBox(height: 20),
-                  ...report.weeklyHighlights.map(
-                    (h) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            margin: const EdgeInsets.only(top: 5),
-                            width: 6,
-                            height: 6,
-                            decoration: BoxDecoration(
-                              color: context.nuruTheme.accentColor,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              h,
-                              style: TextStyle(
-                                fontSize: 13.5,
-                                color: context.nuruTheme.accentColor
-                                    .withOpacity(0.6),
-                                height: 1.5,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
               ],
             ),
     );
   }
-
-  String _weekRangeLabel() {
-    final now = DateTime.now();
-    final start = now.subtract(Duration(days: now.weekday - 1));
-    final end = start.add(const Duration(days: 6));
-    final months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return '${start.day} ${months[start.month - 1]} – ${end.day} ${months[end.month - 1]}';
-  }
-
-  Widget _buildDailyBars(List<double> scores) {
-    const days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-    final maxS = scores.reduce(math.max);
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: List.generate(7, (i) {
-        final s = scores[i];
-        final isToday = i == DateTime.now().weekday - 1;
-        final ratio = maxS > 0 ? s / maxS : 0.0;
-        final colour = isToday
-            ? _scoreColour(s)
-            : context.nuruTheme.accentColor;
-
-        return Expanded(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 3),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                if (isToday)
-                  Text(
-                    s.toStringAsFixed(1),
-                    style: TextStyle(fontSize: 9, color: colour),
-                  ),
-                const SizedBox(height: 3),
-                AnimatedContainer(
-                  duration: Duration(milliseconds: 400 + i * 80),
-                  curve: Curves.easeOut,
-                  height: 60 * ratio.clamp(0.08, 1.0),
-                  decoration: BoxDecoration(
-                    color: colour.withOpacity(isToday ? 0.75 : 0.32),
-                    borderRadius: BorderRadius.circular(5),
-                    border: isToday
-                        ? Border.all(color: colour, width: 1)
-                        : null,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  days[i],
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: Color(0xFF6E7D95),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      }),
-    );
-  }
-
-  // ══════════════════════════════════════════════════════════════════════════
-  // AWARDS  — unlock status driven by real totalPoints
-  // ══════════════════════════════════════════════════════════════════════════
 
   Widget _buildAwardsSection(UserAnalytics a) {
     final unlocked = a.awards.where((x) => x.isUnlocked).toList();
     final locked = a.awards.where((x) => !x.isUnlocked).toList();
-
     return _GlassSection(
       title: 'Awards',
       subtitle: '${unlocked.length} of ${a.awards.length} unlocked',
@@ -1349,12 +993,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
         children: [
           if (unlocked.isEmpty)
             const _PendingBlock(
-              icon: '\ud83c\udfc5',
+              icon: '🏅',
               title: 'No awards yet',
               body:
-                  'Awards are earned through real engagement. '
-                  'Keep journaling, logging your mood, and using '
-                  'breathing exercises to unlock your first award.',
+                  'Awards are earned through real engagement. Keep journaling, logging your mood, and using breathing exercises to unlock your first award.',
             )
           else ...[
             const Text(
@@ -1402,11 +1044,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
   }
 }
 
-// ══════════════════════════════════════════════════════════════════════════
-// SMALL REUSABLE WIDGETS
-// ══════════════════════════════════════════════════════════════════════════
-
-/// Standard glass card section.
+// REUSABLE WIDGETS
 class _MoodSlot {
   final DateTime date;
   final MoodEntry? entry;
@@ -1417,7 +1055,6 @@ class _GlassSection extends StatelessWidget {
   final Widget child;
   final String? title;
   final String? subtitle;
-
   const _GlassSection({required this.child, this.title, this.subtitle});
 
   @override
@@ -1426,23 +1063,13 @@ class _GlassSection extends StatelessWidget {
     child: ClipRRect(
       borderRadius: BorderRadius.circular(22),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
         child: Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                context.nuruTheme.backgroundMid,
-                context.nuruTheme.backgroundStart,
-              ],
-            ),
+            color: const Color(0xFF081F44).withOpacity(0.85),
             borderRadius: BorderRadius.circular(22),
-            border: Border.all(
-              color: context.nuruTheme.accentColor.withOpacity(0.35),
-              width: 1.5,
-            ),
+            border: Border.all(color: Colors.white.withOpacity(0.12), width: 1),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1481,12 +1108,10 @@ class _GlassSection extends StatelessWidget {
   );
 }
 
-/// Empty / pending state block shown when no real data is available yet.
 class _PendingBlock extends StatelessWidget {
   final String icon;
   final String title;
   final String body;
-
   const _PendingBlock({
     required this.icon,
     required this.title,
@@ -1497,9 +1122,9 @@ class _PendingBlock extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
-      color: Colors.white.withOpacity(0.04),
+      color: const Color(0xFF081F44),
       borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: Colors.white.withOpacity(0.07)),
+      border: Border.all(color: Colors.white.withOpacity(0.12)),
     ),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1543,9 +1168,9 @@ class _GlassChip extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
     decoration: BoxDecoration(
-      color: Colors.white.withOpacity(0.07),
+      color: const Color(0xFF081F44),
       borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: context.nuruTheme.accentColor.withOpacity(0.3)),
+      border: Border.all(color: Colors.white.withOpacity(0.20)),
     ),
     child: child,
   );
@@ -1565,9 +1190,9 @@ class _StreakCounter extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(vertical: 14),
     decoration: BoxDecoration(
-      color: Colors.white.withOpacity(0.04),
+      color: const Color(0xFF081F44),
       borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: context.nuruTheme.accentColor.withOpacity(0.2)),
+      border: Border.all(color: Colors.white.withOpacity(0.12)),
     ),
     child: Column(
       children: [
@@ -1606,9 +1231,9 @@ class _StatTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     decoration: BoxDecoration(
-      color: Colors.white.withOpacity(0.04),
+      color: const Color(0xFF081F44),
       borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: colour.withOpacity(0.22)),
+      border: Border.all(color: colour.withOpacity(0.35)),
     ),
     child: Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -1649,14 +1274,12 @@ class _AwardTile extends StatelessWidget {
     width: 90,
     padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
     decoration: BoxDecoration(
-      color: locked
-          ? Colors.white.withOpacity(0.03)
-          : tierColour.withOpacity(0.08),
+      color: const Color(0xFF081F44),
       borderRadius: BorderRadius.circular(18),
       border: Border.all(
         color: locked
-            ? Colors.white.withOpacity(0.07)
-            : tierColour.withOpacity(0.38),
+            ? Colors.white.withOpacity(0.12)
+            : tierColour.withOpacity(0.45),
         width: 1.5,
       ),
     ),
@@ -1667,7 +1290,7 @@ class _AwardTile extends StatelessWidget {
           alignment: Alignment.topRight,
           children: [
             Text(
-              locked ? '\ud83d\udd12' : award.emoji,
+              locked ? '🔒' : award.emoji,
               style: const TextStyle(fontSize: 26),
             ),
             if (!locked)
@@ -1690,7 +1313,7 @@ class _AwardTile extends StatelessWidget {
           style: TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.w600,
-            color: locked ? Colors.white24 : Colors.white,
+            color: locked ? Colors.white38 : Colors.white,
           ),
         ),
         if (!locked) ...[
@@ -1705,21 +1328,13 @@ class _AwardTile extends StatelessWidget {
   );
 }
 
-// ══════════════════════════════════════════════════════════════════════════
-// CUSTOM PAINTERS
-// ══════════════════════════════════════════════════════════════════════════
-
-/// Radar / spider chart for today's activity breakdown.
-/// Renders a 5-axis polygon (journal, breathing, chat, calmMe, mood).
-/// When isEmpty=true, draws only the empty skeleton grid with labels.
-/// All values are normalised 0–maxValue (real data from Firestore).
+// PAINTERS
 class _RadarChartPainter extends CustomPainter {
   final List<double> values;
   final List<String> labels;
   final double maxValue;
   final Color colour;
   final bool isEmpty;
-
   const _RadarChartPainter({
     required this.values,
     required this.labels,
@@ -1735,13 +1350,10 @@ class _RadarChartPainter extends CustomPainter {
     final radius = math.min(cx, cy) - 30;
     final n = values.length;
     final step = (2 * math.pi) / n;
-
-    // ── Grid rings ────────────────────────────────────────────────────────
     final gridPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.8
       ..color = Colors.white.withOpacity(0.08);
-
     for (int ring = 1; ring <= 5; ring++) {
       final r = radius * ring / 5;
       final path = Path();
@@ -1757,13 +1369,10 @@ class _RadarChartPainter extends CustomPainter {
       path.close();
       canvas.drawPath(path, gridPaint);
     }
-
-    // ── Axis lines ────────────────────────────────────────────────────────
     final axisPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.8
-      ..color = Colors.white.withOpacity(0.1);
-
+      ..color = Colors.white.withOpacity(0.08);
     for (int i = 0; i < n; i++) {
       final angle = step * i - math.pi / 2;
       canvas.drawLine(
@@ -1772,68 +1381,44 @@ class _RadarChartPainter extends CustomPainter {
         axisPaint,
       );
     }
-
-    // ── Data polygon (only when we have real data) ─────────────────────
     if (!isEmpty) {
-      final fillPath = Path();
-      final strokePath = Path();
-
+      final dataPath = Path();
       for (int i = 0; i < n; i++) {
-        final ratio = (values[i] / maxValue).clamp(0.0, 1.0);
         final angle = step * i - math.pi / 2;
-        final x = cx + radius * ratio * math.cos(angle);
-        final y = cy + radius * ratio * math.sin(angle);
-        if (i == 0) {
-          fillPath.moveTo(x, y);
-          strokePath.moveTo(x, y);
-        } else {
-          fillPath.lineTo(x, y);
-          strokePath.lineTo(x, y);
-        }
+        final r = radius * (values[i] / maxValue).clamp(0.0, 1.0);
+        final x = cx + r * math.cos(angle);
+        final y = cy + r * math.sin(angle);
+        if (i == 0)
+          dataPath.moveTo(x, y);
+        else
+          dataPath.lineTo(x, y);
       }
-      fillPath.close();
-      strokePath.close();
-
-      canvas.drawPath(fillPath, Paint()..color = colour.withOpacity(0.18));
+      dataPath.close();
+      canvas.drawPath(dataPath, Paint()..color = colour.withOpacity(0.18));
       canvas.drawPath(
-        strokePath,
+        dataPath,
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = 2
-          ..color = colour.withOpacity(0.85),
+          ..color = colour.withOpacity(0.7),
       );
-
-      // Data point dots
-      for (int i = 0; i < n; i++) {
-        final ratio = (values[i] / maxValue).clamp(0.0, 1.0);
-        final angle = step * i - math.pi / 2;
-        canvas.drawCircle(
-          Offset(
-            cx + radius * ratio * math.cos(angle),
-            cy + radius * ratio * math.sin(angle),
-          ),
-          4,
-          Paint()..color = colour,
-        );
-      }
     }
-
-    // ── Axis labels ───────────────────────────────────────────────────────
-    final labelPainter = TextPainter(textDirection: TextDirection.ltr);
     for (int i = 0; i < n; i++) {
       final angle = step * i - math.pi / 2;
-      final labelR = radius + 22;
-      final lx = cx + labelR * math.cos(angle);
-      final ly = cy + labelR * math.sin(angle);
+      final lx = cx + (radius + 22) * math.cos(angle);
+      final ly = cy + (radius + 22) * math.sin(angle);
       final hasValue = !isEmpty && values[i] > 0;
-
-      labelPainter.text = TextSpan(
-        text: labels[i],
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: hasValue ? FontWeight.w600 : FontWeight.normal,
-          color: hasValue ? colour : Colors.white.withOpacity(0.35),
+      final labelPainter = TextPainter(
+        text: TextSpan(
+          text: labels[i],
+          style: TextStyle(
+            fontSize: 10,
+            color: hasValue
+                ? Colors.white.withOpacity(0.75)
+                : Colors.white.withOpacity(0.35),
+          ),
         ),
+        textDirection: TextDirection.ltr,
       );
       labelPainter.layout();
       labelPainter.paint(
@@ -1858,28 +1443,26 @@ class _ScoreRingPainter extends CustomPainter {
     final cx = size.width / 2;
     final cy = size.height / 2;
     final r = (size.width - 16) / 2;
-    final track = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 8
-      ..color = Colors.white.withOpacity(0.08);
-    final arc = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 8
-      ..strokeCap = StrokeCap.round
-      ..color = colour;
     canvas.drawArc(
       Rect.fromCircle(center: Offset(cx, cy), radius: r),
       -math.pi / 2,
       2 * math.pi,
       false,
-      track,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 8
+        ..color = Colors.white.withOpacity(0.08),
     );
     canvas.drawArc(
       Rect.fromCircle(center: Offset(cx, cy), radius: r),
       -math.pi / 2,
       2 * math.pi * progress,
       false,
-      arc,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 8
+        ..strokeCap = StrokeCap.round
+        ..color = colour,
     );
   }
 
@@ -1990,7 +1573,7 @@ class _ShapesPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..style = PaintingStyle.fill;
     final dy = math.sin(t * math.pi) * 30;
-    paint.color = accentColor.withOpacity(0.06);
+    paint.color = accentColor.withOpacity(0.22);
     canvas.drawPath(
       Path()
         ..moveTo(0, dy)
@@ -2016,7 +1599,7 @@ class _ShapesPainter extends CustomPainter {
       paint,
     );
     final dx = math.cos(t * math.pi) * 25;
-    paint.color = accentColor.withOpacity(0.09);
+    paint.color = accentColor.withOpacity(0.28);
     canvas.drawPath(
       Path()
         ..moveTo(size.width + dx, size.height * 0.22)
