@@ -27,6 +27,7 @@ import 'screens/nuru_ai_screen.dart';
 import 'screens/sensory_toolkit_screen.dart';
 import 'screens/social_scripts_screen.dart';
 import 'screens/special_interest_screen.dart';
+import 'screens/calming_games_screen.dart';
 
 class AppRoutes {
   // Route name constants
@@ -55,6 +56,7 @@ class AppRoutes {
   static const String sensoryToolkit = '/sensory-toolkit';
   static const String socialScripts = '/social-scripts';
   static const String specialInterest = '/special-interest';
+  static const String calmingGames = '/calming-games';
 
   // Static route map (used by MaterialApp.routes)
   static Map<String, WidgetBuilder> getRoutes() {
@@ -218,21 +220,6 @@ class AppRoutes {
           return _darkFade((_) => ProfileScreen(userData: args), settings);
         }
 
-      case resources:
-        return _darkFade((_) => ResourcesScreen(), settings);
-
-      case angerManagement:
-        return _darkFade((_) => const AngerManagementScreen(), settings);
-
-      case selfControl:
-        return _darkFade((_) => const SelfControlScreen(), settings);
-
-      case stressRelief:
-        return _darkFade((_) => const StressReliefScreen(), settings);
-
-      case mindfulness:
-        return _darkFade((_) => const MindfulnessScreen(), settings);
-
       case nuruAI:
         {
           final args = settings.arguments as Map<String, dynamic>?;
@@ -270,6 +257,12 @@ class AppRoutes {
             (_) => SpecialInterestScreen(userData: args),
             settings,
           );
+        }
+
+      case calmingGames:
+        {
+          final args = settings.arguments as Map<String, dynamic>?;
+          return _darkFade((_) => CalmingGamesScreen(userData: args), settings);
         }
 
       case poetryCorner:

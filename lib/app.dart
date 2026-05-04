@@ -13,12 +13,14 @@ class NuruAIApp extends StatelessWidget {
     return Consumer2<NuruThemeProvider, TextSizeProvider>(
       builder: (context, themeProvider, textProvider, _) {
         final t = themeProvider.activeTheme;
+        final isDark = themeProvider.isDark;
+        final brightness = isDark ? Brightness.dark : Brightness.light;
 
         return MaterialApp(
           title: 'NuruAI',
           debugShowCheckedModeBanner: false,
+          themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
 
-          // Apply user's text scale factor across the whole app
           builder: (context, child) {
             return MediaQuery(
               data: MediaQuery.of(
@@ -29,19 +31,21 @@ class NuruAIApp extends StatelessWidget {
           },
 
           theme: ThemeData(
+            brightness: brightness,
             primaryColor: t.accentColor,
             scaffoldBackgroundColor: t.backgroundStart,
 
-            colorScheme: ColorScheme.dark(
+            colorScheme: ColorScheme(
+              brightness: brightness,
               primary: t.accentColor,
+              onPrimary: Colors.white,
               secondary: t.accentColor.withOpacity(0.7),
+              onSecondary: Colors.white,
               surface: t.backgroundMid,
-              background: t.backgroundStart,
-              error: NuruColors.error,
-              onPrimary: t.textColor,
-              onSecondary: t.textColor,
               onSurface: t.textColor,
+              background: t.backgroundStart,
               onBackground: t.textColor,
+              error: NuruColors.error,
               onError: Colors.white,
             ),
 
@@ -128,6 +132,8 @@ class NuruAIApp extends StatelessWidget {
                 horizontal: 16,
                 vertical: 16,
               ),
+              hintStyle: TextStyle(color: t.textColor.withOpacity(0.4)),
+              labelStyle: TextStyle(color: t.textColor.withOpacity(0.7)),
             ),
 
             cardTheme: CardThemeData(
@@ -151,6 +157,40 @@ class NuruAIApp extends StatelessWidget {
               unselectedLabelStyle: const TextStyle(fontSize: 12),
             ),
 
+            dialogTheme: DialogThemeData(
+              backgroundColor: t.backgroundMid,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              titleTextStyle: TextStyle(
+                color: t.textColor,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+              contentTextStyle: TextStyle(
+                color: t.textColor.withOpacity(0.8),
+                fontSize: 14,
+              ),
+            ),
+
+            textTheme: TextTheme(
+              bodyLarge: TextStyle(color: t.textColor),
+              bodyMedium: TextStyle(color: t.textColor),
+              bodySmall: TextStyle(color: t.textColor.withOpacity(0.7)),
+              titleLarge: TextStyle(
+                color: t.textColor,
+                fontWeight: FontWeight.bold,
+              ),
+              titleMedium: TextStyle(
+                color: t.textColor,
+                fontWeight: FontWeight.w600,
+              ),
+              titleSmall: TextStyle(color: t.textColor.withOpacity(0.8)),
+              labelLarge: TextStyle(color: t.textColor),
+              labelMedium: TextStyle(color: t.textColor.withOpacity(0.8)),
+              labelSmall: TextStyle(color: t.textColor.withOpacity(0.6)),
+            ),
+
             snackBarTheme: SnackBarThemeData(
               backgroundColor: t.backgroundMid,
               contentTextStyle: TextStyle(color: t.textColor),
@@ -163,10 +203,12 @@ class NuruAIApp extends StatelessWidget {
             progressIndicatorTheme: ProgressIndicatorThemeData(
               color: t.accentColor,
             ),
+
             dividerTheme: DividerThemeData(
               color: t.accentColor.withOpacity(0.2),
               thickness: 1,
             ),
+
             fontFamily: 'Roboto',
           ),
 
