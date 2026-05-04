@@ -1,23 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-// ══════════════════════════════════════════════════════════════
 // TEXT SIZE PROVIDER
-//
-// Stores user's preferred text scale factor (0.85 – 1.4).
-// Persisted via SharedPreferences so it survives app restarts.
-//
-// Usage in main app:
-//   MaterialApp(
-//     builder: (context, child) {
-//       final scale = context.watch<TextSizeProvider>().scale;
-//       return MediaQuery(
-//         data: MediaQuery.of(context).copyWith(textScaleFactor: scale),
-//         child: child!,
-//       );
-//     },
-//   )
-// ══════════════════════════════════════════════════════════════
 
 class TextSizeProvider extends ChangeNotifier {
   static const _key = 'nuru_text_scale';

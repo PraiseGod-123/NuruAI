@@ -1,187 +1,218 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-// ==============================================================================
 // NuruAI Theme Provider
-//
-// Central state for the selected app theme.
-// Wrap the app with ChangeNotifierProvider<NuruThemeProvider> in main.dart.
-//
-//   final theme = context.watch<NuruThemeProvider>().activeTheme;
-//   context.read<NuruThemeProvider>().setTheme('nuru_classic');
-// ==============================================================================
+class NuruColorPalette {
+  final String id;
+  final String name;
+  final String emoji;
+
+  /// Background gradient for light mode
+  final List<Color> lightGradient;
+
+  /// Background gradient for dark mode
+  final List<Color> darkGradient;
+
+  /// 3 colours for floating background shape/orb painters
+  final List<Color> shapeColors;
+
+  /// Widget / button / card / border accent colour
+  final Color accentColor;
+
+  /// Primary text colour on light backgrounds
+  final Color lightTextColor;
+
+  /// Primary text colour on dark backgrounds
+  final Color darkTextColor;
+
+  /// Secondary/muted text colour (subtitles, hints)
+  final Color secondaryTextColor;
+
+  final bool hasStars;
+
+  const NuruColorPalette({
+    required this.id,
+    required this.name,
+    required this.emoji,
+    required this.lightGradient,
+    required this.darkGradient,
+    required this.shapeColors,
+    required this.accentColor,
+    this.lightTextColor = Colors.white,
+    this.darkTextColor = Colors.white,
+    this.secondaryTextColor = const Color(0x99FFFFFF),
+    this.hasStars = true,
+  });
+
+  Color textColorFor(bool isDark) => isDark ? darkTextColor : lightTextColor;
+}
+
+// Nuru Default
+const NuruColorPalette paletteNuruDefault = NuruColorPalette(
+  id: 'nuru_default',
+  name: 'Nuru Default',
+  emoji: '🌊',
+  lightGradient: [
+    Color(0xFF4569AD), // sailing blue — top   (matches onboarding)
+    Color(0xFF14366D), // deep sea     — bottom (matches onboarding)
+  ],
+  darkGradient: [Color(0xFF1A2D52), Color(0xFF0D1C36), Color(0xFF020C1E)],
+  shapeColors: [Color(0xFF5B8DD9), Color(0xFF3A6BA8), Color(0xFF1F3F74)],
+  accentColor: Color(0xFF4569AD),
+  lightTextColor: Colors.white,
+  darkTextColor: Colors.white,
+  hasStars: true,
+);
+
+/// All palettes
+const List<NuruColorPalette> allColorPalettes = [paletteNuruDefault];
 
 class NuruAppTheme {
   final String id;
-  final String fancyName;
-  final String description;
   final List<Color> gradientColors;
+  final List<Color> shapeColors;
   final Color accentColor;
   final Color textColor;
+  final Color secondaryTextColor;
   final bool hasStars;
 
   const NuruAppTheme({
     required this.id,
-    required this.fancyName,
-    required this.description,
     required this.gradientColors,
+    required this.shapeColors,
     required this.accentColor,
     required this.textColor,
+    this.secondaryTextColor = const Color(0x99FFFFFF),
     this.hasStars = false,
   });
 
-  // gradientColors drives the BODY background (index 0 = top = lighter)
-  // backgroundStart/Mid/End are the DARK widget fill colours (reverse order)
-  // so screens that use backgroundMid/backgroundStart get the darkest values
-  Color get backgroundStart => gradientColors.last; // darkest — widget fills
-  Color get backgroundMid => gradientColors.length >= 3
-      ? gradientColors[gradientColors.length - 2]
-      : gradientColors.last; // second darkest — card tops
-  Color get backgroundEnd => gradientColors.last; // darkest — gradient end
+  Color get backgroundStart => gradientColors.first;
+  Color get backgroundMid =>
+      gradientColors.length >= 3 ? gradientColors[1] : gradientColors.last;
+  Color get backgroundEnd => gradientColors.last;
 
-  Color get cardColor => accentColor.withOpacity(0.10);
-  Color get borderColor => accentColor.withOpacity(0.20);
+  Color get cardColor =>
+      const Color(0xFF081F44); // lighter navy — glassmorphism cards
+  Color get borderColor => Colors.white.withOpacity(0.18);
   Color get mutedTextColor => textColor.withOpacity(0.55);
   Color get iconColor => accentColor;
+
+  Color get shape1 => shapeColors.isNotEmpty ? shapeColors[0] : accentColor;
+  Color get shape2 =>
+      shapeColors.length > 1 ? shapeColors[1] : accentColor.withOpacity(0.6);
+  Color get shape3 =>
+      shapeColors.length > 2 ? shapeColors[2] : accentColor.withOpacity(0.3);
 }
 
-// ── All themes ─────────────────────────────────────────────────────────────────
+// Legacy named themes (backward compat)
 
-const List<NuruAppTheme> allNuruThemes = [
-  // ── 1. NuruAI Classic — the original app colours. Always first. ─────────────
-  // gradientColors drives the BODY background (top → bottom)
-  // backgroundMid + backgroundStart drive WIDGET fills (must be DARKER than body)
-  // So gradientColors[0] must be LIGHTER than gradientColors[1]/[2]
-  NuruAppTheme(
-    id: 'nuru_classic',
-    fancyName: 'NuruAI Classic',
-    description: "The original Night Blue — NuruAI's home",
-    gradientColors: [
-      Color(0xFF4569AD), // sailing blue — onboarding bg top-left
-      Color(0xFF1F3F74), // dive blue    — onboarding bg mid
-      Color(
-        0xFF020C1E,
-      ), // near-black   — widget fills (must be very dark for opacity to work)
-    ],
-    accentColor: Color(0xFF4569AD), // sailing blue accent
-    textColor: Colors.white,
-    hasStars: true,
-  ),
+const NuruAppTheme nuruLightTheme = NuruAppTheme(
+  id: 'nuru_light',
+  gradientColors: [Color(0xFF4569AD), Color(0xFF14366D)],
+  shapeColors: [Color(0xFF5B8DD9), Color(0xFF3A6BA8), Color(0xFF1F3F74)],
+  accentColor: Color(0xFF4569AD),
+  textColor: Colors.white,
+  hasStars: true,
+);
 
-  // ── 2. Midnight Cosmos ───────────────────────────────────────────────────────
-  NuruAppTheme(
-    id: 'midnight_cosmos',
-    fancyName: 'Midnight Cosmos',
-    description: 'A glittering night sky, deep and infinite',
-    gradientColors: [Color(0xFF0D1117), Color(0xFF1B1040), Color(0xFF0A1628)],
-    accentColor: Color(0xFF9D7FF4),
-    textColor: Colors.white,
-    hasStars: true,
-  ),
+const NuruAppTheme nuruDarkTheme = NuruAppTheme(
+  id: 'nuru_dark',
+  gradientColors: [Color(0xFF1A2D52), Color(0xFF0D1C36), Color(0xFF020C1E)],
+  shapeColors: [Color(0xFF5B8DD9), Color(0xFF3A6BA8), Color(0xFF1F3F74)],
+  accentColor: Color(0xFF4569AD),
+  textColor: Colors.white,
+  hasStars: true,
+);
 
-  // ── 3. Astral Dusk ───────────────────────────────────────────────────────────
-  NuruAppTheme(
-    id: 'astral_dusk',
-    fancyName: 'Astral Dusk',
-    description: 'The hour when violet meets the horizon',
-    gradientColors: [Color(0xFF1A0533), Color(0xFF3D1472), Color(0xFF7A35B8)],
-    accentColor: Color(0xFFCF9FFF),
-    textColor: Colors.white,
-  ),
-
-  // ── 4. Sage Canopy ───────────────────────────────────────────────────────────
-  NuruAppTheme(
-    id: 'sage_canopy',
-    fancyName: 'Sage Canopy',
-    description: 'Calm like light filtering through forest leaves',
-    gradientColors: [Color(0xFF0A1F12), Color(0xFF164D2A), Color(0xFF237A44)],
-    accentColor: Color(0xFF4EE688),
-    textColor: Colors.white,
-  ),
-
-  // ── 5. Ocean Drift ───────────────────────────────────────────────────────────
-  NuruAppTheme(
-    id: 'ocean_drift',
-    fancyName: 'Ocean Drift',
-    description: 'Clear water, open skies, endless calm',
-    gradientColors: [Color(0xFF021828), Color(0xFF063D5E), Color(0xFF0A7A9E)],
-    accentColor: Color(0xFF22D4F5),
-    textColor: Colors.white,
-  ),
-
-  // ── 6. Velvet Noir ───────────────────────────────────────────────────────────
-  NuruAppTheme(
-    id: 'velvet_noir',
-    fancyName: 'Velvet Noir',
-    description: 'Rich, deep, and unapologetically bold',
-    gradientColors: [Color(0xFF12000A), Color(0xFF3A0022), Color(0xFF720042)],
-    accentColor: Color(0xFFFF5C9E),
-    textColor: Colors.white,
-  ),
-
-  // ── 7. Rose Ember ────────────────────────────────────────────────────────────
-  NuruAppTheme(
-    id: 'rose_ember',
-    fancyName: 'Rose Ember',
-    description: 'The warm glow of a rose catching last light',
-    gradientColors: [Color(0xFF2A0614), Color(0xFF7A1535), Color(0xFFCC3366)],
-    accentColor: Color(0xFFFF8CB4),
-    textColor: Colors.white,
-  ),
-
-  // ── 8. Golden Horizon ────────────────────────────────────────────────────────
-  NuruAppTheme(
-    id: 'golden_horizon',
-    fancyName: 'Golden Horizon',
-    description: 'A clear day, sunshine, and open skies',
-    gradientColors: [Color(0xFF12224A), Color(0xFF2855A0), Color(0xFFE8920A)],
-    accentColor: Color(0xFFFFCA28),
-    textColor: Colors.white,
-  ),
-
-  // ── 9. Blossom Mist ──────────────────────────────────────────────────────────
-  NuruAppTheme(
-    id: 'blossom_mist',
-    fancyName: 'Blossom Mist',
-    description: 'Soft as the first petals of spring',
-    gradientColors: [Color(0xFFFFE0F4), Color(0xFFFFB3E0), Color(0xFFFF80C8)],
-    accentColor: Color(0xFFD63A8A),
-    textColor: Color(0xFF3D0A28),
-  ),
-
-  // ── 10. Warm Parchment ───────────────────────────────────────────────────────
-  NuruAppTheme(
-    id: 'warm_parchment',
-    fancyName: 'Warm Parchment',
-    description: 'Timeless warmth, like worn paper and candlelight',
-    gradientColors: [Color(0xFFF5ECD7), Color(0xFFEDD9B4), Color(0xFFE5C472)],
-    accentColor: Color(0xFFBF8010),
-    textColor: Color(0xFF3D2B0A),
-  ),
-];
-
-// ── Provider ──────────────────────────────────────────────────────────────────
-
+// Provider
 class NuruThemeProvider extends ChangeNotifier {
-  // Default: NuruAI Classic
-  NuruAppTheme _activeTheme = allNuruThemes.first;
+  bool _isDark = false;
+  String _selectedPaletteId = 'nuru_default';
 
-  NuruAppTheme get activeTheme => _activeTheme;
-  List<NuruAppTheme> get themes => allNuruThemes;
+  bool get isDark => _isDark;
+  bool get isLight => !_isDark;
 
-  void setTheme(String themeId) {
-    final found = allNuruThemes.where((t) => t.id == themeId);
-    if (found.isEmpty) return;
-    _activeTheme = found.first;
-    notifyListeners();
+  NuruColorPalette get selectedPalette => allColorPalettes.firstWhere(
+    (p) => p.id == _selectedPaletteId,
+    orElse: () => paletteNuruDefault,
+  );
+
+  NuruAppTheme get activeTheme {
+    final p = selectedPalette;
+    return NuruAppTheme(
+      id: '${p.id}_${_isDark ? 'dark' : 'light'}',
+      gradientColors: _isDark ? p.darkGradient : p.lightGradient,
+      shapeColors: p.shapeColors,
+      accentColor: p.accentColor,
+      textColor: p.textColorFor(_isDark),
+      secondaryTextColor: p.secondaryTextColor,
+      hasStars: p.hasStars,
+    );
   }
 
-  void setThemeByModel(NuruAppTheme theme) {
-    _activeTheme = theme;
+  List<NuruAppTheme> get themes => [nuruLightTheme, nuruDarkTheme];
+  List<NuruAppTheme> get darkThemes => [nuruDarkTheme];
+  List<NuruAppTheme> get lightThemes => [nuruLightTheme];
+
+  NuruThemeProvider() {
+    _loadFromPrefs();
+  }
+
+  void toggleDarkMode() {
+    _isDark = !_isDark;
     notifyListeners();
+    _saveToPrefs();
+  }
+
+  void toggleBrightness() => toggleDarkMode();
+
+  void setColorPalette(String paletteId) {
+    _selectedPaletteId = paletteId;
+    notifyListeners();
+    _saveToPrefs();
   }
 
   void resetToDefault() {
-    _activeTheme = allNuruThemes.first; // NuruAI Classic
+    _isDark = false;
+    _selectedPaletteId = 'nuru_default';
     notifyListeners();
+    _saveToPrefs();
+  }
+
+  void setTheme(String themeId) {
+    if (themeId == 'nuru_dark') {
+      _isDark = true;
+    } else if (themeId == 'nuru_light') {
+      _isDark = false;
+    }
+    notifyListeners();
+    _saveToPrefs();
+  }
+
+  void setThemeByModel(NuruAppTheme theme) {
+    _isDark = theme.id.contains('dark');
+    notifyListeners();
+    _saveToPrefs();
+  }
+
+  Future<void> _loadFromPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _isDark = prefs.getBool('nuru_is_dark') ?? false;
+      _selectedPaletteId = prefs.getString('nuru_palette_id') ?? 'nuru_default';
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  Future<void> _saveToPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('nuru_is_dark', _isDark);
+      await prefs.setString('nuru_palette_id', _selectedPaletteId);
+    } catch (_) {}
   }
 }
+
+const List<NuruAppTheme> allNuruThemes = [nuruLightTheme, nuruDarkTheme];
+const List<NuruAppTheme> darkNuruThemes = [nuruDarkTheme];
+const List<NuruAppTheme> lightNuruThemes = [nuruLightTheme];
