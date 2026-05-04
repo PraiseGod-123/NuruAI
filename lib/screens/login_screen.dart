@@ -7,6 +7,9 @@ import 'package:permission_handler/permission_handler.dart';
 import '../utils/nuru_colors.dart';
 import '../services/api_services.dart';
 import '../services/firebase_service.dart';
+import '../providers/nuru_theme_extension.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:io';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -82,18 +85,145 @@ class _LoginScreenState extends State<LoginScreen>
     setState(() => _isLoading = false);
 
     if (result.success) {
+      final uid = result.uid ?? '';
       final userData = result.userData ?? {};
+      final facialSetupComplete =
+          userData['facialSetupComplete'] as bool? ?? false;
+
+      if (!facialSetupComplete) {
+        Navigator.pushReplacementNamed(
+          context,
+          '/facial-recognition-setup',
+          arguments: {
+            ...userData,
+            'uid': uid,
+            'email': _emailController.text.trim(),
+            'createdAt': DateTime.now().toIso8601String(),
+          },
+        );
+        return;
+      }
+      await _saveUidLocally(uid);
+      if (!mounted) return;
       Navigator.pushReplacementNamed(
         context,
         '/home',
         arguments: {
           ...userData,
-          'uid': result.uid,
+          'uid': uid,
           'email': _emailController.text.trim(),
         },
       );
     } else {
       _showError(result.error ?? 'Login failed. Please try again.');
+    }
+  }
+
+  Future<void> _saveUidLocally(String uid) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('last_uid', uid);
+  }
+
+  Future<String> _getSavedUid() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('last_uid') ?? '';
+  }
+
+  Future<void> _captureAndAuthenticate() async {
+    if (_cameraController == null || !_cameraController!.value.isInitialized)
+      return;
+
+    Navigator.pop(context, true); // close the sheet
+
+    try {
+      final image = await _cameraController!.takePicture();
+      final bytes = await image.readAsBytes();
+      final imageBase64 = base64Encode(bytes);
+
+      // Always use Firebase UID — that's what the baseline was stored under
+      String uid = NuruFirebaseService.instance.currentUid ?? '';
+      if (uid.isEmpty) {
+        uid = await _getSavedUid();
+      }
+      if (uid.isEmpty) {
+        _showError('Please sign in with email once first to activate Face ID.');
+        setState(() {
+          _isUnlocking = false;
+          _isUnlocked = false;
+        });
+        _unlockController.reset();
+        _cameraController?.dispose();
+        _cameraController = null;
+        return;
+      }
+      // Step 1 — verify face
+      final loginResult = await NuruApiService.instance.login(
+        userId: uid,
+        imageBase64: imageBase64,
+      );
+
+      _cameraController?.dispose();
+      _cameraController = null;
+
+      if (!mounted) return;
+
+      if (!loginResult.authenticated) {
+        setState(() {
+          _isUnlocking = false;
+          _isUnlocked = false;
+        });
+        _unlockController.reset();
+        _showError(
+          loginResult.message.isNotEmpty
+              ? loginResult.message
+              : 'Face not recognised. Please try again or use email & password.',
+        );
+        return;
+      }
+
+      // Step 2 — face matched, detect emotion
+      setState(() => _isUnlocked = true);
+      String loginEmotion = 'neutral';
+      String supportTool = 'breathing';
+      String supportMessage = '';
+      try {
+        final emotionResult = await NuruApiService.instance.detectEmotion(
+          userId: uid,
+          imageBase64: imageBase64,
+          trigger: 'login',
+        );
+        if (emotionResult.success) {
+          loginEmotion = emotionResult.emotion;
+          supportTool = emotionResult.supportTool;
+          supportMessage = emotionResult.supportMessage;
+        }
+      } catch (_) {}
+
+      await Future.delayed(Duration(milliseconds: 800));
+      final userData =
+          await NuruFirebaseService.instance.getUserData(uid) ?? {};
+      if (!mounted) return;
+
+      Navigator.pushReplacementNamed(
+        context,
+        '/home',
+        arguments: {
+          ...userData,
+          'uid': uid,
+          'loginEmotion': loginEmotion,
+          'supportTool': supportTool,
+          'supportMessage': supportMessage,
+        },
+      );
+    } catch (e) {
+      _cameraController?.dispose();
+      _cameraController = null;
+      setState(() {
+        _isUnlocking = false;
+        _isUnlocked = false;
+      });
+      _unlockController.reset();
+      _showError('Something went wrong. Please try again.');
     }
   }
 
@@ -114,16 +244,16 @@ class _LoginScreenState extends State<LoginScreen>
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1F3F74),
+        backgroundColor: context.nuruTheme.backgroundMid,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
+        title: Text(
           'Reset Password',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
+            Text(
               'Enter your email and we will send you a reset link.',
               style: TextStyle(color: Colors.white70, fontSize: 13),
             ),
@@ -141,10 +271,7 @@ class _LoginScreenState extends State<LoginScreen>
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
                 ),
-                prefixIcon: const Icon(
-                  Icons.email_outlined,
-                  color: Colors.white54,
-                ),
+                prefixIcon: Icon(Icons.email_outlined, color: Colors.white54),
               ),
             ),
           ],
@@ -152,10 +279,7 @@ class _LoginScreenState extends State<LoginScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: Colors.white54),
-            ),
+            child: Text('Cancel', style: TextStyle(color: Colors.white54)),
           ),
           TextButton(
             onPressed: () async {
@@ -178,10 +302,10 @@ class _LoginScreenState extends State<LoginScreen>
                 _showError(result.error ?? 'Could not send reset email.');
               }
             },
-            child: const Text(
+            child: Text(
               'Send Reset Link',
               style: TextStyle(
-                color: Color(0xFF4569AD),
+                color: context.nuruTheme.accentColor,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -191,7 +315,7 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  // ── Facial recognition login ──────────────────────────────────────────────
+  // Facial recognition login
 
   Future<void> _handleFacialRecognitionLogin() async {
     // Step 1 — check camera permission
@@ -345,78 +469,10 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  Future<void> _captureAndAuthenticate() async {
-    if (_cameraController == null || !_cameraController!.value.isInitialized)
-      return;
-
-    Navigator.pop(context, true); // close the sheet
-
-    try {
-      // Capture frame
-      final image = await _cameraController!.takePicture();
-      final bytes = await File(image.path).readAsBytes();
-      final imageBase64 = base64Encode(bytes);
-
-      // Get user ID — use email as fallback until Firebase is wired
-      final userId = _emailController.text.isNotEmpty
-          ? _emailController.text
-          : 'user_unknown';
-
-      // Call the API
-      final result = await NuruApiService.instance.login(
-        userId: userId,
-        imageBase64: imageBase64,
-      );
-
-      _cameraController?.dispose();
-      _cameraController = null;
-
-      if (!mounted) return;
-
-      if (result.authenticated) {
-        // Login successful
-        setState(() => _isUnlocked = true);
-        await Future.delayed(Duration(milliseconds: 800));
-
-        Navigator.pushReplacementNamed(
-          context,
-          '/home',
-          arguments: {
-            'email': userId,
-            'emotion': result.emotionResult?.emotion ?? 'neutral',
-            'supportTool': result.emotionResult?.supportTool,
-            'supportMessage': result.emotionResult?.supportMessage,
-          },
-        );
-      } else {
-        // Not authenticated
-        setState(() {
-          _isUnlocking = false;
-          _isUnlocked = false;
-        });
-        _unlockController.reset();
-        _showError(
-          result.message.isNotEmpty
-              ? result.message
-              : 'Face not recognised. Please try again or use email.',
-        );
-      }
-    } catch (e) {
-      _cameraController?.dispose();
-      _cameraController = null;
-      setState(() {
-        _isUnlocking = false;
-        _isUnlocked = false;
-      });
-      _unlockController.reset();
-      _showError('Something went wrong. Please try again.');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFF4569AD),
+      backgroundColor: context.nuruTheme.accentColor,
       body: Stack(
         children: [
           Container(
@@ -424,7 +480,7 @@ class _LoginScreenState extends State<LoginScreen>
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFF4569AD), Color(0xFF14366D)],
+                colors: [context.nuruTheme.accentColor, Color(0xFF14366D)],
               ),
             ),
           ),
@@ -452,6 +508,7 @@ class _LoginScreenState extends State<LoginScreen>
                   animation1: _floatController1.value,
                   animation2: _floatController2.value,
                   animation3: _floatController3.value,
+                  bgColor: context.nuruTheme.backgroundStart,
                 ),
               ),
             ),
@@ -529,7 +586,7 @@ class _LoginScreenState extends State<LoginScreen>
                               _obscurePassword
                                   ? Icons.visibility_off_rounded
                                   : Icons.visibility_rounded,
-                              color: Color(0xFF4569AD),
+                              color: context.nuruTheme.accentColor,
                             ),
                             onPressed: () => setState(
                               () => _obscurePassword = !_obscurePassword,
@@ -569,7 +626,7 @@ class _LoginScreenState extends State<LoginScreen>
                             onPressed: _isLoading ? null : _handleLogin,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.white,
-                              foregroundColor: Color(0xFF4569AD),
+                              foregroundColor: context.nuruTheme.accentColor,
                               elevation: 8,
                               shadowColor: Colors.black.withOpacity(0.3),
                               shape: RoundedRectangleBorder(
@@ -788,13 +845,17 @@ class _LoginScreenState extends State<LoginScreen>
                   keyboardType: keyboardType,
                   style: TextStyle(
                     fontSize: 16,
-                    color: Color(0xFF1F3F74),
+                    color: context.nuruTheme.backgroundMid,
                     fontWeight: FontWeight.w500,
                   ),
                   decoration: InputDecoration(
                     hintText: hint,
                     hintStyle: TextStyle(color: Colors.grey[400], fontSize: 15),
-                    prefixIcon: Icon(icon, color: Color(0xFF4569AD), size: 22),
+                    prefixIcon: Icon(
+                      icon,
+                      color: context.nuruTheme.accentColor,
+                      size: 22,
+                    ),
                     suffixIcon: suffixIcon,
                     filled: true,
                     fillColor: Colors.white,
@@ -819,7 +880,7 @@ class _LoginScreenState extends State<LoginScreen>
   }
 }
 
-// ── Painters (unchanged) ──────────────────────────────────────────────────────
+// Painters
 
 class SubtleStarsPainter extends CustomPainter {
   final double twinkle;
@@ -869,10 +930,12 @@ class SubtleStarsPainter extends CustomPainter {
 
 class Animated3DShapesPainter extends CustomPainter {
   final double animation1, animation2, animation3;
+  final Color bgColor;
   Animated3DShapesPainter({
     required this.animation1,
     required this.animation2,
     required this.animation3,
+    required this.bgColor,
   });
 
   @override
@@ -904,7 +967,7 @@ class Animated3DShapesPainter extends CustomPainter {
       ..close();
     canvas.drawPath(path1, paint);
 
-    paint.color = Color(0xFF081F44).withOpacity(0.2);
+    paint.color = bgColor.withOpacity(0.2);
     final ox2 = animation2 * 35 - 17;
     final path2 = Path()
       ..moveTo(size.width, size.height * 0.2 + ox2)
@@ -978,5 +1041,6 @@ class Animated3DShapesPainter extends CustomPainter {
   bool shouldRepaint(Animated3DShapesPainter o) =>
       o.animation1 != animation1 ||
       o.animation2 != animation2 ||
-      o.animation3 != animation3;
+      o.animation3 != animation3 ||
+      o.bgColor != bgColor;
 }

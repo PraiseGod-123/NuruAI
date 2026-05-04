@@ -12,8 +12,15 @@ import 'package:intl/intl.dart';
 
 class JournalEntryScreen extends StatefulWidget {
   final Map<String, dynamic>? userData;
+  final Map<String, dynamic>? existingEntry;
+  final String? existingId;
 
-  const JournalEntryScreen({Key? key, this.userData}) : super(key: key);
+  const JournalEntryScreen({
+    Key? key,
+    this.userData,
+    this.existingEntry,
+    this.existingId,
+  }) : super(key: key);
 
   @override
   State<JournalEntryScreen> createState() => _JournalEntryScreenState();
@@ -33,7 +40,7 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
   DateTime selectedDate = DateTime.now();
   DateTime focusedDay = DateTime.now();
 
-  // ── Colours ──────────────────────────────────────────────
+  // Colours
 
   final List<Map<String, dynamic>> moods = [
     {'emoji': '😊', 'label': 'Happy', 'value': 'happy'},
@@ -56,6 +63,20 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
       duration: const Duration(milliseconds: 650),
       vsync: this,
     )..forward();
+
+    // Pre-fill fields if editing an existing entry
+    if (widget.existingEntry != null) {
+      final e = widget.existingEntry!;
+      _titleController.text = e['title'] as String? ?? '';
+      _contentController.text = e['content'] as String? ?? '';
+      selectedMood = e['mood'] as String?;
+      final rawDate = e['date'];
+      if (rawDate is String) {
+        try {
+          selectedDate = DateTime.parse(rawDate);
+        } catch (_) {}
+      }
+    }
   }
 
   @override
@@ -69,7 +90,7 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
     super.dispose();
   }
 
-  // ── Date picker ───────────────────────────────────────────
+  // Date picker
 
   void _showCalendarPicker() {
     showModalBottomSheet(
@@ -87,15 +108,17 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Color(0xFF1F3F74).withOpacity(0.97),
-                  Color(0xFF081F44).withOpacity(0.99),
+                  context.nuruTheme.backgroundMid.withOpacity(0.97),
+                  context.nuruTheme.backgroundStart.withOpacity(0.99),
                 ],
               ),
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(28),
               ),
               border: Border(
-                top: BorderSide(color: Color(0xFF4569AD).withOpacity(0.35)),
+                top: BorderSide(
+                  color: context.nuruTheme.accentColor.withOpacity(0.35),
+                ),
               ),
             ),
             child: Column(
@@ -136,12 +159,12 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
                   },
                   calendarStyle: CalendarStyle(
                     todayDecoration: BoxDecoration(
-                      color: Color(0xFF4569AD).withOpacity(0.35),
+                      color: context.nuruTheme.accentColor.withOpacity(0.35),
                       shape: BoxShape.circle,
                     ),
                     todayTextStyle: TextStyle(color: Colors.white),
                     selectedDecoration: BoxDecoration(
-                      color: const Color(0xFF4569AD),
+                      color: context.nuruTheme.accentColor,
                       shape: BoxShape.circle,
                     ),
                     selectedTextStyle: TextStyle(color: Colors.white),
@@ -149,7 +172,7 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
                       color: Colors.white.withOpacity(0.85),
                     ),
                     weekendTextStyle: TextStyle(
-                      color: Color(0xFF4569AD).withOpacity(0.6),
+                      color: context.nuruTheme.accentColor.withOpacity(0.6),
                     ),
                     outsideTextStyle: TextStyle(
                       color: Colors.white.withOpacity(0.25),
@@ -163,11 +186,11 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
                       fontWeight: FontWeight.w600,
                       color: Colors.white,
                     ),
-                    leftChevronIcon: const Icon(
+                    leftChevronIcon: Icon(
                       Icons.chevron_left,
                       color: Colors.white,
                     ),
-                    rightChevronIcon: const Icon(
+                    rightChevronIcon: Icon(
                       Icons.chevron_right,
                       color: Colors.white,
                     ),
@@ -178,7 +201,7 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
                       fontSize: 12,
                     ),
                     weekendStyle: TextStyle(
-                      color: Color(0xFF4569AD).withOpacity(0.6),
+                      color: context.nuruTheme.accentColor.withOpacity(0.6),
                       fontSize: 12,
                     ),
                   ),
@@ -195,13 +218,15 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            const Color(0xFF4569AD),
-                            const Color(0xFF1F3F74),
+                            context.nuruTheme.accentColor,
+                            context.nuruTheme.backgroundMid,
                           ],
                         ),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: Color(0xFF4569AD).withOpacity(0.45),
+                          color: context.nuruTheme.accentColor.withOpacity(
+                            0.45,
+                          ),
                         ),
                       ),
                       child: const Center(
@@ -226,7 +251,7 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
     );
   }
 
-  // ── Save ──────────────────────────────────────────────────
+  // Save
 
   Future<void> _saveEntry() async {
     if (_titleController.text.trim().isEmpty ||
@@ -242,30 +267,33 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
     final title = _titleController.text.trim();
     final content = _contentController.text.trim();
     final uid = widget.userData?['uid'] as String? ?? '';
+    final isEdit = widget.existingId != null && widget.existingId!.isNotEmpty;
 
-    String? entryId;
-
-    // Save to Firestore if user is logged in
     if (uid.isNotEmpty) {
-      entryId = await NuruFirebaseService.instance.saveJournal(
-        uid: uid,
-        title: title,
-        content: content,
-        mood: selectedMood!,
-        date: selectedDate,
-      );
+      if (isEdit) {
+        // Update existing entry in Firestore
+        await NuruFirebaseService.instance.updateJournal(
+          uid: uid,
+          entryId: widget.existingId!,
+          title: title,
+          content: content,
+          mood: selectedMood!,
+          date: selectedDate,
+        );
+      } else {
+        // Create new entry
+        await NuruFirebaseService.instance.saveJournal(
+          uid: uid,
+          title: title,
+          content: content,
+          mood: selectedMood!,
+          date: selectedDate,
+        );
+      }
     }
 
     if (!mounted) return;
-
-    Navigator.pop(context, {
-      'id': entryId ?? DateTime.now().millisecondsSinceEpoch.toString(),
-      'title': title,
-      'content': content,
-      'mood': selectedMood,
-      'date': selectedDate,
-      'createdAt': DateTime.now(),
-    });
+    Navigator.pop(context);
   }
 
   void _showSnack(String msg, Color color) {
@@ -282,18 +310,21 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
   String _formatDate(DateTime date) =>
       DateFormat('EEEE, d MMMM, yyyy').format(date);
 
-  // ── Build ─────────────────────────────────────────────────
+  //  Build
 
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Color(0xFF081F44),
         statusBarIconBrightness: Brightness.light,
         statusBarBrightness: Brightness.dark,
+        systemNavigationBarColor: Color(0xFF081F44),
+        systemNavigationBarIconBrightness: Brightness.light,
       ),
       child: Scaffold(
-        backgroundColor: const Color(0xFF0A1628),
+        backgroundColor: const Color(0xFF081F44),
+        resizeToAvoidBottomInset: false,
         body: Stack(
           children: [
             // Background
@@ -320,6 +351,7 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
 
             // Content
             SafeArea(
+              top: false,
               child: AnimatedBuilder(
                 animation: _entryController,
                 builder: (_, child) => FadeTransition(
@@ -372,7 +404,7 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
     );
   }
 
-  // ── Header ────────────────────────────────────────────────
+  // Header
 
   Widget _buildHeader() {
     return ClipRRect(
@@ -383,18 +415,25 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Container(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 22),
+          padding: EdgeInsets.fromLTRB(
+            20,
+            MediaQuery.of(context).padding.top + 14,
+            20,
+            22,
+          ),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Color(0xFF1F3F74).withOpacity(0.65),
-                Color(0xFF081F44).withOpacity(0.55),
+                context.nuruTheme.backgroundMid.withOpacity(0.65),
+                context.nuruTheme.backgroundStart.withOpacity(0.55),
               ],
             ),
             border: Border(
-              bottom: BorderSide(color: Color(0xFF4569AD).withOpacity(0.3)),
+              bottom: BorderSide(
+                color: context.nuruTheme.accentColor.withOpacity(0.3),
+              ),
             ),
           ),
           child: Row(
@@ -426,17 +465,17 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        const Color(0xFF4569AD),
-                        const Color(0xFF1F3F74),
+                        context.nuruTheme.accentColor,
+                        context.nuruTheme.backgroundMid,
                       ],
                     ),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: Color(0xFF4569AD).withOpacity(0.45),
+                      color: context.nuruTheme.accentColor.withOpacity(0.45),
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Color(0xFF4569AD).withOpacity(0.3),
+                        color: context.nuruTheme.accentColor.withOpacity(0.3),
                         blurRadius: 10,
                         offset: const Offset(0, 3),
                       ),
@@ -464,10 +503,10 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
       width: 42,
       height: 42,
       decoration: BoxDecoration(
-        color: Color(0xFF081F44).withOpacity(0.5),
+        color: context.nuruTheme.backgroundStart.withOpacity(0.5),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: Color(0xFF4569AD).withOpacity(0.45),
+          color: context.nuruTheme.accentColor.withOpacity(0.45),
           width: 1.2,
         ),
       ),
@@ -487,7 +526,7 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
     );
   }
 
-  // ── Date selector ─────────────────────────────────────────
+  // Date selector
 
   Widget _buildDateSelector() {
     return GestureDetector(
@@ -501,13 +540,13 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  Color(0xFF1F3F74).withOpacity(0.7),
-                  Color(0xFF081F44).withOpacity(0.8),
+                  context.nuruTheme.backgroundMid.withOpacity(0.7),
+                  context.nuruTheme.backgroundStart.withOpacity(0.8),
                 ],
               ),
               borderRadius: BorderRadius.circular(18),
               border: Border.all(
-                color: Color(0xFF4569AD).withOpacity(0.35),
+                color: context.nuruTheme.accentColor.withOpacity(0.35),
                 width: 1.2,
               ),
             ),
@@ -516,12 +555,12 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Color(0xFF4569AD).withOpacity(0.18),
+                    color: context.nuruTheme.accentColor.withOpacity(0.18),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
                     Icons.calendar_today_rounded,
-                    color: Color(0xFF4569AD).withOpacity(0.6),
+                    color: context.nuruTheme.accentColor.withOpacity(0.6),
                     size: 18,
                   ),
                 ),
@@ -549,7 +588,7 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
     );
   }
 
-  // ── Mood selector ─────────────────────────────────────────
+  // Mood selector
 
   Widget _buildMoodSelector() {
     return Row(
@@ -573,18 +612,18 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
                 colors: isSelected
                     ? [
                         moodColor.withOpacity(0.3),
-                        Color(0xFF081F44).withOpacity(0.85),
+                        context.nuruTheme.backgroundStart.withOpacity(0.85),
                       ]
                     : [
-                        Color(0xFF1F3F74).withOpacity(0.6),
-                        Color(0xFF081F44).withOpacity(0.75),
+                        context.nuruTheme.backgroundMid.withOpacity(0.6),
+                        context.nuruTheme.backgroundStart.withOpacity(0.75),
                       ],
               ),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: isSelected
                     ? moodColor.withOpacity(0.7)
-                    : Color(0xFF4569AD).withOpacity(0.3),
+                    : context.nuruTheme.accentColor.withOpacity(0.3),
                 width: isSelected ? 1.6 : 1.0,
               ),
               boxShadow: isSelected
@@ -624,7 +663,7 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
     );
   }
 
-  // ── Text fields ───────────────────────────────────────────
+  // Text fields
 
   Widget _buildTitleField() {
     return ClipRRect(
@@ -636,22 +675,24 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                Color(0xFF1F3F74).withOpacity(0.7),
-                Color(0xFF081F44).withOpacity(0.85),
+                context.nuruTheme.backgroundMid.withOpacity(0.7),
+                context.nuruTheme.backgroundStart.withOpacity(0.85),
               ],
             ),
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color: Color(0xFF4569AD).withOpacity(0.35),
+              color: context.nuruTheme.accentColor.withOpacity(0.35),
               width: 1.2,
             ),
           ),
           child: Theme(
             data: Theme.of(context).copyWith(
               textSelectionTheme: TextSelectionThemeData(
-                cursorColor: Color(0xFF4569AD).withOpacity(0.6),
+                cursorColor: context.nuruTheme.accentColor.withOpacity(0.6),
                 selectionColor: Color(0x554569AD),
-                selectionHandleColor: Color(0xFF4569AD).withOpacity(0.6),
+                selectionHandleColor: context.nuruTheme.accentColor.withOpacity(
+                  0.6,
+                ),
               ),
             ),
             child: TextField(
@@ -663,7 +704,7 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
                 fontWeight: FontWeight.w500,
                 decoration: TextDecoration.none,
               ),
-              cursorColor: Color(0xFF4569AD).withOpacity(0.6),
+              cursorColor: context.nuruTheme.accentColor.withOpacity(0.6),
               decoration: InputDecoration(
                 hintText: 'Entry title…',
                 hintStyle: TextStyle(
@@ -698,22 +739,24 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Color(0xFF1F3F74).withOpacity(0.7),
-                Color(0xFF081F44).withOpacity(0.88),
+                context.nuruTheme.backgroundMid.withOpacity(0.7),
+                context.nuruTheme.backgroundStart.withOpacity(0.88),
               ],
             ),
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color: Color(0xFF4569AD).withOpacity(0.35),
+              color: context.nuruTheme.accentColor.withOpacity(0.35),
               width: 1.2,
             ),
           ),
           child: Theme(
             data: Theme.of(context).copyWith(
               textSelectionTheme: TextSelectionThemeData(
-                cursorColor: Color(0xFF4569AD).withOpacity(0.6),
+                cursorColor: context.nuruTheme.accentColor.withOpacity(0.6),
                 selectionColor: Color(0x554569AD),
-                selectionHandleColor: Color(0xFF4569AD).withOpacity(0.6),
+                selectionHandleColor: context.nuruTheme.accentColor.withOpacity(
+                  0.6,
+                ),
               ),
             ),
             child: TextField(
@@ -728,7 +771,7 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
                 height: 1.65,
                 decoration: TextDecoration.none,
               ),
-              cursorColor: Color(0xFF4569AD).withOpacity(0.6),
+              cursorColor: context.nuruTheme.accentColor.withOpacity(0.6),
               decoration: InputDecoration(
                 hintText: 'Write freely — this is your safe space…',
                 hintStyle: TextStyle(
@@ -751,7 +794,7 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
     );
   }
 
-  // ── Save button ───────────────────────────────────────────
+  // Save button
 
   Widget _buildSaveButton() {
     return GestureDetector(
@@ -763,22 +806,25 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [const Color(0xFF4569AD), const Color(0xFF1F3F74)],
+            colors: [
+              context.nuruTheme.accentColor,
+              context.nuruTheme.backgroundMid,
+            ],
           ),
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: Color(0xFF4569AD).withOpacity(0.45),
+            color: context.nuruTheme.accentColor.withOpacity(0.45),
             width: 1.2,
           ),
           boxShadow: [
             BoxShadow(
-              color: Color(0xFF4569AD).withOpacity(0.4),
+              color: context.nuruTheme.accentColor.withOpacity(0.4),
               blurRadius: 20,
               offset: const Offset(0, 6),
             ),
           ],
         ),
-        child: const Row(
+        child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
@@ -786,10 +832,10 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
               color: Colors.white,
               size: 20,
             ),
-            SizedBox(width: 10),
+            const SizedBox(width: 10),
             Text(
-              'Save Entry',
-              style: TextStyle(
+              widget.existingId != null ? 'Update Entry' : 'Save Entry',
+              style: const TextStyle(
                 color: Colors.white,
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
@@ -803,9 +849,7 @@ class _JournalEntryScreenState extends State<JournalEntryScreen>
   }
 }
 
-// ── Stars painter (entry screen) ──────────────────────────────
-// Sparser than the list screen — fewer stars so the writing
-// area feels clean and focused.
+//Stars painter (entry screen)
 
 class _EntryStarsPainter extends CustomPainter {
   final double twinkle;

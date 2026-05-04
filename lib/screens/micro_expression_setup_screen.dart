@@ -3,6 +3,8 @@ import 'package:camera/camera.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'dart:async';
 import '../utils/nuru_colors.dart';
+import '../services/firebase_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MicroExpressionSetupScreen extends StatefulWidget {
   final Map<String, dynamic>? userData;
@@ -151,9 +153,6 @@ class _MicroExpressionSetupScreenState
         _completeRecording();
       }
     });
-
-    // TODO: Actual video recording implementation
-    // await _cameraController!.startVideoRecording();
   }
 
   Future<void> _completeRecording() async {
@@ -162,26 +161,39 @@ class _MicroExpressionSetupScreenState
       _isProcessing = true;
     });
 
-    // TODO: Stop recording and process
-    // final video = await _cameraController!.stopVideoRecording();
+    // Capture a still frame for this expression prompt
+    try {
+      if (_cameraController != null && _cameraController!.value.isInitialized) {
+        await _cameraController!.takePicture();
+      }
+    } catch (_) {}
 
-    // Simulate processing delay
-    await Future.delayed(Duration(seconds: 1));
+    await Future.delayed(Duration(milliseconds: 800));
 
     setState(() {
       _isProcessing = false;
     });
 
-    // Move to next prompt or finish
     if (_currentPromptIndex < _prompts.length - 1) {
       setState(() {
         _currentPromptIndex++;
         _showInstructions = true;
         _recordingProgress = 0;
       });
+      // Re-init camera for the next prompt to ensure preview is fresh
+      await _reinitCamera();
     } else {
       _completeSetup();
     }
+  }
+
+  Future<void> _reinitCamera() async {
+    try {
+      await _cameraController?.dispose();
+      _cameraController = null;
+      if (mounted) setState(() => _isCameraInitialized = false);
+      await _initializeCamera();
+    } catch (_) {}
   }
 
   void _completeSetup() {
@@ -209,7 +221,7 @@ class _MicroExpressionSetupScreenState
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
-                color: NuruColors.dive,
+                color: const Color.fromARGB(255, 255, 255, 255),
               ),
             ),
             SizedBox(height: 12),
@@ -218,42 +230,57 @@ class _MicroExpressionSetupScreenState
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
-                color: NuruColors.deepSea,
+                color: const Color.fromARGB(255, 234, 242, 255),
                 height: 1.5,
               ),
             ),
           ],
         ),
         actions: [
-          Container(
-            width: double.infinity,
-            height: 50,
-            decoration: BoxDecoration(
-              gradient: NuruColors.primaryGradient,
-              borderRadius: BorderRadius.circular(25),
-            ),
-            child: ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                Navigator.pushReplacementNamed(
-                  context,
-                  '/home',
-                  arguments: widget.userData,
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.transparent,
-                shadowColor: Colors.transparent,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(25),
-                ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+            child: Container(
+              width: double.infinity,
+              height: 50,
+              decoration: BoxDecoration(
+                gradient: NuruColors.primaryGradient,
+                borderRadius: BorderRadius.circular(25),
               ),
-              child: Text(
-                'Continue to Home',
-                style: TextStyle(
-                  color: NuruColors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
+              child: ElevatedButton(
+                onPressed: () async {
+                  final uid = widget.userData?['uid'] as String? ?? '';
+                  if (uid.isNotEmpty) {
+                    await NuruFirebaseService.instance.markFacialSetupComplete(
+                      uid,
+                    );
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setString('last_uid', uid);
+                  }
+                  if (!mounted) return;
+                  Navigator.pop(context);
+                  Navigator.pushReplacementNamed(
+                    context,
+                    '/home',
+                    arguments: {
+                      ...?widget.userData,
+                      'facialSetupComplete': true,
+                    },
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(25),
+                  ),
+                ),
+                child: Text(
+                  'Continue to Home',
+                  style: TextStyle(
+                    color: NuruColors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
                 ),
               ),
             ),
@@ -282,12 +309,17 @@ class _MicroExpressionSetupScreenState
             child: Text('Cancel', style: TextStyle(color: NuruColors.darkGray)),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
+              final uid = widget.userData?['uid'] as String? ?? '';
+              if (uid.isNotEmpty) {
+                await NuruFirebaseService.instance.markFacialSetupComplete(uid);
+              }
+              if (!mounted) return;
               Navigator.pop(context);
               Navigator.pushReplacementNamed(
                 context,
                 '/home',
-                arguments: widget.userData,
+                arguments: {...?widget.userData, 'facialSetupComplete': true},
               );
             },
             style: ElevatedButton.styleFrom(

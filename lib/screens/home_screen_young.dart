@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 import 'dart:ui';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/nuru_theme_extension.dart';
 import '../services/firebase_service.dart';
 
-// ══════════════════════════════════════════════════════════════
-// HOME SCREEN FOR AGES 13-15 - FRIENDLY & ENCOURAGING
-// ══════════════════════════════════════════════════════════════
+// HOME SCREEN FOR AGES 13-15
 
 class HomeScreenYoung extends StatefulWidget {
   final Map<String, dynamic>? userData;
@@ -30,9 +29,25 @@ class _HomeScreenYoungState extends State<HomeScreenYoung>
   final TextEditingController _moodNoteController = TextEditingController();
   final List<String> _savedNotes = [];
 
+  final _rng = math.Random();
+  final List<_Star> _stars = [];
+
   @override
   void initState() {
     super.initState();
+    for (int i = 0; i < 90; i++) {
+      _stars.add(
+        _Star(
+          x: _rng.nextDouble(),
+          y: _rng.nextDouble(),
+          size: _rng.nextDouble() < 0.5
+              ? 1.2
+              : (_rng.nextDouble() < 0.7 ? 1.8 : 2.6),
+          phase: _rng.nextDouble() * math.pi * 2,
+          speed: 0.5 + _rng.nextDouble() * 0.9,
+        ),
+      );
+    }
     _loadLiveStats();
     _floatController1 = AnimationController(
       duration: Duration(seconds: 4),
@@ -69,7 +84,7 @@ class _HomeScreenYoungState extends State<HomeScreenYoung>
     );
   }
 
-  // Live stat helpers — safe getters, no complex expressions in strings
+  // Live stat helpers
   int get _liveStreak =>
       (_liveStats['currentStreak'] as num? ??
               widget.userData?['currentStreak'] as num? ??
@@ -104,8 +119,8 @@ class _HomeScreenYoungState extends State<HomeScreenYoung>
     final createdAtStr = widget.userData?['createdAt'] as String?;
     final isNewUser =
         createdAtStr != null &&
-        DateTime.now().difference(DateTime.parse(createdAtStr)).inMinutes < 10;
-    final greeting = isNewUser ? 'Welcome' : 'Welcome back';
+        DateTime.now().difference(DateTime.parse(createdAtStr)).inHours < 24;
+    final greeting = isNewUser ? 'Welcome,' : 'Welcome back,';
 
     return Scaffold(
       backgroundColor: theme.backgroundStart,
@@ -123,17 +138,18 @@ class _HomeScreenYoungState extends State<HomeScreenYoung>
           ),
 
           // Stars
-          IgnorePointer(
-            child: AnimatedBuilder(
-              animation: _floatController1,
-              builder: (ctx, _) => CustomPaint(
-                size: Size.infinite,
-                painter: _YoungStarsPainter(twinkle: _floatController1.value),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: AnimatedBuilder(
+                animation: _floatController1,
+                builder: (ctx, _) => CustomPaint(
+                  painter: _StarsPainter(_stars, _floatController1.value),
+                ),
               ),
             ),
           ),
 
-          // Animated shapes — colours passed as constructor params
+          // Animated shapes
           IgnorePointer(
             child: AnimatedBuilder(
               animation: Listenable.merge([
@@ -184,18 +200,11 @@ class _HomeScreenYoungState extends State<HomeScreenYoung>
                               vertical: 24,
                             ),
                             decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  theme.backgroundMid.withOpacity(0.5),
-                                  theme.backgroundStart.withOpacity(0.6),
-                                ],
-                              ),
+                              color: const Color(0xFF081F44).withOpacity(0.80),
                               border: Border(
                                 bottom: BorderSide(
-                                  color: theme.accentColor.withOpacity(0.4),
-                                  width: 1.5,
+                                  color: Colors.white.withOpacity(0.22),
+                                  width: 1,
                                 ),
                               ),
                             ),
@@ -208,24 +217,33 @@ class _HomeScreenYoungState extends State<HomeScreenYoung>
                                     '/profile',
                                     arguments: widget.userData,
                                   ),
-                                  child: Container(
-                                    padding: EdgeInsets.all(16),
-                                    decoration: BoxDecoration(
-                                      color: theme.backgroundStart.withOpacity(
-                                        0.6,
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(16),
+                                    child: BackdropFilter(
+                                      filter: ImageFilter.blur(
+                                        sigmaX: 8,
+                                        sigmaY: 8,
                                       ),
-                                      borderRadius: BorderRadius.circular(16),
-                                      border: Border.all(
-                                        color: theme.accentColor.withOpacity(
-                                          0.5,
+                                      child: Container(
+                                        padding: EdgeInsets.all(16),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withOpacity(0.12),
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
+                                          border: Border.all(
+                                            color: Colors.white.withOpacity(
+                                              0.20,
+                                            ),
+                                            width: 1,
+                                          ),
                                         ),
-                                        width: 1.5,
+                                        child: Icon(
+                                          Icons.person_outline,
+                                          color: Colors.white,
+                                          size: 28,
+                                        ),
                                       ),
-                                    ),
-                                    child: Icon(
-                                      Icons.person_outline,
-                                      color: Colors.white,
-                                      size: 28,
                                     ),
                                   ),
                                 ),
@@ -275,26 +293,37 @@ class _HomeScreenYoungState extends State<HomeScreenYoung>
                                   child: Stack(
                                     clipBehavior: Clip.none,
                                     children: [
-                                      Container(
-                                        padding: EdgeInsets.all(16),
-                                        decoration: BoxDecoration(
-                                          color: theme.backgroundStart
-                                              .withOpacity(0.6),
-                                          borderRadius: BorderRadius.circular(
-                                            16,
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(16),
+                                        child: BackdropFilter(
+                                          filter: ImageFilter.blur(
+                                            sigmaX: 8,
+                                            sigmaY: 8,
                                           ),
-                                          border: Border.all(
-                                            color: theme.accentColor
-                                                .withOpacity(0.5),
-                                            width: 1.5,
+                                          child: Container(
+                                            padding: EdgeInsets.all(16),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white.withOpacity(
+                                                0.12,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(16),
+                                              border: Border.all(
+                                                color: Colors.white.withOpacity(
+                                                  0.20,
+                                                ),
+                                                width: 1,
+                                              ),
+                                            ),
+                                            child: Icon(
+                                              _liveUnread > 0
+                                                  ? Icons.notifications
+                                                  : Icons
+                                                        .notifications_outlined,
+                                              color: Colors.white,
+                                              size: 28,
+                                            ),
                                           ),
-                                        ),
-                                        child: Icon(
-                                          _liveUnread > 0
-                                              ? Icons.notifications
-                                              : Icons.notifications_outlined,
-                                          color: Colors.white,
-                                          size: 28,
                                         ),
                                       ),
                                       if (_liveUnread > 0)
@@ -499,10 +528,10 @@ class _HomeScreenYoungState extends State<HomeScreenYoung>
                                 horizontal: 12,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.08),
+                                color: Colors.white.withOpacity(0.14),
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(
-                                  color: Colors.white.withOpacity(0.15),
+                                  color: Colors.white.withOpacity(0.22),
                                 ),
                               ),
                               child: Row(
@@ -687,46 +716,23 @@ class _HomeScreenYoungState extends State<HomeScreenYoung>
     );
   }
 
-  // ── Helpers ──────────────────────────────────────────────────────────────
+  // Helpers
 
   Widget _buildGlassContainer({
     required BuildContext context,
     required Widget child,
     double padding = 24,
   }) {
-    final theme = context.nuruTheme;
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
         child: Container(
           padding: EdgeInsets.all(padding),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                theme.backgroundMid.withOpacity(0.75),
-                theme.backgroundStart.withOpacity(0.80),
-              ],
-            ),
+            color: const Color(0xFF081F44).withOpacity(0.85),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: theme.accentColor.withOpacity(0.5),
-              width: 1.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: theme.backgroundStart.withOpacity(0.5),
-                blurRadius: 20,
-                offset: Offset(0, 10),
-              ),
-              BoxShadow(
-                color: Colors.white.withOpacity(0.08),
-                blurRadius: 8,
-                offset: Offset(0, -2),
-              ),
-            ],
+            border: Border.all(color: Colors.white.withOpacity(0.22), width: 1),
           ),
           child: child,
         ),
@@ -754,7 +760,7 @@ class _HomeScreenYoungState extends State<HomeScreenYoung>
             decoration: BoxDecoration(
               color: isSelected
                   ? color.withOpacity(0.3)
-                  : Colors.white.withOpacity(0.15),
+                  : Colors.white.withOpacity(0.22),
               shape: BoxShape.circle,
               border: Border.all(
                 color: isSelected ? color : Colors.white.withOpacity(0.3),
@@ -832,7 +838,7 @@ class _HomeScreenYoungState extends State<HomeScreenYoung>
                   offset: Offset(0, 10),
                 ),
                 BoxShadow(
-                  color: Colors.white.withOpacity(0.08),
+                  color: Colors.white.withOpacity(0.14),
                   blurRadius: 8,
                   offset: Offset(0, -2),
                 ),
@@ -885,13 +891,7 @@ class _HomeScreenYoungState extends State<HomeScreenYoung>
           children: [
             Container(
               height: 75,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: theme.gradientColors,
-                ),
-              ),
+              decoration: const BoxDecoration(color: Color(0xFF081F44)),
             ),
             Positioned(
               left: -40,
@@ -906,7 +906,7 @@ class _HomeScreenYoungState extends State<HomeScreenYoung>
             Positioned(
               left: constraints.maxWidth * 0.45,
               bottom: -10,
-              child: _orb(110, Colors.white.withOpacity(0.08)),
+              child: _orb(110, Colors.white.withOpacity(0.14)),
             ),
             Positioned(
               top: 0,
@@ -1001,55 +1001,41 @@ class _HomeScreenYoungState extends State<HomeScreenYoung>
   }
 }
 
-// ── Painters ──────────────────────────────────────────────────────────────────
-// CustomPainters have NO BuildContext.
-// All theme colours are passed in as constructor parameters from build().
-
-class _YoungStarsPainter extends CustomPainter {
-  final double twinkle;
-  const _YoungStarsPainter({required this.twinkle});
-
-  static const _stars = [
-    [0.08, 0.05],
-    [0.18, 0.15],
-    [0.25, 0.08],
-    [0.35, 0.20],
-    [0.42, 0.12],
-    [0.52, 0.18],
-    [0.62, 0.08],
-    [0.72, 0.22],
-    [0.78, 0.14],
-    [0.88, 0.10],
-    [0.12, 0.48],
-    [0.28, 0.55],
-    [0.38, 0.62],
-    [0.50, 0.58],
-    [0.65, 0.52],
-    [0.75, 0.65],
-    [0.85, 0.58],
-    [0.15, 0.82],
-    [0.45, 0.88],
-    [0.92, 0.85],
-  ];
+// Stars painter (same as analytics screen)
+class _StarsPainter extends CustomPainter {
+  final List<_Star> stars;
+  final double t;
+  const _StarsPainter(this.stars, this.t);
 
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()..style = PaintingStyle.fill;
-    for (final s in _stars) {
-      final x = size.width * s[0];
-      final y = size.height * s[1];
-      final op = 0.4 + (twinkle * 0.3);
-      p.color = Colors.white.withOpacity(op * 0.4);
-      canvas.drawCircle(Offset(x, y), 3.5, p);
-      p.color = Colors.white.withOpacity(op * 0.6);
-      canvas.drawCircle(Offset(x, y), 2.0, p);
-      p.color = Colors.white.withOpacity(op);
-      canvas.drawCircle(Offset(x, y), 1.3, p);
+    final paint = Paint()..style = PaintingStyle.fill;
+    for (final s in stars) {
+      final flicker =
+          0.4 +
+          0.6 * (0.5 + 0.5 * math.sin(s.phase + t * s.speed * math.pi * 2));
+      paint.color = Colors.white.withOpacity(flicker * 0.85);
+      canvas.drawCircle(
+        Offset(s.x * size.width, s.y * size.height),
+        s.size,
+        paint,
+      );
     }
   }
 
   @override
-  bool shouldRepaint(_YoungStarsPainter o) => o.twinkle != twinkle;
+  bool shouldRepaint(_StarsPainter o) => o.t != t;
+}
+
+class _Star {
+  final double x, y, size, phase, speed;
+  const _Star({
+    required this.x,
+    required this.y,
+    required this.size,
+    required this.phase,
+    required this.speed,
+  });
 }
 
 class _YoungShapesPainter extends CustomPainter {
@@ -1074,7 +1060,7 @@ class _YoungShapesPainter extends CustomPainter {
     final paint = Paint()..style = PaintingStyle.fill;
 
     // Blob 1
-    paint.color = accentColor.withOpacity(0.25);
+    paint.color = const Color(0xFF4569AD).withOpacity(0.55); // Sailing Blue
     final oy1 = animation1 * 40 - 20;
     canvas.drawPath(
       Path()
@@ -1102,7 +1088,7 @@ class _YoungShapesPainter extends CustomPainter {
     );
 
     // Blob 2
-    paint.color = bgColor.withOpacity(0.2);
+    paint.color = const Color(0xFF1F3F74).withOpacity(0.55); // Dive
     final ox2 = animation2 * 35 - 17;
     canvas.drawPath(
       Path()
@@ -1157,8 +1143,8 @@ class _YoungShapesPainter extends CustomPainter {
       Paint()
         ..shader = RadialGradient(
           colors: [
-            bgEnd.withOpacity(0.35),
-            bgEnd.withOpacity(0.1),
+            bgEnd.withOpacity(0.55), // Dive
+            const Color(0xFF1F3F74).withOpacity(0.22),
             Colors.transparent,
           ],
           stops: [0.0, 0.6, 1.0],

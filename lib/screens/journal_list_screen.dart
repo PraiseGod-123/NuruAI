@@ -76,7 +76,7 @@ class _JournalListScreenState extends State<JournalListScreen>
     super.dispose();
   }
 
-  // ── Helpers ───────────────────────────────────────────────
+  // Helpers
 
   String _getMoodEmoji(String mood) {
     const map = {
@@ -97,14 +97,16 @@ class _JournalListScreenState extends State<JournalListScreen>
   String _formatDate(DateTime date) {
     final now = DateTime.now();
     final diff = now.difference(date);
-    if (diff.inHours < 1) return 'Just now';
+    if (diff.inSeconds < 60) return 'Just now';
+    if (diff.inMinutes < 60)
+      return '${diff.inMinutes} min${diff.inMinutes == 1 ? '' : 's'} ago';
     if (diff.inHours < 24) return '${diff.inHours}h ago';
     if (diff.inDays == 1) return 'Yesterday';
     if (diff.inDays < 7) return '${diff.inDays}d ago';
     return '${date.day}/${date.month}/${date.year}';
   }
 
-  // ── Navigation ────────────────────────────────────────────
+  //  Navigation
 
   void _navigateToNewEntry() async {
     await Navigator.push(
@@ -122,14 +124,13 @@ class _JournalListScreenState extends State<JournalListScreen>
         reverseTransitionDuration: const Duration(milliseconds: 220),
       ),
     );
-    // No need to manually insert — Firestore stream updates the list automatically
   }
 
   void _confirmDelete(String entryId, String title) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1F3F74),
+        backgroundColor: context.nuruTheme.backgroundMid,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text(
           'Delete Entry',
@@ -171,22 +172,24 @@ class _JournalListScreenState extends State<JournalListScreen>
     );
   }
 
-  // ── Build ─────────────────────────────────────────────────
+  // Build
 
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Color(0xFF081F44),
         statusBarIconBrightness: Brightness.light,
         statusBarBrightness: Brightness.dark,
+        systemNavigationBarColor: Color(0xFF081F44),
+        systemNavigationBarIconBrightness: Brightness.light,
       ),
       child: Scaffold(
-        backgroundColor: const Color(0xFF0A1628),
+        backgroundColor: const Color(0xFF081F44),
         floatingActionButton: _buildFAB(),
         body: Stack(
           children: [
-            // ── Background gradient ──
+            // Background gradient
             Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -197,7 +200,7 @@ class _JournalListScreenState extends State<JournalListScreen>
               ),
             ),
 
-            // ── Stars ──
+            // Stars
             IgnorePointer(
               child: AnimatedBuilder(
                 animation: _starController,
@@ -208,8 +211,9 @@ class _JournalListScreenState extends State<JournalListScreen>
               ),
             ),
 
-            // ── Content ──
+            // Content
             SafeArea(
+              top: false,
               child: AnimatedBuilder(
                 animation: _entryController,
                 builder: (_, child) => FadeTransition(
@@ -236,10 +240,10 @@ class _JournalListScreenState extends State<JournalListScreen>
                     _buildHeader(),
                     Expanded(
                       child: _loading
-                          ? const Center(
+                          ? Center(
                               child: CircularProgressIndicator(
                                 valueColor: AlwaysStoppedAnimation<Color>(
-                                  Color(0xFF4569AD),
+                                  context.nuruTheme.accentColor,
                                 ),
                               ),
                             )
@@ -257,7 +261,7 @@ class _JournalListScreenState extends State<JournalListScreen>
     );
   }
 
-  // ── Header ────────────────────────────────────────────────
+  // Header
 
   Widget _buildHeader() {
     return ClipRRect(
@@ -268,18 +272,18 @@ class _JournalListScreenState extends State<JournalListScreen>
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Container(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 22),
+          padding: EdgeInsets.fromLTRB(
+            20,
+            MediaQuery.of(context).padding.top + 14,
+            20,
+            22,
+          ),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Color(0xFF1F3F74).withOpacity(0.65),
-                Color(0xFF081F44).withOpacity(0.55),
-              ],
-            ),
+            color: const Color(0xFF081F44),
             border: Border(
-              bottom: BorderSide(color: Color(0xFF4569AD).withOpacity(0.3)),
+              bottom: BorderSide(
+                color: context.nuruTheme.accentColor.withOpacity(0.3),
+              ),
             ),
           ),
           child: Row(
@@ -332,10 +336,10 @@ class _JournalListScreenState extends State<JournalListScreen>
       width: 42,
       height: 42,
       decoration: BoxDecoration(
-        color: Color(0xFF081F44).withOpacity(0.5),
+        color: const Color(0xFF081F44),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: Color(0xFF4569AD).withOpacity(0.45),
+          color: context.nuruTheme.accentColor.withOpacity(0.45),
           width: 1.2,
         ),
       ),
@@ -343,7 +347,7 @@ class _JournalListScreenState extends State<JournalListScreen>
     );
   }
 
-  // ── Empty state ───────────────────────────────────────────
+  // Empty state
 
   Widget _buildEmptyState() {
     return Center(
@@ -356,14 +360,14 @@ class _JournalListScreenState extends State<JournalListScreen>
             height: 96,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Color(0xFF4569AD).withOpacity(0.12),
+              color: context.nuruTheme.accentColor.withOpacity(0.28),
               border: Border.all(
-                color: Color(0xFF4569AD).withOpacity(0.3),
+                color: context.nuruTheme.accentColor.withOpacity(0.3),
                 width: 1.5,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Color(0xFF4569AD).withOpacity(0.15),
+                  color: context.nuruTheme.accentColor.withOpacity(0.15),
                   blurRadius: 28,
                   spreadRadius: 4,
                 ),
@@ -372,7 +376,7 @@ class _JournalListScreenState extends State<JournalListScreen>
             child: Icon(
               Icons.book_outlined,
               size: 44,
-              color: Color(0xFF4569AD).withOpacity(0.6),
+              color: context.nuruTheme.accentColor.withOpacity(0.6),
             ),
           ),
           const SizedBox(height: 22),
@@ -398,7 +402,7 @@ class _JournalListScreenState extends State<JournalListScreen>
     );
   }
 
-  // ── Journal list ──────────────────────────────────────────
+  // Journal list
 
   Widget _buildJournalList() {
     return ScrollConfiguration(
@@ -411,6 +415,178 @@ class _JournalListScreenState extends State<JournalListScreen>
     );
   }
 
+  // Entry options bottom sheet
+
+  void _showEntryOptions(
+    Map<String, dynamic> entry,
+    String entryId,
+    String title,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF081F44),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 36),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 20),
+            _optionTile(
+              icon: Icons.edit_outlined,
+              label: 'Edit Entry',
+              color: context.nuruTheme.accentColor,
+              onTap: () {
+                Navigator.pop(context);
+                _navigateToEdit(entry, entryId);
+              },
+            ),
+            const SizedBox(height: 12),
+            _optionTile(
+              icon: Icons.delete_outline_rounded,
+              label: 'Delete Entry',
+              color: const Color(0xFFEF5350),
+              onTap: () {
+                Navigator.pop(context);
+                _confirmDelete(entryId, title);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _optionTile({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withOpacity(0.3)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 22),
+            const SizedBox(width: 14),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<bool> _showDeleteConfirm(String entryId, String title) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: context.nuruTheme.backgroundMid,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Delete Entry',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          'Delete "$title"? This cannot be undone.',
+          style: const TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.white54),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context, true);
+              final uid = widget.userData?['uid'] as String? ?? '';
+              if (uid.isNotEmpty) {
+                NuruFirebaseService.instance.deleteJournal(
+                  uid: uid,
+                  entryId: entryId,
+                );
+              }
+            },
+            child: const Text(
+              'Delete',
+              style: TextStyle(
+                color: Color(0xFFEF5350),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
+  void _showSnack(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: context.nuruTheme.accentColor,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  Future<void> _navigateToEdit(
+    Map<String, dynamic> entry,
+    String entryId,
+  ) async {
+    await Navigator.push(
+      context,
+      PageRouteBuilder(
+        opaque: false,
+        barrierColor: const Color(0xFF081F44),
+        pageBuilder: (_, __, ___) => JournalEntryScreen(
+          userData: widget.userData,
+          existingEntry: entry,
+          existingId: entryId,
+        ),
+        transitionsBuilder: (_, animation, __, child) => FadeTransition(
+          opacity: CurvedAnimation(parent: animation, curve: Curves.easeInOut),
+          child: child,
+        ),
+        transitionDuration: const Duration(milliseconds: 280),
+        reverseTransitionDuration: const Duration(milliseconds: 220),
+      ),
+    );
+    // Firestore stream will auto-update the list
+  }
+
   Widget _buildJournalCard(Map<String, dynamic> entry, int index) {
     final mood = entry['mood'] as String? ?? 'happy';
     final moodColor = _getMoodColor(mood);
@@ -418,182 +594,199 @@ class _JournalListScreenState extends State<JournalListScreen>
     final content = entry['content'] as String? ?? '';
     final entryId = entry['id'] as String? ?? '';
 
-    // Date can come from Firestore as a String or from memory as a DateTime
     DateTime date;
-    final rawDate = entry['date'];
-    if (rawDate is DateTime) {
-      date = rawDate;
-    } else if (rawDate is String) {
+    final rawCreated = entry['createdAt'];
+    if (rawCreated is DateTime) {
+      date = rawCreated;
+    } else if (rawCreated is String) {
       try {
-        date = DateTime.parse(rawDate);
+        date = DateTime.parse(rawCreated);
       } catch (_) {
         date = DateTime.now();
       }
     } else {
-      final rawCreated = entry['createdAt'];
-      if (rawCreated is DateTime) {
-        date = rawCreated;
-      } else if (rawCreated is String) {
-        try {
-          date = DateTime.parse(rawCreated);
-        } catch (_) {
-          date = DateTime.now();
-        }
-      } else {
-        date = DateTime.now();
-      }
+      date = DateTime.now();
     }
 
-    return GestureDetector(
-      onLongPress: () => _confirmDelete(entryId, title),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(22),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 16),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF1F3F74).withOpacity(0.75),
-                  Color(0xFF081F44).withOpacity(0.88),
+    return Dismissible(
+      key: Key(entryId.isEmpty ? 'entry_$index' : entryId),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFEF5350),
+          borderRadius: BorderRadius.circular(22),
+        ),
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 24),
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.delete_outline_rounded, color: Colors.white, size: 28),
+            SizedBox(height: 4),
+            Text(
+              'Delete',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+      confirmDismiss: (_) async {
+        if (entryId.isEmpty) {
+          _showSnack('Cannot delete this entry');
+          return false;
+        }
+        return await _showDeleteConfirm(entryId, title);
+      },
+      onDismissed: (_) {},
+      child: GestureDetector(
+        onLongPress: () => _showEntryOptions(entry, entryId, title),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(22),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF081F44),
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(
+                  color: context.nuruTheme.accentColor.withOpacity(0.35),
+                  width: 1.2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF081F44),
+                    blurRadius: 18,
+                    offset: const Offset(0, 6),
+                  ),
                 ],
               ),
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(
-                color: Color(0xFF4569AD).withOpacity(0.35),
-                width: 1.2,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Color(0xFF081F44).withOpacity(0.45),
-                  blurRadius: 18,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(22),
-                onTap: () {},
-                splashColor: Color(0xFF4569AD).withOpacity(0.08),
-                child: Padding(
-                  padding: const EdgeInsets.all(18),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // ── Top row: mood + title + date ──
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Mood badge
-                          Container(
-                            width: 50,
-                            height: 50,
-                            decoration: BoxDecoration(
-                              color: moodColor.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(
-                                color: moodColor.withOpacity(0.4),
-                                width: 1.2,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(22),
+                  onTap: () {},
+                  splashColor: context.nuruTheme.accentColor.withOpacity(0.22),
+                  child: Padding(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // ── Top row: mood + title + date ──
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Mood badge
+                            Container(
+                              width: 50,
+                              height: 50,
+                              decoration: BoxDecoration(
+                                color: moodColor.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: moodColor.withOpacity(0.4),
+                                  width: 1.2,
+                                ),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  _getMoodEmoji(mood),
+                                  style: const TextStyle(fontSize: 24),
+                                ),
                               ),
                             ),
-                            child: Center(
-                              child: Text(
-                                _getMoodEmoji(mood),
-                                style: const TextStyle(fontSize: 24),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 14),
+                            const SizedBox(width: 14),
 
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  title,
-                                  style: const TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.white,
-                                    letterSpacing: -0.2,
-                                    height: 1.2,
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    title,
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                      letterSpacing: -0.2,
+                                      height: 1.2,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Icons.access_time_rounded,
-                                      size: 11,
-                                      color: Colors.white.withOpacity(0.38),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      _formatDate(date),
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.white.withOpacity(0.45),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.access_time_rounded,
+                                        size: 11,
+                                        color: Colors.white.withOpacity(0.38),
                                       ),
-                                    ),
-                                  ],
-                                ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        _formatDate(date),
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.white.withOpacity(0.45),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            // Mood colour dot
+                            Container(
+                              width: 8,
+                              height: 8,
+                              margin: const EdgeInsets.only(top: 4),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: moodColor,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: moodColor.withOpacity(0.5),
+                                    blurRadius: 6,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        // ── Divider ──
+                        Container(
+                          margin: const EdgeInsets.symmetric(vertical: 12),
+                          height: 1,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.transparent,
+                                context.nuruTheme.accentColor.withOpacity(0.22),
+                                Colors.transparent,
                               ],
                             ),
                           ),
-
-                          // Mood colour dot
-                          Container(
-                            width: 8,
-                            height: 8,
-                            margin: const EdgeInsets.only(top: 4),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: moodColor,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: moodColor.withOpacity(0.5),
-                                  blurRadius: 6,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      // ── Divider ──
-                      Container(
-                        margin: const EdgeInsets.symmetric(vertical: 12),
-                        height: 1,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              Colors.transparent,
-                              Color(0xFF4569AD).withOpacity(0.22),
-                              Colors.transparent,
-                            ],
-                          ),
                         ),
-                      ),
 
-                      // ── Content preview ──
-                      Text(
-                        content,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.white.withOpacity(0.58),
-                          height: 1.55,
+                        // ── Content preview ──
+                        Text(
+                          content,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.white.withOpacity(0.58),
+                            height: 1.55,
+                          ),
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -604,7 +797,7 @@ class _JournalListScreenState extends State<JournalListScreen>
     );
   }
 
-  // ── FAB ───────────────────────────────────────────────────
+  // FAB
 
   Widget _buildFAB() {
     return GestureDetector(
@@ -616,30 +809,31 @@ class _JournalListScreenState extends State<JournalListScreen>
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [const Color(0xFF4569AD), const Color(0xFF1F3F74)],
+            colors: [
+              context.nuruTheme.accentColor,
+              context.nuruTheme.backgroundMid,
+            ],
           ),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: Color(0xFF4569AD).withOpacity(0.5),
+            color: context.nuruTheme.accentColor.withOpacity(0.5),
             width: 1.5,
           ),
           boxShadow: [
             BoxShadow(
-              color: Color(0xFF4569AD).withOpacity(0.45),
+              color: context.nuruTheme.accentColor.withOpacity(0.45),
               blurRadius: 20,
               offset: const Offset(0, 6),
             ),
           ],
         ),
-        child: const Icon(Icons.add_rounded, color: Colors.white, size: 28),
+        child: Icon(Icons.add_rounded, color: Colors.white, size: 28),
       ),
     );
   }
 }
 
-// ── Stars painter ─────────────────────────────────────────────
-// 3 sizes × multiple bands covering the full screen height.
-// Each star twinkles at its own independent phase.
+// Stars painter
 
 class _JournalStarsPainter extends CustomPainter {
   final double twinkle;

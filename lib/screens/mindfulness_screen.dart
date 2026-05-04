@@ -38,8 +38,6 @@ class _Plan {
   });
 }
 
-// ─────────────────────────────────────────────────────────────
-
 class MindfulnessScreen extends StatefulWidget {
   final Map<String, dynamic>? userData;
   const MindfulnessScreen({Key? key, this.userData}) : super(key: key);
@@ -70,8 +68,7 @@ class _MindfulnessScreenState extends State<MindfulnessScreen>
   Timer? _timer;
 
   // ══════════════════════════════════════════════════════════
-  // 10 MINDFULNESS GUIDED SESSIONS — adapted for ASD
-  // Shorter, sensory-focused, structured, no "clear your mind"
+  // MINDFULNESS GUIDED SESSIONS
   // ══════════════════════════════════════════════════════════
 
   static final List<_Plan> _plans = [
@@ -623,7 +620,7 @@ class _MindfulnessScreenState extends State<MindfulnessScreen>
     }
   }
 
-  // ── Session engine ────────────────────────────────────────
+  // Session engine
 
   void _startSession(_Plan plan) {
     _timer?.cancel();
@@ -705,14 +702,7 @@ class _MindfulnessScreenState extends State<MindfulnessScreen>
           child: Container(
             padding: const EdgeInsets.fromLTRB(28, 28, 28, 48),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  context.nuruTheme.backgroundMid.withOpacity(0.97),
-                  context.nuruTheme.backgroundStart.withOpacity(0.99),
-                ],
-              ),
+              color: const Color(0xFF081F44),
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(32),
               ),
@@ -807,15 +797,17 @@ class _MindfulnessScreenState extends State<MindfulnessScreen>
     ),
   );
 
-  // ── Build ─────────────────────────────────────────────────
+  // Build
 
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Color(0xFF081F44),
         statusBarIconBrightness: Brightness.light,
         statusBarBrightness: Brightness.dark,
+        systemNavigationBarColor: Color(0xFF081F44),
+        systemNavigationBarIconBrightness: Brightness.light,
       ),
       child: Scaffold(
         backgroundColor: context.nuruTheme.backgroundStart,
@@ -826,10 +818,7 @@ class _MindfulnessScreenState extends State<MindfulnessScreen>
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [
-                    context.nuruTheme.accentColor,
-                    context.nuruTheme.backgroundEnd,
-                  ],
+                  colors: context.nuruTheme.gradientColors,
                 ),
               ),
             ),
@@ -846,6 +835,7 @@ class _MindfulnessScreenState extends State<MindfulnessScreen>
               _buildSession(_session!)
             else
               SafeArea(
+                top: false,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -892,7 +882,7 @@ class _MindfulnessScreenState extends State<MindfulnessScreen>
                     width: 42,
                     height: 42,
                     decoration: BoxDecoration(
-                      color: context.nuruTheme.backgroundStart.withOpacity(0.5),
+                      color: const Color(0xFF081F44),
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
                         color: plan.color.withOpacity(0.5),
@@ -1153,7 +1143,7 @@ class _MindfulnessScreenState extends State<MindfulnessScreen>
     );
   }
 
-  // ── Browse ────────────────────────────────────────────────
+  // Browse
 
   Widget _buildAppBar() {
     return ClipRRect(
@@ -1164,16 +1154,14 @@ class _MindfulnessScreenState extends State<MindfulnessScreen>
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Container(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          padding: EdgeInsets.fromLTRB(
+            20,
+            MediaQuery.of(context).padding.top + 12,
+            20,
+            20,
+          ),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                context.nuruTheme.backgroundMid.withOpacity(0.75),
-                context.nuruTheme.backgroundStart.withOpacity(0.80),
-              ],
-            ),
+            color: const Color(0xFF081F44),
             border: Border(
               bottom: BorderSide(
                 color: context.nuruTheme.accentColor.withOpacity(0.4),
@@ -1225,7 +1213,7 @@ class _MindfulnessScreenState extends State<MindfulnessScreen>
     width: 42,
     height: 42,
     decoration: BoxDecoration(
-      color: context.nuruTheme.backgroundStart.withOpacity(0.5),
+      color: const Color(0xFF081F44),
       borderRadius: BorderRadius.circular(14),
       border: Border.all(
         color: context.nuruTheme.accentColor.withOpacity(0.5),
@@ -1403,7 +1391,7 @@ class _MindfulnessScreenState extends State<MindfulnessScreen>
               ),
               boxShadow: [
                 BoxShadow(
-                  color: context.nuruTheme.backgroundStart.withOpacity(0.5),
+                  color: const Color(0xFF081F44),
                   blurRadius: 14,
                   offset: const Offset(0, 5),
                 ),
@@ -1690,14 +1678,7 @@ class _MindfulnessScreenState extends State<MindfulnessScreen>
             filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
             child: Container(
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    context.nuruTheme.backgroundMid.withOpacity(0.97),
-                    context.nuruTheme.backgroundStart.withOpacity(0.99),
-                  ],
-                ),
+                color: const Color(0xFF081F44),
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(32),
                 ),
@@ -1747,9 +1728,7 @@ class _MindfulnessScreenState extends State<MindfulnessScreen>
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: context.nuruTheme.backgroundStart.withOpacity(
-                            0.4,
-                          ),
+                          color: const Color(0xFF081F44),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
                             color: context.nuruTheme.accentColor.withOpacity(
@@ -1791,7 +1770,7 @@ class _MindfulnessScreenState extends State<MindfulnessScreen>
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.open_in_new_rounded,
                                 color: Colors.white,
                                 size: 16,

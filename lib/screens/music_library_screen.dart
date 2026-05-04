@@ -5,27 +5,14 @@ import 'dart:math' as math;
 import 'dart:ui';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_sound/flutter_sound.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../services/music_service.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/nuru_theme_extension.dart';
-import 'package:audioplayers/audioplayers.dart';
 
 // ══════════════════════════════════════════════════════════════
 // MUSIC LIBRARY SCREEN
-//
-// Tabs:
-//   DISCOVER     — Jamendo (full CC tracks) or iTunes (30s previews)
-//                  Six moods. Tap any track → full-screen player.
-//   MY RECORDINGS — Record with flutter_sound. Name, rename, delete.
-//                  Record voices of loved ones or soothing sounds.
-//   FAVOURITES   — Heart any track to save here.
-//
-// pubspec.yaml:
-//   audioplayers: ^5.2.1
-//   flutter_sound: ^9.2.13
-//   path_provider: ^2.1.2
-//   http: ^1.2.0
 // ══════════════════════════════════════════════════════════════
 
 class MusicLibraryScreen extends StatefulWidget {
@@ -37,12 +24,12 @@ class MusicLibraryScreen extends StatefulWidget {
 
 class _MusicLibraryScreenState extends State<MusicLibraryScreen>
     with TickerProviderStateMixin {
-  // ── Animation controllers ────────────────────────────────
+  // Animation controllers
   late AnimationController _starCtrl;
   late AnimationController _orbCtrl;
   late AnimationController _visCtrl;
 
-  // ── Audio player ─────────────────────────────────────────
+  // Audio player
   final AudioPlayer _player = AudioPlayer();
   MusicTrack? _current;
   bool _playing = false;
@@ -54,7 +41,7 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen>
   List<MusicTrack> _queue = [];
   bool _expanded = false;
 
-  // ── Recorder (flutter_sound) ─────────────────────────────
+  // Recorder (flutter_sound)
   final FlutterSoundRecorder _recorder = FlutterSoundRecorder();
   bool _recOpen = false;
   bool _recording = false;
@@ -62,7 +49,7 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen>
   Timer? _recTimer;
   List<RecordingMeta> _recordings = [];
 
-  // ── UI state ─────────────────────────────────────────────
+  // UI state
   int _tab = 0; // 0=Discover 1=Recordings 2=Favourites
   String _moodId = 'lofi';
   bool _loading = false;
@@ -72,7 +59,7 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen>
 
   final _svc = MusicService.instance;
 
-  // ── Palette ───────────────────────────────────────────────
+  // Palette
 
   static const Map<String, Color> _moodColors = {
     'lofi': Color(0xFF6C5CE7),
@@ -121,6 +108,7 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen>
 
     _initRecorder();
     _loadRecordings();
+    _loadFavourites();
     _fetch('lofi');
   }
 
@@ -135,14 +123,27 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen>
     super.dispose();
   }
 
-  // ── Recorder init ─────────────────────────────────────────
+  // Recorder init
 
   Future<void> _initRecorder() async {
     try {
+      // Request microphone permission explicitly
+      final status = await Permission.microphone.request();
+      if (!status.isGranted) {
+        if (mounted) {
+          _showSnack(
+            status.isPermanentlyDenied
+                ? 'Microphone permission denied. Please enable it in Settings.'
+                : 'Microphone permission is needed to record.',
+          );
+        }
+        return;
+      }
       await _recorder.openRecorder();
       if (mounted) setState(() => _recOpen = true);
     } catch (e) {
       debugPrint('[Music] Recorder init error: $e');
+      if (mounted) _showSnack('Could not open microphone. Please try again.');
     }
   }
 
@@ -213,6 +214,11 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen>
     _next();
   }
 
+  Future<void> _loadFavourites() async {
+    final favs = await _svc.loadFavourites();
+    if (mounted) setState(() => _favs = favs);
+  }
+
   void _toggleFav(MusicTrack t) {
     setState(() {
       if (_favs.any((x) => x.id == t.id))
@@ -220,6 +226,7 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen>
       else
         _favs.insert(0, t);
     });
+    _svc.saveFavourites(_favs); // persist immediately
   }
 
   bool _isFav(MusicTrack t) => _favs.any((x) => x.id == t.id);
@@ -268,26 +275,50 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen>
   // ══════════════════════════════════════════════════════════
 
   Future<void> _startRecording() async {
+    // Re-check permission in case it was revoked since init
     if (!_recOpen) {
-      _showSnack('Microphone not available. Check permissions.');
-      return;
+      final status = await Permission.microphone.status;
+      if (status.isPermanentlyDenied) {
+        _showSnack(
+          'Microphone permission denied. Please enable it in Settings.',
+        );
+        await openAppSettings();
+        return;
+      }
+      await _initRecorder();
+      if (!_recOpen) return;
     }
-    final path = await _svc.newRecordingPath();
-    await _recorder.startRecorder(toFile: path, codec: Codec.aacADTS);
-    setState(() {
-      _recording = true;
-      _recSecs = 0;
-    });
-    _recTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() => _recSecs++);
-    });
+    try {
+      final path = await _svc.newRecordingPath();
+      await _recorder.startRecorder(toFile: path, codec: Codec.aacADTS);
+      setState(() {
+        _recording = true;
+        _recSecs = 0;
+      });
+      _recTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) setState(() => _recSecs++);
+      });
+    } catch (e) {
+      debugPrint('[Music] Start recording error: $e');
+      _showSnack('Could not start recording. Please try again.');
+    }
   }
 
   Future<void> _stopRecording() async {
     _recTimer?.cancel();
-    final path = await _recorder.stopRecorder();
-    setState(() => _recording = false);
-    if (path != null) _promptName(path, _recSecs);
+    try {
+      final path = await _recorder.stopRecorder();
+      setState(() => _recording = false);
+      if (path != null && path.isNotEmpty) {
+        _promptName(path, _recSecs);
+      } else {
+        _showSnack('Recording failed. Please try again.');
+      }
+    } catch (e) {
+      debugPrint('[Music] Stop recording error: $e');
+      setState(() => _recording = false);
+      _showSnack('Could not save recording. Please try again.');
+    }
   }
 
   void _promptName(String path, int secs) {
@@ -345,14 +376,7 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen>
           child: Container(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  context.nuruTheme.backgroundMid.withOpacity(0.97),
-                  context.nuruTheme.backgroundStart.withOpacity(0.99),
-                ],
-              ),
+              color: const Color(0xFF081F44).withOpacity(0.85),
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(24),
               ),
@@ -474,14 +498,14 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen>
     );
   }
 
-  // ── Helpers ───────────────────────────────────────────────
+  // Helpers
 
   AlertDialog _dialog({
     required String title,
     required Widget content,
     required List<Widget> actions,
   }) => AlertDialog(
-    backgroundColor: context.nuruTheme.backgroundMid,
+    backgroundColor: const Color(0xFF081F44),
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
     title: Text(
       title,
@@ -507,7 +531,7 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen>
       ),
     ),
     filled: true,
-    fillColor: context.nuruTheme.backgroundStart.withOpacity(0.4),
+    fillColor: const Color(0xFF081F44).withOpacity(0.85),
   );
 
   Widget _sheetBtn(IconData icon, String label, Color c, VoidCallback onTap) =>
@@ -542,7 +566,7 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg),
-        backgroundColor: context.nuruTheme.backgroundMid,
+        backgroundColor: const Color(0xFF081F44),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
@@ -556,13 +580,15 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen>
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Color(0xFF081F44),
         statusBarIconBrightness: Brightness.light,
         statusBarBrightness: Brightness.dark,
+        systemNavigationBarColor: Color(0xFF081F44),
+        systemNavigationBarIconBrightness: Brightness.light,
       ),
       child: Scaffold(
-        backgroundColor: context.nuruTheme.backgroundStart,
+        backgroundColor: const Color(0xFF081F44),
         body: Stack(
           children: [
             Container(
@@ -570,10 +596,7 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen>
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [
-                    context.nuruTheme.accentColor,
-                    context.nuruTheme.backgroundEnd,
-                  ],
+                  colors: context.nuruTheme.gradientColors,
                 ),
               ),
             ),
@@ -591,6 +614,7 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen>
               _buildFullPlayer()
             else
               SafeArea(
+                top: false,
                 child: Column(
                   children: [
                     _buildAppBar(),
@@ -606,7 +630,7 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen>
     );
   }
 
-  // ── App bar ───────────────────────────────────────────────
+  // App bar
 
   Widget _buildAppBar() {
     return ClipRRect(
@@ -617,16 +641,14 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen>
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Container(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
+          padding: EdgeInsets.fromLTRB(
+            20,
+            MediaQuery.of(context).padding.top + 12,
+            20,
+            18,
+          ),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                context.nuruTheme.backgroundMid.withOpacity(0.75),
-                context.nuruTheme.backgroundStart.withOpacity(0.80),
-              ],
-            ),
+            color: const Color(0xFF081F44).withOpacity(0.85),
             border: Border(
               bottom: BorderSide(
                 color: context.nuruTheme.accentColor.withOpacity(0.4),
@@ -641,14 +663,14 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen>
                   width: 42,
                   height: 42,
                   decoration: BoxDecoration(
-                    color: context.nuruTheme.backgroundStart.withOpacity(0.5),
+                    color: const Color(0xFF081F44).withOpacity(0.85),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                       color: context.nuruTheme.accentColor.withOpacity(0.5),
                       width: 1.2,
                     ),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.arrow_back_ios_new_rounded,
                     color: Colors.white,
                     size: 18,
@@ -727,7 +749,7 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen>
     );
   }
 
-  // ── Tab bar ───────────────────────────────────────────────
+  // Tab bar
 
   Widget _buildTabBar() {
     const tabs = [
@@ -754,12 +776,9 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen>
                     colors: sel
                         ? [
                             context.nuruTheme.accentColor.withOpacity(0.45),
-                            context.nuruTheme.backgroundStart.withOpacity(0.75),
+                            const Color(0xFF081F44),
                           ]
-                        : [
-                            context.nuruTheme.backgroundMid.withOpacity(0.4),
-                            context.nuruTheme.backgroundStart.withOpacity(0.6),
-                          ],
+                        : [const Color(0xFF081F44), const Color(0xFF081F44)],
                   ),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
@@ -857,14 +876,8 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen>
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: sel
-                        ? [
-                            c.withOpacity(0.45),
-                            context.nuruTheme.backgroundStart.withOpacity(0.75),
-                          ]
-                        : [
-                            context.nuruTheme.backgroundMid.withOpacity(0.6),
-                            context.nuruTheme.backgroundStart.withOpacity(0.75),
-                          ],
+                        ? [c.withOpacity(0.45), const Color(0xFF081F44)]
+                        : [const Color(0xFF081F44), const Color(0xFF081F44)],
                   ),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
@@ -957,7 +970,7 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.08),
+              color: const Color(0xFF081F44).withOpacity(0.85),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: Colors.white.withOpacity(0.15)),
             ),
@@ -1003,14 +1016,8 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen>
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: isCur
-                    ? [
-                        c.withOpacity(0.25),
-                        context.nuruTheme.backgroundStart.withOpacity(0.88),
-                      ]
-                    : [
-                        context.nuruTheme.backgroundMid.withOpacity(0.55),
-                        context.nuruTheme.backgroundStart.withOpacity(0.85),
-                      ],
+                    ? [c.withOpacity(0.25), const Color(0xFF081F44)]
+                    : [const Color(0xFF081F44), const Color(0xFF081F44)],
               ),
               borderRadius: BorderRadius.circular(18),
               border: Border.all(
@@ -1144,14 +1151,8 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen>
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: _recording
-              ? [
-                  Color(0xFFFF6B6B).withOpacity(0.2),
-                  context.nuruTheme.backgroundStart.withOpacity(0.85),
-                ]
-              : [
-                  context.nuruTheme.backgroundMid.withOpacity(0.65),
-                  context.nuruTheme.backgroundStart.withOpacity(0.85),
-                ],
+              ? [Color(0xFFFF6B6B).withOpacity(0.2), const Color(0xFF081F44)]
+              : [const Color(0xFF081F44), const Color(0xFF081F44)],
         ),
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
@@ -1211,11 +1212,11 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen>
                     colors: _recording
                         ? [
                             Color(0xFFFF6B6B).withOpacity(0.4),
-                            context.nuruTheme.backgroundStart.withOpacity(0.7),
+                            const Color(0xFF081F44),
                           ]
                         : [
                             context.nuruTheme.accentColor.withOpacity(0.35),
-                            context.nuruTheme.backgroundStart.withOpacity(0.7),
+                            const Color(0xFF081F44),
                           ],
                   ),
                   borderRadius: BorderRadius.circular(16),
@@ -1339,16 +1340,9 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen>
                       colors: isCur
                           ? [
                               Color(0xFFFF6B9D).withOpacity(0.2),
-                              context.nuruTheme.backgroundStart.withOpacity(
-                                0.88,
-                              ),
+                              const Color(0xFF081F44),
                             ]
-                          : [
-                              context.nuruTheme.backgroundMid.withOpacity(0.55),
-                              context.nuruTheme.backgroundStart.withOpacity(
-                                0.85,
-                              ),
-                            ],
+                          : [const Color(0xFF081F44), const Color(0xFF081F44)],
                     ),
                     borderRadius: BorderRadius.circular(18),
                     border: Border.all(
@@ -1425,7 +1419,7 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen>
                           width: 32,
                           height: 32,
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.06),
+                            color: const Color(0xFF081F44).withOpacity(0.85),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
                               color: Colors.white.withOpacity(0.12),
@@ -1515,12 +1509,8 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen>
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Color.lerp(
-                  context.nuruTheme.backgroundMid,
-                  c,
-                  0.18,
-                )!.withOpacity(0.97),
-                context.nuruTheme.backgroundStart.withOpacity(0.99),
+                const Color(0xFF081F44).withOpacity(0.85),
+                const Color(0xFF081F44),
               ],
             ),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
@@ -1655,7 +1645,7 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen>
           width: sz,
           height: sz,
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.07),
+            color: const Color(0xFF081F44).withOpacity(0.85),
             shape: BoxShape.circle,
           ),
           child: Icon(
@@ -1687,7 +1677,7 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen>
                     width: 42,
                     height: 42,
                     decoration: BoxDecoration(
-                      color: context.nuruTheme.backgroundStart.withOpacity(0.5),
+                      color: const Color(0xFF081F44).withOpacity(0.85),
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(color: c.withOpacity(0.4), width: 1.2),
                     ),
@@ -1715,7 +1705,7 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen>
                     decoration: BoxDecoration(
                       color: _isFav(t)
                           ? Color(0xFFFF6B9D).withOpacity(0.2)
-                          : context.nuruTheme.backgroundStart.withOpacity(0.5),
+                          : const Color(0xFF081F44).withOpacity(0.85),
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
                         color: _isFav(t)
@@ -1971,7 +1961,7 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen>
         colors: [
           c.withOpacity(0.7),
           c.withOpacity(0.2),
-          context.nuruTheme.backgroundStart,
+          const Color(0xFF081F44),
         ],
       ),
     ),
@@ -2013,7 +2003,7 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen>
         ),
       );
 
-  // ── Common states ─────────────────────────────────────────
+  // Common states
 
   Widget _loadingState() => Center(
     child: Column(
@@ -2084,7 +2074,7 @@ class _MusicLibraryScreenState extends State<MusicLibraryScreen>
   );
 }
 
-// ── Visualiser widgets ────────────────────────────────────────
+// Visualiser widgets
 
 class _MiniVis extends StatelessWidget {
   final Color color;
@@ -2155,7 +2145,7 @@ class _RecWave extends StatelessWidget {
   }
 }
 
-// ── Stars painter ─────────────────────────────────────────────
+//  Stars painter
 
 class _StarsPainter extends CustomPainter {
   final double t;

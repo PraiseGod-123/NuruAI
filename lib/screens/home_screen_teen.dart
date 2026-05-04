@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 import 'package:flutter/services.dart';
 import 'dart:ui';
 import 'package:provider/provider.dart';
@@ -27,9 +28,26 @@ class _HomeScreenTeenState extends State<HomeScreenTeen>
   final TextEditingController _moodNoteController = TextEditingController();
   final List<String> _savedNotes = [];
 
+  final _rng = math.Random();
+  final List<_Star> _stars = [];
+
   @override
   void initState() {
     super.initState();
+    // Build star field
+    for (int i = 0; i < 70; i++) {
+      _stars.add(
+        _Star(
+          x: _rng.nextDouble(),
+          y: _rng.nextDouble(),
+          size: _rng.nextDouble() < 0.5
+              ? 1.2
+              : (_rng.nextDouble() < 0.7 ? 1.8 : 2.6),
+          phase: _rng.nextDouble() * math.pi * 2,
+          speed: 0.5 + _rng.nextDouble() * 0.9,
+        ),
+      );
+    }
     _loadLiveStats();
     _floatController1 = AnimationController(
       duration: Duration(seconds: 4),
@@ -104,17 +122,17 @@ class _HomeScreenTeenState extends State<HomeScreenTeen>
     final createdAtStr = widget.userData?['createdAt'] as String?;
     final isNewUser =
         createdAtStr != null &&
-        DateTime.now().difference(DateTime.parse(createdAtStr)).inMinutes < 10;
-    final greeting = isNewUser ? 'Welcome' : 'Welcome back';
+        DateTime.now().difference(DateTime.parse(createdAtStr)).inHours < 24;
+    final greeting = isNewUser ? 'Welcome,' : 'Welcome back,';
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
-        statusBarColor: Color(0xFF081F44),
+      value: SystemUiOverlayStyle(
+        statusBarColor: const Color(0xFF081F44),
         statusBarIconBrightness: Brightness.light,
         statusBarBrightness: Brightness.dark,
       ),
       child: Scaffold(
-        backgroundColor: const Color(0xFF4569AD),
+        backgroundColor: const Color(0xFF081F44),
         body: Stack(
           children: [
             Container(
@@ -122,16 +140,17 @@ class _HomeScreenTeenState extends State<HomeScreenTeen>
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: const [Color(0xFF4569AD), Color(0xFF14366D)],
+                  colors: context.nuruTheme.gradientColors,
                 ),
               ),
             ),
-            IgnorePointer(
-              child: AnimatedBuilder(
-                animation: _floatController1,
-                builder: (ctx, _) => CustomPaint(
-                  size: Size.infinite,
-                  painter: _TeenStarsPainter(twinkle: _floatController1.value),
+            Positioned.fill(
+              child: IgnorePointer(
+                child: AnimatedBuilder(
+                  animation: _floatController1,
+                  builder: (ctx, _) => CustomPaint(
+                    painter: _StarsPainter(_stars, _floatController1.value),
+                  ),
                 ),
               ),
             ),
@@ -148,9 +167,9 @@ class _HomeScreenTeenState extends State<HomeScreenTeen>
                     animation1: _floatController1.value,
                     animation2: _floatController2.value,
                     animation3: _floatController3.value,
-                    accentColor: const Color(0xFF4569AD),
-                    bgColor: const Color(0xFF081F44),
-                    bgEnd: const Color(0xFF14366D),
+                    accentColor: context.nuruTheme.accentColor,
+                    bgColor: context.nuruTheme.backgroundStart,
+                    bgEnd: context.nuruTheme.backgroundMid,
                   ),
                 ),
               ),
@@ -202,22 +221,15 @@ class _HomeScreenTeenState extends State<HomeScreenTeen>
           bottomRight: Radius.circular(32),
         ),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
           child: Container(
             padding: EdgeInsets.symmetric(horizontal: 20, vertical: 24),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF1F3F74).withOpacity(0.5),
-                  const Color(0xFF081F44),
-                ],
-              ),
+              color: const Color(0xFF081F44).withOpacity(0.80),
               border: Border(
                 bottom: BorderSide(
-                  color: Color(0xFF4569AD).withOpacity(0.4),
-                  width: 1.5,
+                  color: Colors.white.withOpacity(0.15),
+                  width: 1,
                 ),
               ),
             ),
@@ -229,20 +241,26 @@ class _HomeScreenTeenState extends State<HomeScreenTeen>
                     '/profile',
                     arguments: widget.userData,
                   ),
-                  child: Container(
-                    padding: EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF081F44),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: Color(0xFF4569AD).withOpacity(0.5),
-                        width: 1.5,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                      child: Container(
+                        padding: EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.20),
+                            width: 1,
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.person_outline,
+                          color: Colors.white,
+                          size: 28,
+                        ),
                       ),
-                    ),
-                    child: Icon(
-                      Icons.person_outline,
-                      color: Colors.white,
-                      size: 28,
                     ),
                   ),
                 ),
@@ -285,22 +303,28 @@ class _HomeScreenTeenState extends State<HomeScreenTeen>
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
-                      Container(
-                        padding: EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF081F44),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: Color(0xFF4569AD).withOpacity(0.5),
-                            width: 1.5,
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                          child: Container(
+                            padding: EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.20),
+                                width: 1,
+                              ),
+                            ),
+                            child: Icon(
+                              _liveUnread > 0
+                                  ? Icons.notifications
+                                  : Icons.notifications_outlined,
+                              color: Colors.white,
+                              size: 28,
+                            ),
                           ),
-                        ),
-                        child: Icon(
-                          _liveUnread > 0
-                              ? Icons.notifications
-                              : Icons.notifications_outlined,
-                          color: Colors.white,
-                          size: 28,
                         ),
                       ),
                       if (_liveUnread > 0)
@@ -706,16 +730,19 @@ class _HomeScreenTeenState extends State<HomeScreenTeen>
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [const Color(0xFF1F3F74), const Color(0xFF081F44)],
+                colors: [
+                  context.nuruTheme.backgroundMid,
+                  context.nuruTheme.backgroundStart,
+                ],
               ),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: Color(0xFF4569AD).withOpacity(0.5),
+                color: context.nuruTheme.accentColor.withOpacity(0.5),
                 width: 1.5,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Color(0xFF081F44).withOpacity(0.5),
+                  color: context.nuruTheme.backgroundStart.withOpacity(0.5),
                   blurRadius: 20,
                   offset: Offset(0, 10),
                 ),
@@ -799,7 +826,7 @@ class _HomeScreenTeenState extends State<HomeScreenTeen>
               Container(
                 padding: EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Color(0xFF081F44).withOpacity(0.4),
+                  color: context.nuruTheme.backgroundStart.withOpacity(0.4),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(
@@ -859,16 +886,19 @@ class _HomeScreenTeenState extends State<HomeScreenTeen>
                 LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [const Color(0xFF1F3F74), const Color(0xFF081F44)],
+                  colors: [
+                    context.nuruTheme.backgroundMid,
+                    context.nuruTheme.backgroundStart,
+                  ],
                 ),
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color: Color(0xFF4569AD).withOpacity(0.5),
+              color: context.nuruTheme.accentColor.withOpacity(0.5),
               width: 1.5,
             ),
             boxShadow: [
               BoxShadow(
-                color: Color(0xFF081F44).withOpacity(0.5),
+                color: context.nuruTheme.backgroundStart.withOpacity(0.5),
                 blurRadius: 20,
                 offset: Offset(0, 10),
               ),
@@ -945,13 +975,7 @@ class _HomeScreenTeenState extends State<HomeScreenTeen>
           children: [
             Container(
               height: 75,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: theme.gradientColors,
-                ),
-              ),
+              decoration: const BoxDecoration(color: Color(0xFF081F44)),
             ),
             Positioned(
               left: -40,
@@ -1061,51 +1085,42 @@ class _HomeScreenTeenState extends State<HomeScreenTeen>
   }
 }
 
-// ── Painters — NO BuildContext inside ────────────────────────────────────────
+// RealisticStarsPainter
+// Stars painter
+class _StarsPainter extends CustomPainter {
+  final List<_Star> stars;
+  final double t;
+  const _StarsPainter(this.stars, this.t);
 
-class _TeenStarsPainter extends CustomPainter {
-  final double twinkle;
-  const _TeenStarsPainter({required this.twinkle});
-  static const _stars = [
-    [0.08, 0.05],
-    [0.18, 0.15],
-    [0.25, 0.08],
-    [0.35, 0.20],
-    [0.42, 0.12],
-    [0.52, 0.18],
-    [0.62, 0.08],
-    [0.72, 0.22],
-    [0.78, 0.14],
-    [0.88, 0.10],
-    [0.12, 0.48],
-    [0.28, 0.55],
-    [0.38, 0.62],
-    [0.50, 0.58],
-    [0.65, 0.52],
-    [0.75, 0.65],
-    [0.85, 0.58],
-    [0.15, 0.82],
-    [0.45, 0.88],
-    [0.92, 0.85],
-  ];
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()..style = PaintingStyle.fill;
-    for (final s in _stars) {
-      final x = size.width * s[0];
-      final y = size.height * s[1];
-      final op = 0.4 + (twinkle * 0.3);
-      p.color = Colors.white.withOpacity(op * 0.4);
-      canvas.drawCircle(Offset(x, y), 3.5, p);
-      p.color = Colors.white.withOpacity(op * 0.6);
-      canvas.drawCircle(Offset(x, y), 2.0, p);
-      p.color = Colors.white.withOpacity(op);
-      canvas.drawCircle(Offset(x, y), 1.3, p);
+    final paint = Paint()..style = PaintingStyle.fill;
+    for (final s in stars) {
+      final flicker =
+          0.4 +
+          0.6 * (0.5 + 0.5 * math.sin(s.phase + t * s.speed * math.pi * 2));
+      paint.color = Colors.white.withOpacity(flicker * 0.85);
+      canvas.drawCircle(
+        Offset(s.x * size.width, s.y * size.height),
+        s.size,
+        paint,
+      );
     }
   }
 
   @override
-  bool shouldRepaint(_TeenStarsPainter o) => o.twinkle != twinkle;
+  bool shouldRepaint(_StarsPainter o) => o.t != t;
+}
+
+class _Star {
+  final double x, y, size, phase, speed;
+  const _Star({
+    required this.x,
+    required this.y,
+    required this.size,
+    required this.phase,
+    required this.speed,
+  });
 }
 
 class _TeenShapesPainter extends CustomPainter {
@@ -1123,7 +1138,7 @@ class _TeenShapesPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..style = PaintingStyle.fill;
-    paint.color = accentColor.withOpacity(0.25);
+    paint.color = accentColor.withOpacity(0.38);
     final oy1 = animation1 * 40 - 20;
     canvas.drawPath(
       Path()
@@ -1149,7 +1164,7 @@ class _TeenShapesPainter extends CustomPainter {
         ..close(),
       paint,
     );
-    paint.color = bgColor.withOpacity(0.2);
+    paint.color = bgColor.withOpacity(0.32);
     final ox2 = animation2 * 35 - 17;
     canvas.drawPath(
       Path()
