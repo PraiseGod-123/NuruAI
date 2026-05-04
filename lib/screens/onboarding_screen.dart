@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
 import '../utils/nuru_colors.dart';
+import '../providers/nuru_theme_extension.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({Key? key}) : super(key: key);
@@ -145,7 +146,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFF4569AD), // Prevent white flash
+      backgroundColor: context.nuruTheme.accentColor,
       body: Stack(
         children: [
           // Animated gradient background
@@ -171,7 +172,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             },
           ),
 
-          // Animated 3D flowing shapes - changes design per page
+          // Animated 3D flowing shapes
           AnimatedBuilder(
             animation: Listenable.merge([
               _floatController1,
@@ -185,8 +186,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                   animation1: _floatController1.value,
                   animation2: _floatController2.value,
                   animation3: _floatController3.value,
-                  currentPage:
-                      _currentPage, // Pass current page for different designs
+                  currentPage: _currentPage,
+                  bgColor: context.nuruTheme.backgroundStart,
                 ),
               );
             },
@@ -279,7 +280,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                   padding: EdgeInsets.fromLTRB(32, 0, 32, 40),
                   child: Row(
                     children: [
-                      // Previous Button - Only show if not on first page
+                      // Previous Button
                       if (_currentPage > 0)
                         Expanded(
                           child: Container(
@@ -388,7 +389,6 @@ class OnboardingPage extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Illustration Image with beautiful blending - FIXED SIZE
           Container(
             height: 280,
             width: 280,
@@ -595,11 +595,14 @@ class Animated3DShapesPainter extends CustomPainter {
   final double animation3;
   final int currentPage;
 
+  final Color bgColor;
+
   Animated3DShapesPainter({
     required this.animation1,
     required this.animation2,
     required this.animation3,
     required this.currentPage,
+    required this.bgColor,
   });
 
   @override
@@ -636,7 +639,7 @@ class Animated3DShapesPainter extends CustomPainter {
     canvas.drawPath(path1, paint);
 
     // Right side shape (position changes per page)
-    paint.color = Color(0xFF081F44).withOpacity(0.2);
+    paint.color = bgColor.withOpacity(0.2);
     final offsetX2 = animation2 * 35 - 17;
     final path2 = Path()
       ..moveTo(
@@ -734,32 +737,32 @@ class Animated3DShapesPainter extends CustomPainter {
 
       case 1: // Page 2 - Shifted positions
         return {
-          'topShape': 80.0, // Move down
-          'rightShape': -60.0, // Move up
-          'sphere1X': 0.25, // Move to left
-          'sphere1Y': 0.45, // Move down
-          'sphere2X': 0.7, // Move to right
-          'sphere2Y': 0.6, // Move up
+          'topShape': 80.0,
+          'rightShape': -60.0,
+          'sphere1X': 0.25,
+          'sphere1Y': 0.45,
+          'sphere2X': 0.7,
+          'sphere2Y': 0.6,
         };
 
       case 2: // Page 3 - Different positions
         return {
-          'topShape': -40.0, // Move up
-          'rightShape': 100.0, // Move down
-          'sphere1X': 0.6, // Center-right
-          'sphere1Y': 0.75, // Lower position
-          'sphere2X': 0.15, // Far left
-          'sphere2Y': 0.3, // Upper position
+          'topShape': -40.0,
+          'rightShape': 100.0,
+          'sphere1X': 0.6,
+          'sphere1Y': 0.75,
+          'sphere2X': 0.15,
+          'sphere2Y': 0.3,
         };
 
       case 3: // Page 4 - Final positions
         return {
-          'topShape': 120.0, // Move way down
-          'rightShape': -90.0, // Move way up
-          'sphere1X': 0.4, // Center
-          'sphere1Y': 0.25, // Upper-center
-          'sphere2X': 0.8, // Far right
-          'sphere2Y': 0.7, // Lower-right
+          'topShape': 120.0,
+          'rightShape': -90.0,
+          'sphere1X': 0.4,
+          'sphere1Y': 0.25,
+          'sphere2X': 0.8,
+          'sphere2Y': 0.7,
         };
 
       default:

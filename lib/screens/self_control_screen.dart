@@ -8,19 +8,7 @@ import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/nuru_theme_extension.dart';
 
-// ══════════════════════════════════════════════════════════════
 // SELF CONTROL SCREEN
-//
-// Active guided sessions for impulse regulation, urge control,
-// and behavioural self-management — specifically adapted for ASD.
-//
-// Session engine identical to Anger Management screen:
-//   • Full-screen guided session with animated orb
-//   • Countdown timer per step
-//   • One-line instruction per step
-//   • Completion sheet with repeat option
-// ══════════════════════════════════════════════════════════════
-
 enum _Visual { expand, contract, pulse, still, wave, shrink }
 
 class _Step {
@@ -34,8 +22,8 @@ class _Plan {
   final String id;
   final String title;
   final String emoji;
-  final String tagline; // shown on browse card
-  final String why; // shown during session
+  final String tagline;
+  final String why;
   final Color color;
   final List<_Step> steps;
   final int repeatCycles;
@@ -50,8 +38,6 @@ class _Plan {
     this.repeatCycles = 1,
   });
 }
-
-// ─────────────────────────────────────────────────────────────
 
 class SelfControlScreen extends StatefulWidget {
   final Map<String, dynamic>? userData;
@@ -81,12 +67,9 @@ class _SelfControlScreenState extends State<SelfControlScreen>
   bool _running = false;
   Timer? _timer;
 
-  // ══════════════════════════════════════════════════════════
   // SESSION PLANS — 10 guided self-control exercises
-  // ══════════════════════════════════════════════════════════
-
   static final List<_Plan> _plans = [
-    // ── 1. Urge Surfing ───────────────────────────────────
+    //  1. Urge Surfing
     _Plan(
       id: 'urge_surfing',
       title: 'Urge Surfing',
@@ -131,7 +114,7 @@ class _SelfControlScreenState extends State<SelfControlScreen>
       ],
     ),
 
-    // ── 2. HALT Check ─────────────────────────────────────
+    // HALT Check
     _Plan(
       id: 'halt_check',
       title: 'HALT Check',
@@ -160,7 +143,7 @@ class _SelfControlScreenState extends State<SelfControlScreen>
       ],
     ),
 
-    // ── 3. 10-Second Pause ────────────────────────────────
+    // 10-Second Pause
     _Plan(
       id: 'ten_second_pause',
       title: '10-Second Pause',
@@ -185,7 +168,7 @@ class _SelfControlScreenState extends State<SelfControlScreen>
       ],
     ),
 
-    // ── 4. If-Then Planning ───────────────────────────────
+    // If-Then Planning
     _Plan(
       id: 'if_then',
       title: 'If-Then Planning',
@@ -219,7 +202,7 @@ class _SelfControlScreenState extends State<SelfControlScreen>
       ],
     ),
 
-    // ── 5. Stimulus Control ───────────────────────────────
+    // Stimulus Control
     _Plan(
       id: 'stimulus_control',
       title: 'Remove the Trigger',
@@ -272,7 +255,7 @@ class _SelfControlScreenState extends State<SelfControlScreen>
       ],
     ),
 
-    // ── 6. Delayed Gratification Training ────────────────
+    //Delayed Gratification Training
     _Plan(
       id: 'delay_training',
       title: 'Delay Training',
@@ -313,7 +296,7 @@ class _SelfControlScreenState extends State<SelfControlScreen>
       ],
     ),
 
-    // ── 7. Cognitive Defusion ─────────────────────────────
+    //Cognitive Defusion
     _Plan(
       id: 'cognitive_defusion',
       title: 'Defuse the Thought',
@@ -359,7 +342,7 @@ class _SelfControlScreenState extends State<SelfControlScreen>
       ],
     ),
 
-    // ── 8. Rule-Based Thinking ────────────────────────────
+    //Rule-Based Thinking
     _Plan(
       id: 'rule_based',
       title: 'The Personal Rule',
@@ -403,7 +386,7 @@ class _SelfControlScreenState extends State<SelfControlScreen>
       ],
     ),
 
-    // ── 9. Body Anchoring ─────────────────────────────────
+    //Body Anchoring
     _Plan(
       id: 'body_anchor',
       title: 'Body Anchoring',
@@ -428,7 +411,7 @@ class _SelfControlScreenState extends State<SelfControlScreen>
       ],
     ),
 
-    // ── 10. The Values Pause ──────────────────────────────
+    //The Values Pause
     _Plan(
       id: 'values_pause',
       title: 'The Values Pause',
@@ -562,10 +545,7 @@ class _SelfControlScreenState extends State<SelfControlScreen>
     }
   }
 
-  // ══════════════════════════════════════════════════════════
   // SESSION ENGINE
-  // ══════════════════════════════════════════════════════════
-
   void _startSession(_Plan plan) {
     _timer?.cancel();
     _orbCtrl.stop();
@@ -657,14 +637,7 @@ class _SelfControlScreenState extends State<SelfControlScreen>
           child: Container(
             padding: const EdgeInsets.fromLTRB(28, 28, 28, 48),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  context.nuruTheme.backgroundMid.withOpacity(0.97),
-                  context.nuruTheme.backgroundStart.withOpacity(0.99),
-                ],
-              ),
+              color: const Color(0xFF081F44),
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(32),
               ),
@@ -759,17 +732,16 @@ class _SelfControlScreenState extends State<SelfControlScreen>
     ),
   );
 
-  // ══════════════════════════════════════════════════════════
   // BUILD
-  // ══════════════════════════════════════════════════════════
-
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Color(0xFF081F44),
         statusBarIconBrightness: Brightness.light,
         statusBarBrightness: Brightness.dark,
+        systemNavigationBarColor: Color(0xFF081F44),
+        systemNavigationBarIconBrightness: Brightness.light,
       ),
       child: Scaffold(
         backgroundColor: context.nuruTheme.backgroundStart,
@@ -780,10 +752,7 @@ class _SelfControlScreenState extends State<SelfControlScreen>
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [
-                    context.nuruTheme.accentColor,
-                    context.nuruTheme.backgroundEnd,
-                  ],
+                  colors: context.nuruTheme.gradientColors,
                 ),
               ),
             ),
@@ -800,6 +769,7 @@ class _SelfControlScreenState extends State<SelfControlScreen>
               _buildSession(_session!)
             else
               SafeArea(
+                top: false,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -823,10 +793,7 @@ class _SelfControlScreenState extends State<SelfControlScreen>
     );
   }
 
-  // ══════════════════════════════════════════════════════════
   // ACTIVE SESSION
-  // ══════════════════════════════════════════════════════════
-
   Widget _buildSession(_Plan plan) {
     final step = plan.steps[_stepIndex];
     final total = plan.steps.length;
@@ -851,7 +818,7 @@ class _SelfControlScreenState extends State<SelfControlScreen>
                     width: 42,
                     height: 42,
                     decoration: BoxDecoration(
-                      color: context.nuruTheme.backgroundStart.withOpacity(0.5),
+                      color: const Color(0xFF081F44),
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
                         color: plan.color.withOpacity(0.5),
@@ -1110,10 +1077,7 @@ class _SelfControlScreenState extends State<SelfControlScreen>
     );
   }
 
-  // ══════════════════════════════════════════════════════════
   // BROWSE
-  // ══════════════════════════════════════════════════════════
-
   Widget _buildAppBar() {
     return ClipRRect(
       borderRadius: const BorderRadius.only(
@@ -1123,16 +1087,14 @@ class _SelfControlScreenState extends State<SelfControlScreen>
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Container(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          padding: EdgeInsets.fromLTRB(
+            20,
+            MediaQuery.of(context).padding.top + 12,
+            20,
+            20,
+          ),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                context.nuruTheme.backgroundMid.withOpacity(0.75),
-                context.nuruTheme.backgroundStart.withOpacity(0.80),
-              ],
-            ),
+            color: const Color(0xFF081F44),
             border: Border(
               bottom: BorderSide(
                 color: context.nuruTheme.accentColor.withOpacity(0.4),
@@ -1184,7 +1146,7 @@ class _SelfControlScreenState extends State<SelfControlScreen>
     width: 42,
     height: 42,
     decoration: BoxDecoration(
-      color: context.nuruTheme.backgroundStart.withOpacity(0.5),
+      color: const Color(0xFF081F44),
       borderRadius: BorderRadius.circular(14),
       border: Border.all(
         color: context.nuruTheme.accentColor.withOpacity(0.5),
@@ -1363,7 +1325,7 @@ class _SelfControlScreenState extends State<SelfControlScreen>
               ),
               boxShadow: [
                 BoxShadow(
-                  color: context.nuruTheme.backgroundStart.withOpacity(0.5),
+                  color: const Color(0xFF081F44),
                   blurRadius: 14,
                   offset: const Offset(0, 5),
                 ),
@@ -1654,14 +1616,7 @@ class _SelfControlScreenState extends State<SelfControlScreen>
             filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
             child: Container(
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    context.nuruTheme.backgroundMid.withOpacity(0.97),
-                    context.nuruTheme.backgroundStart.withOpacity(0.99),
-                  ],
-                ),
+                color: const Color(0xFF081F44),
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(32),
                 ),
@@ -1711,9 +1666,7 @@ class _SelfControlScreenState extends State<SelfControlScreen>
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: context.nuruTheme.backgroundStart.withOpacity(
-                            0.4,
-                          ),
+                          color: const Color(0xFF081F44),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
                             color: context.nuruTheme.accentColor.withOpacity(
@@ -1755,7 +1708,7 @@ class _SelfControlScreenState extends State<SelfControlScreen>
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.open_in_new_rounded,
                                 color: Colors.white,
                                 size: 16,
@@ -1858,7 +1811,7 @@ class _SelfControlScreenState extends State<SelfControlScreen>
   );
 }
 
-// ── Stars ─────────────────────────────────────────────────────
+// Stars
 class _StarsPainter extends CustomPainter {
   final double twinkle;
   const _StarsPainter({required this.twinkle});

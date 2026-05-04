@@ -2,20 +2,9 @@ import 'package:flutter/material.dart';
 import 'dart:ui';
 import '../utils/nuru_colors.dart';
 import '../services/firebase_service.dart';
+import '../providers/nuru_theme_extension.dart';
 
-// ══════════════════════════════════════════════════════════════
 // SIGNUP SCREEN
-//
-// Caregiver logic:
-//   Age 13–19 → caregiver section is REQUIRED, auto-checked,
-//               cannot be unchecked, must fill all fields
-//   Age 20–25 → caregiver section is OPTIONAL, unchecked by
-//               default, can be toggled on/off
-//
-// Caregiver types: Parent, Guardian, Doctor, Therapist,
-//                  Sibling, Nanny, Teacher, Other
-// ══════════════════════════════════════════════════════════════
-
 class SignupScreen extends StatefulWidget {
   const SignupScreen({Key? key}) : super(key: key);
   @override
@@ -178,28 +167,28 @@ class _SignupScreenState extends State<SignupScreen>
       context: context,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1F3F74),
+        backgroundColor: context.nuruTheme.backgroundMid,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
+        title: Text(
           'Verify Your Email',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
+            Icon(
               Icons.mark_email_unread_outlined,
-              color: Color(0xFF4569AD),
+              color: context.nuruTheme.accentColor,
               size: 48,
             ),
             const SizedBox(height: 16),
             Text(
               'We sent a verification email to ${_emailController.text.trim()}. Please check your inbox and verify your account.',
-              style: const TextStyle(color: Colors.white70, height: 1.5),
+              style: TextStyle(color: Colors.white70, height: 1.5),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'You can still use the app while unverified.',
               style: TextStyle(color: Colors.white38, fontSize: 12),
               textAlign: TextAlign.center,
@@ -219,7 +208,7 @@ class _SignupScreenState extends State<SignupScreen>
                 ),
               );
             },
-            child: const Text(
+            child: Text(
               'Resend Email',
               style: TextStyle(color: Colors.white54),
             ),
@@ -229,13 +218,15 @@ class _SignupScreenState extends State<SignupScreen>
               Navigator.pop(context);
               Navigator.pushReplacementNamed(
                 context,
-                '/home',
+                '/facial-recognition-setup',
                 arguments: {
                   'uid': uid,
                   'name': _nameController.text.trim(),
                   'email': _emailController.text.trim(),
                   'age': _userAge,
                   'diagnosis': _selectedDiagnosis,
+                  'createdAt': DateTime.now()
+                      .toIso8601String(), // ← ADD THIS LINE
                   'currentStreak': 0,
                   'totalCheckIns': 0,
                   'avgMood': 0.0,
@@ -249,10 +240,10 @@ class _SignupScreenState extends State<SignupScreen>
                 },
               );
             },
-            child: const Text(
-              'Continue to App',
+            child: Text(
+              'Continue to Setup',
               style: TextStyle(
-                color: Color(0xFF4569AD),
+                color: context.nuruTheme.accentColor,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -272,22 +263,19 @@ class _SignupScreenState extends State<SignupScreen>
     );
   }
 
-  // ══════════════════════════════════════════════════════════
   // BUILD
-  // ══════════════════════════════════════════════════════════
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF4569AD),
+      backgroundColor: context.nuruTheme.accentColor,
       body: Stack(
         children: [
           Container(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFF4569AD), Color(0xFF14366D)],
+                colors: [context.nuruTheme.accentColor, Color(0xFF14366D)],
               ),
             ),
           ),
@@ -313,6 +301,7 @@ class _SignupScreenState extends State<SignupScreen>
                   animation1: _floatController1.value,
                   animation2: _floatController2.value,
                   animation3: _floatController3.value,
+                  bgColor: context.nuruTheme.backgroundStart,
                 ),
               ),
             ),
@@ -339,10 +328,7 @@ class _SignupScreenState extends State<SignupScreen>
                           shape: BoxShape.circle,
                         ),
                         child: IconButton(
-                          icon: const Icon(
-                            Icons.arrow_back,
-                            color: Colors.white,
-                          ),
+                          icon: Icon(Icons.arrow_back, color: Colors.white),
                           onPressed: () => Navigator.pushReplacementNamed(
                             context,
                             '/age-verification',
@@ -351,7 +337,7 @@ class _SignupScreenState extends State<SignupScreen>
                       ),
 
                       const SizedBox(height: 32),
-                      const Text(
+                      Text(
                         'Create Account',
                         style: TextStyle(
                           fontSize: 34,
@@ -369,7 +355,7 @@ class _SignupScreenState extends State<SignupScreen>
                       ),
                       const SizedBox(height: 32),
 
-                      // ── User fields ──────────────────────────────
+                      // User fields
                       _field(
                         controller: _nameController,
                         label: 'Full Name',
@@ -405,7 +391,7 @@ class _SignupScreenState extends State<SignupScreen>
                             _obscurePassword
                                 ? Icons.visibility_off_rounded
                                 : Icons.visibility_rounded,
-                            color: const Color(0xFF4569AD),
+                            color: context.nuruTheme.accentColor,
                           ),
                           onPressed: () => setState(
                             () => _obscurePassword = !_obscurePassword,
@@ -430,7 +416,7 @@ class _SignupScreenState extends State<SignupScreen>
                             _obscureConfirmPassword
                                 ? Icons.visibility_off_rounded
                                 : Icons.visibility_rounded,
-                            color: const Color(0xFF4569AD),
+                            color: context.nuruTheme.accentColor,
                           ),
                           onPressed: () => setState(
                             () => _obscureConfirmPassword =
@@ -448,8 +434,8 @@ class _SignupScreenState extends State<SignupScreen>
 
                       const SizedBox(height: 32),
 
-                      // ── Diagnosis ────────────────────────────────
-                      const Text(
+                      // Diagnosis
+                      Text(
                         'Select Your Diagnosis *',
                         style: TextStyle(
                           fontSize: 17,
@@ -496,12 +482,12 @@ class _SignupScreenState extends State<SignupScreen>
 
                       const SizedBox(height: 32),
 
-                      // ── Caregiver section ────────────────────────
+                      // Caregiver section
                       _buildCaregiverSection(),
 
                       const SizedBox(height: 36),
 
-                      // ── Create account button ────────────────────
+                      // Create account button
                       SizedBox(
                         width: double.infinity,
                         height: 56,
@@ -509,14 +495,14 @@ class _SignupScreenState extends State<SignupScreen>
                           onPressed: _isLoading ? null : _handleSignup,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.white,
-                            foregroundColor: const Color(0xFF4569AD),
+                            foregroundColor: context.nuruTheme.accentColor,
                             elevation: 8,
                             shadowColor: Colors.black.withOpacity(0.3),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16),
                             ),
                           ),
-                          child: const Text(
+                          child: Text(
                             'Create Account',
                             style: TextStyle(
                               fontSize: 18,
@@ -567,10 +553,7 @@ class _SignupScreenState extends State<SignupScreen>
     );
   }
 
-  // ══════════════════════════════════════════════════════════
   // CAREGIVER SECTION
-  // ══════════════════════════════════════════════════════════
-
   Widget _buildCaregiverSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -580,7 +563,7 @@ class _SignupScreenState extends State<SignupScreen>
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: _isMinor
-                ? const Color(0xFF4569AD).withOpacity(0.3)
+                ? context.nuruTheme.accentColor.withOpacity(0.3)
                 : Colors.white.withOpacity(0.08),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
@@ -619,7 +602,7 @@ class _SignupScreenState extends State<SignupScreen>
                       children: [
                         Row(
                           children: [
-                            const Text(
+                            Text(
                               'Caregiver',
                               style: TextStyle(
                                 fontSize: 16,
@@ -676,7 +659,7 @@ class _SignupScreenState extends State<SignupScreen>
                       value: _addCaregiver,
                       onChanged: (v) => setState(() => _addCaregiver = v),
                       activeColor: Colors.white,
-                      activeTrackColor: const Color(0xFF4569AD),
+                      activeTrackColor: context.nuruTheme.accentColor,
                       inactiveThumbColor: Colors.white54,
                       inactiveTrackColor: Colors.white24,
                     ),
@@ -693,7 +676,7 @@ class _SignupScreenState extends State<SignupScreen>
           ),
         ),
 
-        // Caregiver form — shown when toggled or required
+        // Caregiver form
         if (_showCaregiver) ...[
           const SizedBox(height: 16),
 
@@ -721,19 +704,19 @@ class _SignupScreenState extends State<SignupScreen>
             ),
             child: DropdownButtonFormField<String>(
               value: _caregiverType,
-              hint: const Text(
+              hint: Text(
                 'Select caregiver type',
                 style: TextStyle(color: Color(0xFFAAAAAA), fontSize: 14),
               ),
-              icon: const Icon(
+              icon: Icon(
                 Icons.keyboard_arrow_down_rounded,
-                color: Color(0xFF4569AD),
+                color: context.nuruTheme.accentColor,
               ),
               dropdownColor: Colors.white,
               decoration: InputDecoration(
-                prefixIcon: const Icon(
+                prefixIcon: Icon(
                   Icons.people_outline_rounded,
-                  color: Color(0xFF4569AD),
+                  color: context.nuruTheme.accentColor,
                   size: 22,
                 ),
                 filled: true,
@@ -747,9 +730,9 @@ class _SignupScreenState extends State<SignupScreen>
                   vertical: 4,
                 ),
               ),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 15,
-                color: Color(0xFF1F3F74),
+                color: context.nuruTheme.backgroundMid,
                 fontWeight: FontWeight.w500,
               ),
               items: _caregiverTypes
@@ -760,7 +743,7 @@ class _SignupScreenState extends State<SignupScreen>
                         children: [
                           Icon(
                             type['icon'] as IconData,
-                            color: const Color(0xFF4569AD),
+                            color: context.nuruTheme.accentColor,
                             size: 20,
                           ),
                           const SizedBox(width: 12),
@@ -815,10 +798,7 @@ class _SignupScreenState extends State<SignupScreen>
     );
   }
 
-  // ══════════════════════════════════════════════════════════
   // HELPERS
-  // ══════════════════════════════════════════════════════════
-
   Widget _diagnosisCard(
     String value,
     String label,
@@ -886,7 +866,7 @@ class _SignupScreenState extends State<SignupScreen>
                     ),
                   ),
                   if (sel)
-                    const Icon(
+                    Icon(
                       Icons.check_circle_rounded,
                       color: Colors.white,
                       size: 24,
@@ -915,7 +895,7 @@ class _SignupScreenState extends State<SignupScreen>
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
             color: Colors.white,
@@ -946,9 +926,9 @@ class _SignupScreenState extends State<SignupScreen>
                   controller: controller,
                   obscureText: obscureText,
                   keyboardType: keyboardType,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 15,
-                    color: Color(0xFF1F3F74),
+                    color: context.nuruTheme.backgroundMid,
                     fontWeight: FontWeight.w500,
                   ),
                   decoration: InputDecoration(
@@ -956,7 +936,7 @@ class _SignupScreenState extends State<SignupScreen>
                     hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
                     prefixIcon: Icon(
                       icon,
-                      color: const Color(0xFF4569AD),
+                      color: context.nuruTheme.accentColor,
                       size: 22,
                     ),
                     suffixIcon: suffix,
@@ -983,8 +963,7 @@ class _SignupScreenState extends State<SignupScreen>
   }
 }
 
-// ── Painters (identical to original) ─────────────────────────
-
+// Painters
 class SubtleStarsPainter extends CustomPainter {
   final double twinkle;
   SubtleStarsPainter({required this.twinkle});
@@ -1031,11 +1010,13 @@ class SubtleStarsPainter extends CustomPainter {
 }
 
 class Animated3DShapesPainter extends CustomPainter {
+  final Color bgColor;
   final double animation1, animation2, animation3;
   Animated3DShapesPainter({
     required this.animation1,
     required this.animation2,
     required this.animation3,
+    required this.bgColor,
   });
   @override
   void paint(Canvas canvas, Size size) {
@@ -1066,7 +1047,7 @@ class Animated3DShapesPainter extends CustomPainter {
         ..close(),
       paint,
     );
-    paint.color = const Color(0xFF081F44).withOpacity(0.2);
+    paint.color = bgColor.withOpacity(0.2);
     final ox2 = animation2 * 35 - 17;
     canvas.drawPath(
       Path()

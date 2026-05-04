@@ -2,16 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:math' as math;
 import '../providers/theme_provider.dart';
+import '../providers/nuru_theme_extension.dart';
 
-// ==============================================================================
 // Theme Selection Screen
-//
-// Opened from Profile > Appearance > Theme.
-// Shows all 9 NuruAI themes as a preview card + grid of tiles.
-// When the user taps Apply, it calls NuruThemeProvider.setThemeByModel()
-// which triggers a rebuild on every screen listening to the provider.
-// ==============================================================================
-
 class ThemeSelectionScreen extends StatefulWidget {
   const ThemeSelectionScreen({Key? key}) : super(key: key);
 
@@ -21,80 +14,126 @@ class ThemeSelectionScreen extends StatefulWidget {
 
 class _ThemeSelectionScreenState extends State<ThemeSelectionScreen>
     with TickerProviderStateMixin {
-  late String _selectedId;
-  late AnimationController _starController;
-  late AnimationController _glowController;
-  late Animation<double> _glowAnimation;
+  late AnimationController _starCtrl;
+  late AnimationController _glowCtrl;
 
   @override
   void initState() {
     super.initState();
-    _selectedId = context.read<NuruThemeProvider>().activeTheme.id;
-
-    _starController = AnimationController(
+    _starCtrl = AnimationController(
       duration: const Duration(seconds: 6),
       vsync: this,
     )..repeat();
-
-    _glowController = AnimationController(
+    _glowCtrl = AnimationController(
       duration: const Duration(milliseconds: 1500),
       vsync: this,
     )..repeat(reverse: true);
-
-    _glowAnimation = Tween<double>(begin: 0.5, end: 1.0).animate(
-      CurvedAnimation(parent: _glowController, curve: Curves.easeInOut),
-    );
   }
 
   @override
   void dispose() {
-    _starController.dispose();
-    _glowController.dispose();
+    _starCtrl.dispose();
+    _glowCtrl.dispose();
     super.dispose();
-  }
-
-  NuruAppTheme get _selectedTheme =>
-      allNuruThemes.firstWhere((t) => t.id == _selectedId);
-
-  void _selectTheme(NuruAppTheme theme) {
-    setState(() => _selectedId = theme.id);
-  }
-
-  void _applyTheme() {
-    context.read<NuruThemeProvider>().setThemeByModel(_selectedTheme);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '${_selectedTheme.fancyName} applied',
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-        backgroundColor: _selectedTheme.accentColor,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        duration: const Duration(seconds: 2),
-      ),
-    );
-    Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<NuruThemeProvider>();
+    final isDark = provider.isDark;
+    final t = provider.activeTheme;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0E27),
-      body: SafeArea(
-        child: Column(
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: t.gradientColors,
+          ),
+        ),
+        child: Stack(
           children: [
-            _buildHeader(),
-            _buildPreview(),
-            Expanded(child: _buildGrid()),
-            _buildApplyButton(),
+            // Stars background
+            IgnorePointer(
+              child: AnimatedBuilder(
+                animation: _starCtrl,
+                builder: (_, __) => CustomPaint(
+                  size: Size.infinite,
+                  painter: _StarFieldPainter(_starCtrl.value),
+                ),
+              ),
+            ),
+            SafeArea(
+              child: Column(
+                children: [
+                  _buildHeader(context),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 28),
+
+                          //Section: Brightness
+                          _sectionLabel('Brightness'),
+                          const SizedBox(height: 12),
+                          _buildPreviewCards(isDark, provider),
+                          const SizedBox(height: 12),
+                          _buildToggle(context, isDark, t),
+
+                          const SizedBox(height: 32),
+
+                          //Section: Color Palette
+                          _sectionLabel('Color Palette'),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Tap a palette to change the app\'s look',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.white.withOpacity(0.45),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          _buildPaletteGrid(context, provider),
+
+                          const SizedBox(height: 32),
+
+                          //Reset
+                          _buildResetButton(context, provider),
+                          const SizedBox(height: 16),
+                          _buildDoneButton(context, t),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildHeader() {
+  //Section label
+
+  Widget _sectionLabel(String text) {
+    return Text(
+      text.toUpperCase(),
+      style: TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        color: Colors.white.withOpacity(0.50),
+        letterSpacing: 1.2,
+      ),
+    );
+  }
+
+  //Header
+
+  Widget _buildHeader(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
       child: Row(
@@ -106,8 +145,8 @@ class _ThemeSelectionScreenState extends State<ThemeSelectionScreen>
               height: 44,
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white.withOpacity(0.10)),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.white.withOpacity(0.12)),
               ),
               child: const Icon(
                 Icons.arrow_back_ios_new_rounded,
@@ -118,7 +157,7 @@ class _ThemeSelectionScreenState extends State<ThemeSelectionScreen>
           ),
           const Spacer(),
           const Text(
-            'Choose Your Theme',
+            'Appearance',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w700,
@@ -133,341 +172,485 @@ class _ThemeSelectionScreenState extends State<ThemeSelectionScreen>
     );
   }
 
-  Widget _buildPreview() {
-    final theme = _selectedTheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-      child: AnimatedBuilder(
-        animation: _glowAnimation,
-        builder: (context, _) {
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 400),
-            height: 180,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: theme.gradientColors,
-              ),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: theme.accentColor.withOpacity(
-                  0.6 * _glowAnimation.value,
-                ),
-                width: 2,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: theme.accentColor.withOpacity(
-                    0.3 * _glowAnimation.value,
-                  ),
-                  blurRadius: 30,
-                  spreadRadius: 2,
-                ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(22),
-              child: Stack(
-                children: [
-                  if (theme.hasStars)
-                    AnimatedBuilder(
-                      animation: _starController,
-                      builder: (_, __) => CustomPaint(
-                        painter: _StarFieldPainter(_starController.value),
-                        size: Size.infinite,
-                      ),
-                    ),
-                  Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: theme.accentColor.withOpacity(0.25),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: theme.accentColor.withOpacity(0.5),
-                            ),
-                          ),
-                          child: Text(
-                            'PREVIEW',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: theme.accentColor,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 1.5,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          theme.fancyName,
-                          style: TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.w800,
-                            color: theme.textColor,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          theme.description,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: theme.textColor.withOpacity(0.65),
-                            height: 1.4,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+  //Side-by-side preview cards
+
+  Widget _buildPreviewCards(bool isDark, NuruThemeProvider provider) {
+    final palette = provider.selectedPalette;
+    return AnimatedBuilder(
+      animation: _glowCtrl,
+      builder: (_, __) {
+        return Row(
+          children: [
+            Expanded(
+              child: _buildCard(
+                label: 'Light',
+                subtitle: 'Original style',
+                gradientColors: palette.lightGradient,
+                accentColor: palette.accentColor,
+                isSelected: !isDark,
+                onTap: () =>
+                    context.read<NuruThemeProvider>().setTheme('nuru_light'),
               ),
             ),
-          );
-        },
-      ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _buildCard(
+                label: 'Dark',
+                subtitle: 'Deeper tones',
+                gradientColors: palette.darkGradient,
+                accentColor: palette.accentColor,
+                isSelected: isDark,
+                onTap: () =>
+                    context.read<NuruThemeProvider>().setTheme('nuru_dark'),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
-  Widget _buildGrid() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'All Themes',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: Colors.white.withOpacity(0.85),
-            ),
-          ),
-          const SizedBox(height: 14),
-          Expanded(
-            child: GridView.builder(
-              physics: const BouncingScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 0.78,
-              ),
-              itemCount: allNuruThemes.length,
-              itemBuilder: (context, index) {
-                final theme = allNuruThemes[index];
-                final isSelected = theme.id == _selectedId;
-                return _buildTile(theme, isSelected);
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTile(NuruAppTheme theme, bool isSelected) {
+  Widget _buildCard({
+    required String label,
+    required String subtitle,
+    required List<Color> gradientColors,
+    required Color accentColor,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    final glow = _glowCtrl.value;
     return GestureDetector(
-      onTap: () => _selectTheme(theme),
-      child: AnimatedBuilder(
-        animation: _glowAnimation,
-        builder: (context, _) {
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 250),
-            curve: Curves.easeOut,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: theme.gradientColors,
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+        height: 160,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: gradientColors,
+          ),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: isSelected
+                ? accentColor.withOpacity(0.5 + glow * 0.4)
+                : Colors.white.withOpacity(0.1),
+            width: isSelected ? 2.5 : 1,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: accentColor.withOpacity(0.3 + glow * 0.2),
+                    blurRadius: 24,
+                    spreadRadius: 2,
+                  ),
+                ]
+              : [],
+        ),
+        child: Stack(
+          children: [
+            if (isSelected)
+              AnimatedBuilder(
+                animation: _starCtrl,
+                builder: (_, __) => CustomPaint(
+                  size: Size.infinite,
+                  painter: _StarFieldPainter(_starCtrl.value, density: 18),
+                ),
               ),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: isSelected
-                    ? theme.accentColor.withOpacity(0.9 * _glowAnimation.value)
-                    : Colors.white.withOpacity(0.08),
-                width: isSelected ? 2.5 : 1,
-              ),
-              boxShadow: isSelected
-                  ? [
-                      BoxShadow(
-                        color: theme.accentColor.withOpacity(
-                          0.4 * _glowAnimation.value,
-                        ),
-                        blurRadius: 16,
-                        spreadRadius: 1,
-                      ),
-                    ]
-                  : [],
-            ),
-            child: Stack(
-              children: [
-                if (theme.hasStars && isSelected)
-                  AnimatedBuilder(
-                    animation: _starController,
-                    builder: (_, __) => CustomPaint(
-                      painter: _StarFieldPainter(
-                        _starController.value,
-                        density: 30,
-                      ),
-                      size: Size.infinite,
+            Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    height: 5,
+                    width: 50,
+                    margin: const EdgeInsets.only(bottom: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.35),
+                      borderRadius: BorderRadius.circular(3),
                     ),
                   ),
-                Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.end,
+                  Container(
+                    height: 5,
+                    width: 34,
+                    margin: const EdgeInsets.only(bottom: 14),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.18),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+                  const Spacer(),
+                  Row(
                     children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              label,
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                                letterSpacing: -0.3,
+                              ),
+                            ),
+                            Text(
+                              subtitle,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.white.withOpacity(0.5),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                       if (isSelected)
                         Container(
-                          width: 22,
-                          height: 22,
-                          margin: const EdgeInsets.only(bottom: 8),
+                          width: 26,
+                          height: 26,
                           decoration: BoxDecoration(
-                            color: theme.accentColor,
+                            color: accentColor,
                             shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: accentColor.withOpacity(0.5),
+                                blurRadius: 8,
+                              ),
+                            ],
                           ),
                           child: const Icon(
                             Icons.check_rounded,
                             color: Colors.white,
-                            size: 14,
+                            size: 15,
                           ),
                         ),
-                      Text(
-                        theme.fancyName,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: theme.textColor,
-                          height: 1.3,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
                     ],
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          );
-        },
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildApplyButton() {
-    final theme = _selectedTheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-      child: AnimatedBuilder(
-        animation: _glowAnimation,
-        builder: (context, _) {
-          return GestureDetector(
-            onTap: _applyTheme,
-            child: Container(
-              width: double.infinity,
-              height: 56,
+  //Toggle switch
+
+  Widget _buildToggle(BuildContext context, bool isDark, NuruAppTheme t) {
+    return GestureDetector(
+      onTap: () => context.read<NuruThemeProvider>().toggleDarkMode(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.07),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white.withOpacity(0.10)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    theme.accentColor,
-                    theme.accentColor.withOpacity(0.7),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: theme.accentColor.withOpacity(
-                      0.4 * _glowAnimation.value,
+                color: t.accentColor.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(
+                isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+                color: t.accentColor,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isDark ? 'Dark Mode' : 'Light Mode',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
                     ),
-                    blurRadius: 20,
-                    spreadRadius: 2,
+                  ),
+                  Text(
+                    isDark
+                        ? 'Tap to switch to light mode'
+                        : 'Tap to switch to dark mode',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.white.withOpacity(0.45),
+                    ),
                   ),
                 ],
               ),
-              child: Center(
-                child: Text(
-                  'Apply ${theme.fancyName}',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
+            ),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              width: 52,
+              height: 30,
+              decoration: BoxDecoration(
+                color: isDark ? t.accentColor : Colors.white.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(
+                  color: isDark
+                      ? t.accentColor.withOpacity(0.5)
+                      : Colors.white.withOpacity(0.2),
+                  width: 1,
+                ),
+              ),
+              child: AnimatedAlign(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeInOut,
+                alignment: isDark
+                    ? Alignment.centerRight
+                    : Alignment.centerLeft,
+                child: Container(
+                  width: 22,
+                  height: 22,
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  decoration: const BoxDecoration(
                     color: Colors.white,
-                    letterSpacing: -0.2,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black26,
+                        blurRadius: 4,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Icon(
+                      isDark ? Icons.nightlight_round : Icons.wb_sunny_rounded,
+                      size: 12,
+                      color: isDark
+                          ? const Color(0xFF4569AD)
+                          : const Color(0xFFFFCA28),
+                    ),
                   ),
                 ),
               ),
             ),
-          );
-        },
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Color Palette Grid
+
+  Widget _buildPaletteGrid(BuildContext context, NuruThemeProvider provider) {
+    final selectedId = provider.selectedPalette.id;
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        mainAxisSpacing: 14,
+        crossAxisSpacing: 14,
+        childAspectRatio: 0.85,
+      ),
+      itemCount: allColorPalettes.length,
+      itemBuilder: (_, i) {
+        final palette = allColorPalettes[i];
+        final isSelected = palette.id == selectedId;
+        return _buildPaletteTile(
+          context: context,
+          palette: palette,
+          isSelected: isSelected,
+          onTap: () => provider.setColorPalette(palette.id),
+        );
+      },
+    );
+  }
+
+  Widget _buildPaletteTile({
+    required BuildContext context,
+    required NuruColorPalette palette,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeOut,
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(isSelected ? 0.12 : 0.06),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: isSelected
+                ? palette.accentColor.withOpacity(0.7)
+                : Colors.white.withOpacity(0.08),
+            width: isSelected ? 2 : 1,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: palette.accentColor.withOpacity(0.3),
+                    blurRadius: 12,
+                    spreadRadius: 1,
+                  ),
+                ]
+              : [],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Gradient swatch bar
+            Container(
+              height: 52,
+              margin: const EdgeInsets.fromLTRB(12, 14, 12, 0),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: palette.lightGradient,
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: isSelected
+                  ? const Center(
+                      child: Icon(
+                        Icons.check_circle_rounded,
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                    )
+                  : null,
+            ),
+            const SizedBox(height: 10),
+            Text(palette.emoji, style: const TextStyle(fontSize: 16)),
+            const SizedBox(height: 4),
+            Text(
+              palette.name,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: Colors.white.withOpacity(isSelected ? 1.0 : 0.65),
+                height: 1.3,
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+        ),
+      ),
+    );
+  }
+
+  //Reset to default button
+
+  Widget _buildResetButton(BuildContext context, NuruThemeProvider provider) {
+    final isDefault =
+        provider.selectedPalette.id == 'nuru_default' && !provider.isDark;
+    if (isDefault) return const SizedBox.shrink();
+
+    return GestureDetector(
+      onTap: () => provider.resetToDefault(),
+      child: Container(
+        width: double.infinity,
+        height: 50,
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.07),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withOpacity(0.12)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.refresh_rounded,
+              color: Colors.white.withOpacity(0.7),
+              size: 18,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Reset to Nuru Default',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.white.withOpacity(0.7),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Done button
+
+  Widget _buildDoneButton(BuildContext context, NuruAppTheme t) {
+    return GestureDetector(
+      onTap: () => Navigator.pop(context),
+      child: Container(
+        width: double.infinity,
+        height: 56,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [t.accentColor, t.accentColor.withOpacity(0.75)],
+          ),
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: t.accentColor.withOpacity(0.35),
+              blurRadius: 16,
+              spreadRadius: 1,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: const Center(
+          child: Text(
+            'Done',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+              letterSpacing: -0.2,
+            ),
+          ),
+        ),
       ),
     );
   }
 }
 
-// ── Star field painter ────────────────────────────────────────
+//Star field painter
 
 class _StarFieldPainter extends CustomPainter {
-  final double animationValue;
+  final double t;
   final int density;
-  final List<_Star> _stars;
 
-  _StarFieldPainter(this.animationValue, {this.density = 60})
-    : _stars = _generateStars(density);
-
-  static List<_Star> _generateStars(int count) {
-    final rng = math.Random(42);
-    return List.generate(
-      count,
-      (_) => _Star(
-        x: rng.nextDouble(),
-        y: rng.nextDouble(),
-        size: rng.nextDouble() * 2.0 + 0.5,
-        phase: rng.nextDouble() * 2 * math.pi,
-        speed: rng.nextDouble() * 0.5 + 0.5,
-      ),
-    );
-  }
+  _StarFieldPainter(this.t, {this.density = 50});
 
   @override
   void paint(Canvas canvas, Size size) {
-    for (final star in _stars) {
-      final twinkle =
-          (math.sin(animationValue * 2 * math.pi * star.speed + star.phase) +
-              1) /
-          2;
-      final opacity = 0.3 + twinkle * 0.7;
-      final paint = Paint()
-        ..color = Colors.white.withOpacity(opacity)
-        ..style = PaintingStyle.fill;
-      canvas.drawCircle(
-        Offset(star.x * size.width, star.y * size.height),
-        star.size * (0.7 + twinkle * 0.3),
-        paint,
-      );
+    final rng = math.Random(42);
+    final paint = Paint()..style = PaintingStyle.fill;
+    for (int i = 0; i < density; i++) {
+      final x = rng.nextDouble() * size.width;
+      final y = rng.nextDouble() * size.height;
+      final phase = rng.nextDouble() * 2 * math.pi;
+      final speed = rng.nextDouble() * 0.5 + 0.5;
+      final sz = rng.nextDouble() * 1.8 + 0.4;
+      final twinkle = (math.sin(t * 2 * math.pi * speed + phase) + 1) / 2;
+      final opacity = 0.2 + twinkle * 0.5;
+      paint.color = Colors.white.withOpacity(opacity);
+      canvas.drawCircle(Offset(x, y), sz, paint);
     }
   }
 
   @override
-  bool shouldRepaint(_StarFieldPainter old) =>
-      old.animationValue != animationValue;
-}
-
-class _Star {
-  final double x, y, size, phase, speed;
-  const _Star({
-    required this.x,
-    required this.y,
-    required this.size,
-    required this.phase,
-    required this.speed,
-  });
+  bool shouldRepaint(_StarFieldPainter old) => old.t != t;
 }

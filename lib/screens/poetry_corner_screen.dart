@@ -9,15 +9,6 @@ import '../providers/nuru_theme_extension.dart';
 
 // ══════════════════════════════════════════════════════════════
 // POETRY CORNER SCREEN
-//
-// A calm, immersive reading space.
-// Poems are fetched live from PoetryDB and presented in mood
-// categories: Calm, Hopeful, Nature, Self-Worth, Quick Read.
-//
-// Three layers:
-//   1. Mood tab selector (horizontal scroll)
-//   2. Poem card grid (title + author + preview lines)
-//   3. Full reading sheet — immersive, distraction-free
 // ══════════════════════════════════════════════════════════════
 
 class PoetryCornerScreen extends StatefulWidget {
@@ -120,13 +111,15 @@ class _PoetryCornerScreenState extends State<PoetryCornerScreen>
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Color(0xFF081F44),
         statusBarIconBrightness: Brightness.light,
         statusBarBrightness: Brightness.dark,
+        systemNavigationBarColor: Color(0xFF081F44),
+        systemNavigationBarIconBrightness: Brightness.light,
       ),
       child: Scaffold(
-        backgroundColor: context.nuruTheme.backgroundStart,
+        backgroundColor: const Color(0xFF081F44),
         body: Stack(
           children: [
             // Background
@@ -135,10 +128,7 @@ class _PoetryCornerScreenState extends State<PoetryCornerScreen>
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [
-                    context.nuruTheme.accentColor,
-                    context.nuruTheme.backgroundEnd,
-                  ],
+                  colors: context.nuruTheme.gradientColors,
                 ),
               ),
             ),
@@ -154,6 +144,7 @@ class _PoetryCornerScreenState extends State<PoetryCornerScreen>
             ),
             // Content
             SafeArea(
+              top: false,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -177,7 +168,7 @@ class _PoetryCornerScreenState extends State<PoetryCornerScreen>
     );
   }
 
-  // ── App bar ───────────────────────────────────────────────
+  // App bar
 
   Widget _buildAppBar() {
     return ClipRRect(
@@ -188,16 +179,14 @@ class _PoetryCornerScreenState extends State<PoetryCornerScreen>
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Container(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          padding: EdgeInsets.fromLTRB(
+            20,
+            MediaQuery.of(context).padding.top + 12,
+            20,
+            20,
+          ),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                context.nuruTheme.backgroundMid.withOpacity(0.75),
-                context.nuruTheme.backgroundStart.withOpacity(0.80),
-              ],
-            ),
+            color: const Color(0xFF081F44),
             border: Border(
               bottom: BorderSide(
                 color: context.nuruTheme.accentColor.withOpacity(0.4),
@@ -249,7 +238,7 @@ class _PoetryCornerScreenState extends State<PoetryCornerScreen>
     width: 42,
     height: 42,
     decoration: BoxDecoration(
-      color: context.nuruTheme.backgroundStart.withOpacity(0.5),
+      color: const Color(0xFF081F44),
       borderRadius: BorderRadius.circular(14),
       border: Border.all(
         color: context.nuruTheme.accentColor.withOpacity(0.5),
@@ -259,7 +248,7 @@ class _PoetryCornerScreenState extends State<PoetryCornerScreen>
     child: Icon(icon, color: Colors.white, size: size),
   );
 
-  // ── Mood tabs ─────────────────────────────────────────────
+  //  Mood tabs
 
   Widget _buildMoodTabs() {
     final moodIds = ['all', 'calm', 'hopeful', 'nature', 'selfworth', 'short'];
@@ -340,7 +329,7 @@ class _PoetryCornerScreenState extends State<PoetryCornerScreen>
     );
   }
 
-  // ── Body ──────────────────────────────────────────────────
+  // Body
 
   Widget _buildBody() {
     if (_loading) return _buildLoading();
@@ -360,7 +349,7 @@ class _PoetryCornerScreenState extends State<PoetryCornerScreen>
     );
   }
 
-  // ── Poem card ─────────────────────────────────────────────
+  //  Poem card
 
   Widget _buildPoemCard(Poem poem) {
     final col =
@@ -388,7 +377,7 @@ class _PoetryCornerScreenState extends State<PoetryCornerScreen>
               border: Border.all(color: col.withOpacity(0.30), width: 1.2),
               boxShadow: [
                 BoxShadow(
-                  color: context.nuruTheme.backgroundStart.withOpacity(0.45),
+                  color: const Color(0xFF081F44),
                   blurRadius: 14,
                   offset: const Offset(0, 5),
                 ),
@@ -506,7 +495,6 @@ class _PoetryCornerScreenState extends State<PoetryCornerScreen>
 
   // ══════════════════════════════════════════════════════════
   // FULL POEM READING SHEET
-  // Immersive, distraction-free, beautiful
   // ══════════════════════════════════════════════════════════
 
   void _openPoem(Poem poem) {
@@ -718,7 +706,7 @@ class _PoetryCornerScreenState extends State<PoetryCornerScreen>
     );
   }
 
-  // ── States ────────────────────────────────────────────────
+  // States
 
   Widget _buildLoading() => Center(
     child: Column(
@@ -813,7 +801,7 @@ class _PoetryCornerScreenState extends State<PoetryCornerScreen>
   );
 }
 
-// ── Stars ─────────────────────────────────────────────────────
+// Stars
 
 class _StarsPainter extends CustomPainter {
   final double twinkle;

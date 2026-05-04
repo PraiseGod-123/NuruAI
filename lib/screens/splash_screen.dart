@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../services/firebase_service.dart';
 import 'dart:async';
 import 'dart:math' as math;
+import '../providers/nuru_theme_extension.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({Key? key}) : super(key: key);
@@ -27,7 +31,7 @@ class _SplashScreenState extends State<SplashScreen>
   void initState() {
     super.initState();
 
-    // Phase 1: Draw neurons (8 seconds - good pace)
+    //Draw neurons
     _drawController = AnimationController(
       duration: Duration(milliseconds: 8000),
       vsync: this,
@@ -36,7 +40,7 @@ class _SplashScreenState extends State<SplashScreen>
       CurvedAnimation(parent: _drawController, curve: Curves.easeInOut),
     );
 
-    // Phase 2: Converge into brain (3 seconds)
+    //Converge into brain
     _convergeController = AnimationController(
       duration: Duration(milliseconds: 3000),
       vsync: this,
@@ -48,7 +52,7 @@ class _SplashScreenState extends State<SplashScreen>
       ),
     );
 
-    // Phase 3: Text appears
+    //Text appears
     _textController = AnimationController(
       duration: Duration(milliseconds: 1000),
       vsync: this,
@@ -100,9 +104,18 @@ class _SplashScreenState extends State<SplashScreen>
       }
     });
 
-    //Navigate - COMMENTED OUT FOR DEVELOPMENT
-    Timer(Duration(seconds: 14), () {
-      Navigator.pushReplacementNamed(context, '/onboarding');
+    //Navigate
+    Timer(Duration(seconds: 14), () async {
+      final firebaseUser = FirebaseAuth.instance.currentUser;
+      if (firebaseUser != null && firebaseUser.emailVerified) {
+        final userData =
+            await NuruFirebaseService.instance.getUserData(firebaseUser.uid) ??
+            {};
+        if (!mounted) return;
+        Navigator.pushReplacementNamed(context, '/home', arguments: userData);
+      } else {
+        Navigator.pushReplacementNamed(context, '/onboarding');
+      }
     });
   }
 
@@ -120,152 +133,160 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        children: [
-          // Background gradient
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFF4569AD), Color(0xFF14366D)],
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+        systemNavigationBarColor: Color(0xFF081F44),
+        systemNavigationBarIconBrightness: Brightness.light,
+      ),
+      child: Scaffold(
+        extendBodyBehindAppBar: true,
+        body: Stack(
+          children: [
+            // Background gradient
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [context.nuruTheme.accentColor, Color(0xFF14366D)],
+                ),
               ),
             ),
-          ),
 
-          // Animated flowing background shapes (like onboarding)
-          AnimatedBuilder(
-            animation: Listenable.merge([
-              _floatController1,
-              _floatController2,
-              _floatController3,
-            ]),
-            builder: (context, child) {
-              return CustomPaint(
-                size: Size.infinite,
-                painter: SplashBackgroundShapesPainter(
-                  animation1: _floatController1.value,
-                  animation2: _floatController2.value,
-                  animation3: _floatController3.value,
-                ),
-              );
-            },
-          ),
-
-          // Animated neurons
-          AnimatedBuilder(
-            animation: Listenable.merge([
-              _drawAnimation,
-              _convergeAnimation,
-              _pulseController,
-            ]),
-            builder: (context, child) {
-              return CustomPaint(
-                size: Size.infinite,
-                painter: NeuronBrainPainter(
-                  drawProgress: _drawAnimation.value,
-                  convergeProgress: _convergeAnimation.value,
-                  pulseProgress: _pulseController.value,
-                ),
-              );
-            },
-          ),
-
-          // Text (centered below brain)
-          SafeArea(
-            child: AnimatedBuilder(
-              animation: _textAnimation,
+            // Animated flowing background shapes
+            AnimatedBuilder(
+              animation: Listenable.merge([
+                _floatController1,
+                _floatController2,
+                _floatController3,
+              ]),
               builder: (context, child) {
-                final opacity = _textAnimation.value.clamp(0.0, 1.0);
-                return Opacity(
-                  opacity: opacity,
-                  child: Column(
-                    children: [
-                      Spacer(flex: 5),
-
-                      // NuruAI - CENTERED (MORE CURSIVE)
-                      Transform.translate(
-                        offset: Offset(0, 30 * (1 - opacity)),
-                        child: Transform(
-                          transform: Matrix4.identity()
-                            ..setEntry(3, 2, 0.001)
-                            ..rotateY(
-                              0.08,
-                            ), // Y-axis rotation for cursive slant
-                          alignment: Alignment.center,
-                          child: Center(
-                            child: Text(
-                              'NuruAI',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 50,
-                                fontWeight: FontWeight.bold,
-                                fontStyle: FontStyle.italic,
-                                fontFamily: 'serif',
-                                color: Colors.white,
-                                letterSpacing: -0.5, // Tighter for cursive
-                                shadows: [
-                                  Shadow(
-                                    color: Colors.black.withOpacity(0.3),
-                                    offset: Offset(0, 4),
-                                    blurRadius: 12,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      SizedBox(height: 8), // Reduced from 12
-                      // Autism Care - CENTERED
-                      Center(
-                        child: Text(
-                          'Autism Care',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 27, // Increased from 16
-                            fontWeight: FontWeight.w400,
-                            color: Colors.white.withOpacity(0.9),
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
-
-                      Spacer(flex: 2),
-
-                      // Powered by AI
-                      Padding(
-                        padding: EdgeInsets.only(bottom: 40),
-                        child: Center(
-                          child: Text(
-                            'Powered by AI',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w300,
-                              color: Colors.white.withOpacity(0.6),
-                              letterSpacing: 2.5,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                return CustomPaint(
+                  size: Size.infinite,
+                  painter: SplashBackgroundShapesPainter(
+                    animation1: _floatController1.value,
+                    animation2: _floatController2.value,
+                    animation3: _floatController3.value,
+                    bgColor: context.nuruTheme.backgroundStart,
                   ),
                 );
               },
             ),
-          ),
-        ],
+
+            // Animated neurons
+            AnimatedBuilder(
+              animation: Listenable.merge([
+                _drawAnimation,
+                _convergeAnimation,
+                _pulseController,
+              ]),
+              builder: (context, child) {
+                return CustomPaint(
+                  size: Size.infinite,
+                  painter: NeuronBrainPainter(
+                    drawProgress: _drawAnimation.value,
+                    convergeProgress: _convergeAnimation.value,
+                    pulseProgress: _pulseController.value,
+                  ),
+                );
+              },
+            ),
+
+            // Text (centered below brain)
+            SafeArea(
+              child: AnimatedBuilder(
+                animation: _textAnimation,
+                builder: (context, child) {
+                  final opacity = _textAnimation.value.clamp(0.0, 1.0);
+                  return Opacity(
+                    opacity: opacity,
+                    child: Column(
+                      children: [
+                        Spacer(flex: 5),
+
+                        Transform.translate(
+                          offset: Offset(0, 30 * (1 - opacity)),
+                          child: Transform(
+                            transform: Matrix4.identity()
+                              ..setEntry(3, 2, 0.001)
+                              ..rotateY(
+                                0.08,
+                              ), // Y-axis rotation for cursive slant
+                            alignment: Alignment.center,
+                            child: Center(
+                              child: Text(
+                                'NuruAI',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 50,
+                                  fontWeight: FontWeight.bold,
+                                  fontStyle: FontStyle.italic,
+                                  fontFamily: 'serif',
+                                  color: Colors.white,
+                                  letterSpacing: -0.5, // Tighter for cursive
+                                  shadows: [
+                                    Shadow(
+                                      color: Colors.black.withOpacity(0.3),
+                                      offset: Offset(0, 4),
+                                      blurRadius: 12,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        SizedBox(height: 8),
+                        // Autism Care
+                        Center(
+                          child: Text(
+                            'Autism Care',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 27, // Increased from 16
+                              fontWeight: FontWeight.w400,
+                              color: Colors.white.withOpacity(0.9),
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+
+                        Spacer(flex: 2),
+
+                        // Powered by AI
+                        Padding(
+                          padding: EdgeInsets.only(bottom: 40),
+                          child: Center(
+                            child: Text(
+                              'Powered by AI',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w300,
+                                color: Colors.white.withOpacity(0.6),
+                                letterSpacing: 2.5,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-// ══════════════════════════════════════════════════════════════
-// NEURON BRAIN PAINTER - DETAILED ANATOMICAL BRAIN
-// ══════════════════════════════════════════════════════════════
+// NEURON BRAIN PAINTER
 class NeuronBrainPainter extends CustomPainter {
   final double drawProgress;
   final double convergeProgress;
@@ -277,14 +298,10 @@ class NeuronBrainPainter extends CustomPainter {
     required this.pulseProgress,
   });
 
-  // Well-distributed neurons across entire screen - no clustering
   static final _scatteredPositions = _generateScatteredPositions();
 
   static List<List<double>> _generateScatteredPositions() {
     final positions = <List<double>>[];
-
-    // Create a grid-based distribution with randomness to avoid clustering
-    // 9 rows x 6-7 columns = ~57 neurons spread evenly
 
     final rows = 9;
     final cols = 7;
@@ -317,49 +334,49 @@ class NeuronBrainPainter extends CustomPainter {
     return positions;
   }
 
-  // SUPER ROUND BRAIN - perfect circle-like proportions with heart curve!
+  // SUPER ROUND BRAIN
   static const _brainPositions = [
-    // === TOP WITH HEART CURVE (indent in the middle) ===
+    //TOP WITH HEART CURVE (indent in the middle)
     [0.50, 0.32], // center dip (like heart indent)
-    [0.48, 0.31], [0.52, 0.31], // slight curve up on sides of dip
-    [0.45, 0.31], [0.55, 0.31], // continue curve
-    [0.42, 0.32], [0.58, 0.32], // round down the sides
-    [0.39, 0.33], [0.61, 0.33], // start of hemisphere curves
-    // === LEFT HEMISPHERE - MAXIMUM BULGE (super wide) ===
+    [0.48, 0.31], [0.52, 0.31],
+    [0.45, 0.31], [0.55, 0.31],
+    [0.42, 0.32], [0.58, 0.32],
+    [0.39, 0.33], [0.61, 0.33],
+    //LEFT HEMISPHERE
     [0.36, 0.36], [0.33, 0.40], [0.32, 0.44], [0.33, 0.48], [0.36, 0.51],
 
-    // === RIGHT HEMISPHERE - MAXIMUM BULGE (super wide) ===
+    //RIGHT HEMISPHERE - MAXIMUM BULGE (super wide)
     [0.64, 0.36], [0.67, 0.40], [0.68, 0.44], [0.67, 0.48], [0.64, 0.51],
 
-    // === CENTER FISSURE (vertical division) ===
+    //CENTER FISSURE (vertical division)
     [0.50, 0.35], [0.50, 0.39], [0.50, 0.43], [0.50, 0.47],
 
-    // === LEFT INNER HEMISPHERE ===
+    //LEFT INNER HEMISPHERE
     [0.42, 0.36], [0.40, 0.40], [0.39, 0.44], [0.40, 0.48], [0.42, 0.51],
 
-    // === RIGHT INNER HEMISPHERE ===
+    //RIGHT INNER HEMISPHERE
     [0.58, 0.36], [0.60, 0.40], [0.61, 0.44], [0.60, 0.48], [0.58, 0.51],
 
-    // === LEFT WRINKLE LAYER ===
+    // LEFT WRINKLE LAYER
     [0.37, 0.38], [0.35, 0.44], [0.37, 0.49],
 
-    // === RIGHT WRINKLE LAYER ===
+    // RIGHT WRINKLE LAYER
     [0.63, 0.38], [0.65, 0.44], [0.63, 0.49],
 
-    // === BOTTOM ROUNDED (cerebellum - tight and round) ===
+    //BOTTOM ROUNDED (cerebellum - tight and round)
     [0.40, 0.53], [0.45, 0.54], [0.50, 0.55], [0.55, 0.54], [0.60, 0.53],
 
-    // === BOTTOM CURVE LEFT ===
+    //BOTTOM CURVE LEFT
     [0.38, 0.52], [0.36, 0.50],
 
-    // === BOTTOM CURVE RIGHT ===
+    //BOTTOM CURVE RIGHT
     [0.62, 0.52], [0.64, 0.50],
 
-    // === CENTER DEPTH (fill middle for roundness) ===
+    //CENTER DEPTH (fill middle for roundness)
     [0.47, 0.39], [0.53, 0.39], [0.47, 0.43], [0.53, 0.43],
     [0.47, 0.47], [0.53, 0.47],
 
-    // === BRAIN STEM (very short) ===
+    //BRAIN STEM (very short)
     [0.50, 0.56], [0.49, 0.57], [0.51, 0.57],
   ];
 
@@ -415,19 +432,19 @@ class NeuronBrainPainter extends CustomPainter {
     // Only draw if neuron has appeared
     if (appearProgress <= 0) return;
 
-    // === DENDRITES (input branches) - draw FIRST ===
+    //DENDRITES (input branches) - draw FIRST
     if (appearProgress > 0.3) {
       final dendriteProgress = ((appearProgress - 0.3) / 0.7).clamp(0.0, 1.0);
       _drawDendrites(canvas, center, dendriteProgress, index);
     }
 
-    // === AXON (output branch) - draw SECOND ===
+    // AXON (output branch) - draw SECOND
     if (appearProgress > 0.5) {
       final axonProgress = ((appearProgress - 0.5) / 0.5).clamp(0.0, 1.0);
       _drawAxon(canvas, center, axonProgress, index);
     }
 
-    // === SOMA (cell body) - draw LAST ===
+    //SOMA (cell body) - draw LAST
     // Outer glow
     canvas.drawCircle(
       center,
@@ -714,18 +731,19 @@ class NeuronBrainPainter extends CustomPainter {
   }
 }
 
-// ══════════════════════════════════════════════════════════════
-// SPLASH BACKGROUND SHAPES PAINTER (from onboarding style)
-// ══════════════════════════════════════════════════════════════
+// SPLASH BACKGROUND SHAPES PAINTER
 class SplashBackgroundShapesPainter extends CustomPainter {
   final double animation1;
   final double animation2;
   final double animation3;
 
+  final Color bgColor;
+
   SplashBackgroundShapesPainter({
     required this.animation1,
     required this.animation2,
     required this.animation3,
+    required this.bgColor,
   });
 
   @override
@@ -759,7 +777,7 @@ class SplashBackgroundShapesPainter extends CustomPainter {
     canvas.drawPath(path1, paint);
 
     // Right side flowing shape
-    paint.color = Color(0xFF081F44).withOpacity(0.2);
+    paint.color = bgColor.withOpacity(0.2);
     final offsetX2 = animation2 * 35 - 17;
     final path2 = Path()
       ..moveTo(size.width, size.height * 0.2 + offsetX2)

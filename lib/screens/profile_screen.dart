@@ -11,11 +11,7 @@ import '../services/api_services.dart';
 import '../services/firebase_service.dart';
 
 // ══════════════════════════════════════════════════════════════
-// PROFILE SCREEN — fully wired
-//   • Notifications: toggles + time pickers → NuruNotificationService
-//   • Text Size: slider → TextSizeProvider (persisted)
-//   • Theme: picker → NuruThemeProvider
-//   • Help & Support: FAQ + contact sheet
+// PROFILE SCREEN
 // ══════════════════════════════════════════════════════════════
 
 class ProfileScreen extends StatefulWidget {
@@ -108,10 +104,8 @@ class _ProfileScreenState extends State<ProfileScreen>
       _caregiverPhone = d['caregiverPhone'] as String?;
     }
 
-    // Register FCM token with Flask backend
     _registerFCMToken();
 
-    // Stream live stats from Firestore
     final uid = widget.userData?['uid'] as String? ?? '';
     if (uid.isNotEmpty) {
       NuruFirebaseService.instance.streamUserStats(uid).listen((stats) {
@@ -224,7 +218,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  // ── Header ────────────────────────────────────────────────
+  // Header
 
   Widget _buildHeader() {
     return Padding(
@@ -281,7 +275,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  // ── Avatar ────────────────────────────────────────────────
+  //  Avatar
 
   Widget _buildAvatarCard() {
     return Container(
@@ -363,10 +357,9 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  // ── Personal info ─────────────────────────────────────────
+  // Personal info
 
   Widget _buildPersonalInfoCard() {
-    // Format member since date from createdAt
     final createdAtStr =
         widget.userData?['createdAt'] as String? ??
         _liveStats['createdAt'] as String?;
@@ -438,615 +431,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  void _editName() {
-    final ctrl = TextEditingController(text: _name);
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1F3F74),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
-          'Edit Name',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          style: const TextStyle(color: Colors.white),
-          cursorColor: NuruColors.sailingBlue,
-          decoration: InputDecoration(
-            hintText: 'Your name',
-            hintStyle: const TextStyle(color: Colors.white38),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: NuruColors.sailingBlue.withOpacity(0.4),
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: NuruColors.sailingBlue),
-            ),
-            filled: true,
-            fillColor: Colors.white.withOpacity(0.05),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: Colors.white54),
-            ),
-          ),
-          TextButton(
-            onPressed: () async {
-              final newName = ctrl.text.trim();
-              if (newName.isEmpty) return;
-              Navigator.pop(context);
-              setState(() => _name = newName);
-              final uid = widget.userData?['uid'] as String? ?? '';
-              if (uid.isNotEmpty) {
-                await NuruFirebaseService.instance.updateUserProfile(
-                  uid: uid,
-                  fields: {'name': newName},
-                );
-                // Also update Firebase Auth display name
-                await NuruFirebaseService.instance.currentUser
-                    ?.updateDisplayName(newName);
-              }
-            },
-            child: const Text(
-              'Save',
-              style: TextStyle(
-                color: NuruColors.sailingBlue,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Edit Profile Sheet ────────────────────────────────────
-
-  void _showEditProfileSheet() {
-    final nameCtrl = TextEditingController(text: _name);
-    final ageCtrl = TextEditingController(text: '$_age');
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          decoration: const BoxDecoration(
-            color: Color(0xFF1F3F74),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Edit Profile',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 20),
-              _sheetField('Full Name', nameCtrl, TextInputType.name),
-              const SizedBox(height: 14),
-              _sheetField('Age', ageCtrl, TextInputType.number),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text(
-                        'Cancel',
-                        style: TextStyle(color: Colors.white54),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: NuruColors.sailingBlue,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      onPressed: () async {
-                        final newName = nameCtrl.text.trim();
-                        final newAge =
-                            int.tryParse(ageCtrl.text.trim()) ?? _age;
-                        if (newName.isEmpty) return;
-                        Navigator.pop(context);
-                        setState(() {
-                          _name = newName;
-                          _age = newAge;
-                        });
-                        final uid = widget.userData?['uid'] as String? ?? '';
-                        if (uid.isNotEmpty) {
-                          await NuruFirebaseService.instance.updateUserProfile(
-                            uid: uid,
-                            fields: {'name': newName, 'age': newAge},
-                          );
-                          await NuruFirebaseService.instance.currentUser
-                              ?.updateDisplayName(newName);
-                        }
-                        _showSnack('Profile updated');
-                      },
-                      child: const Text(
-                        'Save',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ── Privacy & Security Sheet ──────────────────────────────
-
-  void _showPrivacyAndSecurity() {
-    final currentCtrl = TextEditingController();
-    final newCtrl = TextEditingController();
-    final confirmCtrl = TextEditingController();
-    bool obscureCurrent = true;
-    bool obscureNew = true;
-    bool obscureConfirm = true;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => StatefulBuilder(
-        builder: (ctx, setSheetState) => Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-          ),
-          child: Container(
-            padding: const EdgeInsets.all(24),
-            decoration: const BoxDecoration(
-              color: Color(0xFF1F3F74),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Privacy & Security',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Change your password',
-                  style: TextStyle(fontSize: 13, color: Colors.white60),
-                ),
-                const SizedBox(height: 20),
-                _passwordField(
-                  'Current password',
-                  currentCtrl,
-                  obscureCurrent,
-                  () => setSheetState(() => obscureCurrent = !obscureCurrent),
-                ),
-                const SizedBox(height: 12),
-                _passwordField(
-                  'New password',
-                  newCtrl,
-                  obscureNew,
-                  () => setSheetState(() => obscureNew = !obscureNew),
-                ),
-                const SizedBox(height: 12),
-                _passwordField(
-                  'Confirm new password',
-                  confirmCtrl,
-                  obscureConfirm,
-                  () => setSheetState(() => obscureConfirm = !obscureConfirm),
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text(
-                          'Cancel',
-                          style: TextStyle(color: Colors.white54),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: NuruColors.sailingBlue,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                        ),
-                        onPressed: () async {
-                          if (newCtrl.text != confirmCtrl.text) {
-                            _showSnack('New passwords do not match');
-                            return;
-                          }
-                          if (newCtrl.text.length < 6) {
-                            _showSnack(
-                              'Password must be at least 6 characters',
-                            );
-                            return;
-                          }
-                          try {
-                            final user =
-                                NuruFirebaseService.instance.currentUser;
-                            if (user == null) return;
-                            // Re-authenticate then change password
-                            final cred = EmailAuthProvider.credential(
-                              email: user.email ?? _email,
-                              password: currentCtrl.text,
-                            );
-                            await user.reauthenticateWithCredential(cred);
-                            await user.updatePassword(newCtrl.text);
-                            if (!mounted) return;
-                            Navigator.pop(context);
-                            _showSnack('Password changed successfully');
-                          } catch (e) {
-                            _showSnack('Incorrect current password');
-                          }
-                        },
-                        child: const Text(
-                          'Update',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ── Add Caregiver Sheet ───────────────────────────────────
-
-  void _showAddCaregiverSheet() {
-    final nameCtrl = TextEditingController(text: _caregiverName ?? '');
-    final emailCtrl = TextEditingController(text: _caregiverEmail ?? '');
-    final phoneCtrl = TextEditingController(text: _caregiverPhone ?? '');
-    String? selectedType = _caregiverType;
-
-    const types = [
-      'Parent',
-      'Guardian',
-      'Doctor',
-      'Therapist',
-      'Sibling',
-      'Nanny',
-      'Teacher',
-      'Other',
-    ];
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => StatefulBuilder(
-        builder: (ctx, setSheetState) => Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-          ),
-          child: Container(
-            padding: const EdgeInsets.all(24),
-            decoration: const BoxDecoration(
-              color: Color(0xFF1F3F74),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Caregiver Details',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  _sheetField('Caregiver Name', nameCtrl, TextInputType.name),
-                  const SizedBox(height: 14),
-                  // Type dropdown
-                  DropdownButtonFormField<String>(
-                    value: selectedType,
-                    hint: const Text(
-                      'Caregiver type',
-                      style: TextStyle(color: Colors.white60),
-                    ),
-                    dropdownColor: const Color(0xFF1F3F74),
-                    style: const TextStyle(color: Colors.white, fontSize: 14),
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: Colors.white.withOpacity(0.05),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                    items: types
-                        .map((t) => DropdownMenuItem(value: t, child: Text(t)))
-                        .toList(),
-                    onChanged: (v) => setSheetState(() => selectedType = v),
-                  ),
-                  const SizedBox(height: 14),
-                  _sheetField(
-                    'Email (optional)',
-                    emailCtrl,
-                    TextInputType.emailAddress,
-                  ),
-                  const SizedBox(height: 14),
-                  _sheetField(
-                    'Phone (optional)',
-                    phoneCtrl,
-                    TextInputType.phone,
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text(
-                            'Cancel',
-                            style: TextStyle(color: Colors.white54),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: NuruColors.sailingBlue,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                          ),
-                          onPressed: () async {
-                            if (nameCtrl.text.trim().isEmpty ||
-                                selectedType == null) {
-                              _showSnack('Please enter name and type');
-                              return;
-                            }
-                            Navigator.pop(context);
-                            setState(() {
-                              _caregiverName = nameCtrl.text.trim();
-                              _caregiverType = selectedType;
-                              _caregiverEmail = emailCtrl.text.trim().isEmpty
-                                  ? null
-                                  : emailCtrl.text.trim();
-                              _caregiverPhone = phoneCtrl.text.trim().isEmpty
-                                  ? null
-                                  : phoneCtrl.text.trim();
-                            });
-                            final uid =
-                                widget.userData?['uid'] as String? ?? '';
-                            if (uid.isNotEmpty) {
-                              await NuruFirebaseService.instance
-                                  .updateUserProfile(
-                                    uid: uid,
-                                    fields: {
-                                      'caregiverName': _caregiverName,
-                                      'caregiverType': _caregiverType,
-                                      if (_caregiverEmail != null)
-                                        'caregiverEmail': _caregiverEmail,
-                                      if (_caregiverPhone != null)
-                                        'caregiverPhone': _caregiverPhone,
-                                    },
-                                  );
-                            }
-                            _showSnack('Caregiver saved');
-                          },
-                          child: const Text(
-                            'Save',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ── Sheet helpers ─────────────────────────────────────────
-
-  Widget _sheetField(
-    String hint,
-    TextEditingController ctrl,
-    TextInputType type,
-  ) {
-    return TextField(
-      controller: ctrl,
-      keyboardType: type,
-      style: const TextStyle(color: Colors.white, fontSize: 14),
-      cursorColor: NuruColors.sailingBlue,
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: const TextStyle(color: Colors.white38, fontSize: 14),
-        filled: true,
-        fillColor: Colors.white.withOpacity(0.05),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(
-            color: NuruColors.sailingBlue.withOpacity(0.3),
-          ),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: NuruColors.sailingBlue),
-        ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 14,
-        ),
-      ),
-    );
-  }
-
-  Widget _passwordField(
-    String hint,
-    TextEditingController ctrl,
-    bool obscure,
-    VoidCallback toggle,
-  ) {
-    return TextField(
-      controller: ctrl,
-      obscureText: obscure,
-      style: const TextStyle(color: Colors.white, fontSize: 14),
-      cursorColor: NuruColors.sailingBlue,
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: const TextStyle(color: Colors.white38, fontSize: 14),
-        filled: true,
-        fillColor: Colors.white.withOpacity(0.05),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(
-            color: NuruColors.sailingBlue.withOpacity(0.3),
-          ),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: NuruColors.sailingBlue),
-        ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 14,
-        ),
-        suffixIcon: IconButton(
-          icon: Icon(
-            obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-            color: Colors.white38,
-            size: 20,
-          ),
-          onPressed: toggle,
-        ),
-      ),
-    );
-  }
-
-  Widget _editableTile(
-    IconData icon,
-    String label,
-    String value,
-    VoidCallback onEdit,
-  ) {
-    return GestureDetector(
-      onTap: onEdit,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: NuruTheme.spacingL,
-          vertical: 14,
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: NuruColors.sailingBlue.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, color: NuruColors.solidBlue, size: 18),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: NuruColors.nightTextMuted,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 0.3,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    value,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: NuruColors.nightTextPrimary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.edit_outlined,
-              size: 16,
-              color: NuruColors.sailingBlue.withOpacity(0.6),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ── Caregiver ─────────────────────────────────────────────
+  // Caregiver
 
   Widget _buildCaregiverCard() {
     return Container(
@@ -1122,7 +507,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  // ── Notifications ─────────────────────────────────────────
+  //  Notifications
 
   Widget _buildNotificationsCard() {
     return Container(
@@ -1138,29 +523,17 @@ class _ProfileScreenState extends State<ProfileScreen>
             (v) async {
               setState(() => _notificationsOn = v);
               if (v) {
-                await NuruNotificationService.instance
-                    .scheduleDailyMoodReminder(
-                      hour: _moodMorningTime.hour,
-                      minute: _moodMorningTime.minute,
-                    );
+                if (_moodReminders)
+                  await NuruNotificationService.instance
+                      .scheduleDailyMoodReminder(
+                        hour: _moodMorningTime.hour,
+                        minute: _moodMorningTime.minute,
+                      );
                 await NuruNotificationService.instance
                     .scheduleEveningMoodReminder(
                       hour: _moodEveningTime.hour,
                       minute: _moodEveningTime.minute,
                     );
-                await NuruNotificationService.instance.scheduleJournalReminder(
-                  hour: _journalTime.hour,
-                  minute: _journalTime.minute,
-                );
-                await NuruNotificationService.instance
-                    .scheduleMorningStreakReminder(
-                      hour: _streakMorningTime.hour,
-                      minute: _streakMorningTime.minute,
-                    );
-                await NuruNotificationService.instance.scheduleStreakReminder(
-                  hour: _streakEveningTime.hour,
-                  minute: _streakEveningTime.minute,
-                );
               } else {
                 await NuruNotificationService.instance.cancelAll();
               }
@@ -1169,8 +542,8 @@ class _ProfileScreenState extends State<ProfileScreen>
           _cardDivider(),
           // Mood
           _switchTile(
-            Icons.mood_rounded,
-            'Mood Check-in',
+            Icons.mood_outlined,
+            'Mood Reminders',
             '${_moodMorningTime.format(context)} · ${_moodEveningTime.format(context)}',
             _moodReminders && _notificationsOn,
             (v) async {
@@ -1247,7 +620,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  // ── Appearance ────────────────────────────────────────────
+  //  Appearance
 
   Widget _buildAppearanceCard() {
     final themeProvider = context.watch<NuruThemeProvider>();
@@ -1256,10 +629,114 @@ class _ProfileScreenState extends State<ProfileScreen>
       decoration: NuruTheme.darkCard(),
       child: Column(
         children: [
+          // Dark / Light mode toggle
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: themeProvider.activeTheme.accentColor.withOpacity(
+                      0.15,
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    themeProvider.isDark
+                        ? Icons.dark_mode_rounded
+                        : Icons.light_mode_rounded,
+                    color: themeProvider.activeTheme.accentColor,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Display Mode',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                      Text(
+                        themeProvider.isDark ? 'Dark mode' : 'Light mode',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.white.withOpacity(0.5),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () {
+                    themeProvider.toggleBrightness();
+                    HapticFeedback.lightImpact();
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    width: 52,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: themeProvider.isDark
+                          ? Colors.white.withOpacity(0.15)
+                          : themeProvider.activeTheme.accentColor.withOpacity(
+                              0.8,
+                            ),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Colors.white.withOpacity(0.2)),
+                    ),
+                    child: Stack(
+                      children: [
+                        AnimatedPositioned(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                          left: themeProvider.isDark ? 2 : 26,
+                          top: 2,
+                          child: Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.2),
+                                  blurRadius: 4,
+                                ),
+                              ],
+                            ),
+                            child: Center(
+                              child: Icon(
+                                themeProvider.isDark
+                                    ? Icons.nightlight_round
+                                    : Icons.wb_sunny_rounded,
+                                size: 14,
+                                color: themeProvider.isDark
+                                    ? const Color(0xFF1A2D5A)
+                                    : const Color(0xFFE87040),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _cardDivider(),
           _arrowTile(
             Icons.palette_outlined,
             'Theme',
-            themeProvider.activeTheme.fancyName,
+            themeProvider.selectedPalette.name,
             () => _showThemePicker(),
           ),
           _cardDivider(),
@@ -1281,7 +758,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  // ── Support ───────────────────────────────────────────────
+  // Support
 
   Widget _buildSupportCard() {
     return Container(
@@ -1306,7 +783,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  // ── Logout ────────────────────────────────────────────────
+  // Logout
 
   Widget _buildLogoutButton() {
     return GestureDetector(
@@ -1351,7 +828,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   // BOTTOM SHEETS
   // ══════════════════════════════════════════════════════════
 
-  // ── Reminder time picker ──────────────────────────────────
+  // Reminder time picker
 
   void _showReminderTimePicker() {
     showModalBottomSheet(
@@ -1452,7 +929,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                     minute: t.minute,
                   );
               }),
-              const SizedBox(height: 8),
             ],
           ),
         ),
@@ -1463,32 +939,32 @@ class _ProfileScreenState extends State<ProfileScreen>
   Widget _timeTile(
     BuildContext ctx,
     String label,
-    TimeOfDay current,
-    Function(TimeOfDay) onPicked,
+    TimeOfDay time,
+    Future<void> Function(TimeOfDay) onPick,
   ) {
     return GestureDetector(
       onTap: () async {
         final picked = await showTimePicker(
           context: ctx,
-          initialTime: current,
-          builder: (context, child) => Theme(
+          initialTime: time,
+          builder: (c, child) => Theme(
             data: ThemeData.dark().copyWith(
               colorScheme: const ColorScheme.dark(
-                primary: Color(0xFF4569AD),
-                surface: Color(0xFF162036),
+                primary: NuruColors.sailingBlue,
+                surface: Color(0xFF1F3F74),
               ),
             ),
             child: child!,
           ),
         );
-        if (picked != null) onPicked(picked);
+        if (picked != null) await onPick(picked);
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.06),
+          color: Colors.white.withOpacity(0.05),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white12),
+          border: Border.all(color: Colors.white.withOpacity(0.08)),
         ),
         child: Row(
           children: [
@@ -1496,37 +972,29 @@ class _ProfileScreenState extends State<ProfileScreen>
               child: Text(
                 label,
                 style: const TextStyle(
-                  color: Colors.white,
                   fontSize: 14,
+                  color: Colors.white,
                   fontWeight: FontWeight.w500,
                 ),
               ),
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: NuruColors.sailingBlue.withOpacity(0.25),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: NuruColors.sailingBlue.withOpacity(0.5),
-                ),
-              ),
-              child: Text(
-                current.format(ctx),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
+            Text(
+              time.format(ctx),
+              style: const TextStyle(
+                fontSize: 14,
+                color: NuruColors.sailingBlue,
+                fontWeight: FontWeight.w700,
               ),
             ),
+            const SizedBox(width: 8),
+            Icon(Icons.chevron_right, color: Colors.white38, size: 18),
           ],
         ),
       ),
     );
   }
 
-  // ── Theme picker ──────────────────────────────────────────
+  // ── Theme picker (UPDATED — full color palette grid) ──────
 
   void _showThemePicker() {
     final provider = context.read<NuruThemeProvider>();
@@ -1537,117 +1005,14 @@ class _ProfileScreenState extends State<ProfileScreen>
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (_) => StatefulBuilder(
-        builder: (ctx, setSheet) => DraggableScrollableSheet(
-          expand: false,
-          initialChildSize: 0.6,
-          maxChildSize: 0.9,
-          builder: (_, controller) => Column(
-            children: [
-              const SizedBox(height: 12),
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.white24,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24),
-                child: Text(
-                  'Choose Theme',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Expanded(
-                child: ListView.builder(
-                  controller: controller,
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-                  itemCount: provider.themes.length,
-                  itemBuilder: (_, i) {
-                    final theme = provider.themes[i];
-                    final isActive = provider.activeTheme.id == theme.id;
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      decoration: BoxDecoration(
-                        color: isActive
-                            ? NuruColors.sailingBlue.withOpacity(0.15)
-                            : Colors.white.withOpacity(0.04),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: isActive
-                              ? NuruColors.sailingBlue
-                              : Colors.white12,
-                          width: isActive ? 1.5 : 1,
-                        ),
-                      ),
-                      child: ListTile(
-                        leading: Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            gradient: LinearGradient(
-                              colors: theme.gradientColors,
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            border: Border.all(
-                              color: isActive ? Colors.white : Colors.white24,
-                              width: isActive ? 2 : 1,
-                            ),
-                          ),
-                        ),
-                        title: Text(
-                          theme.fancyName,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: isActive
-                                ? FontWeight.bold
-                                : FontWeight.normal,
-                          ),
-                        ),
-                        subtitle: Text(
-                          theme.description,
-                          style: const TextStyle(
-                            color: Colors.white54,
-                            fontSize: 11,
-                          ),
-                        ),
-                        trailing: isActive
-                            ? const Icon(
-                                Icons.check_circle_rounded,
-                                color: NuruColors.sailingBlue,
-                              )
-                            : null,
-                        onTap: () {
-                          provider.setTheme(theme.id);
-                          setSheet(() {});
-                          Navigator.pop(ctx);
-                          setState(() {});
-                        },
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
+      builder: (_) => ChangeNotifierProvider.value(
+        value: provider,
+        child: _ThemePickerSheet(onDone: () => setState(() {})),
       ),
     );
   }
 
-  // ── Text size picker ──────────────────────────────────────
+  // Text size picker
 
   void _showTextSizePicker() {
     showModalBottomSheet(
@@ -1687,120 +1052,37 @@ class _ProfileScreenState extends State<ProfileScreen>
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Adjust how large text appears across the app',
-                  style: TextStyle(color: Colors.white54, fontSize: 13),
-                ),
-                const SizedBox(height: 24),
-                // Preview text
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.06),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.white12),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Preview',
-                        style: TextStyle(fontSize: 11, color: Colors.white38),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'How are you feeling today?',
-                        style: TextStyle(
-                          fontSize: 16 * provider.scale,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        "Tap a mood to log how you're feeling right now.",
-                        style: TextStyle(
-                          fontSize: 13 * provider.scale,
-                          color: Colors.white70,
-                        ),
-                      ),
-                    ],
+                  'Adjust the text size across the app',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.5),
+                    fontSize: 13,
                   ),
                 ),
                 const SizedBox(height: 20),
-                // Size label
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'A',
-                      style: TextStyle(color: Colors.white54, fontSize: 12),
-                    ),
-                    Text(
-                      provider.label,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const Text(
-                      'A',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                SliderTheme(
-                  data: SliderThemeData(
-                    trackHeight: 4,
-                    activeTrackColor: NuruColors.sailingBlue,
-                    inactiveTrackColor: Colors.white12,
-                    thumbColor: NuruColors.sailingBlue,
-                    overlayColor: NuruColors.sailingBlue.withOpacity(0.2),
-                    thumbShape: const RoundSliderThumbShape(
-                      enabledThumbRadius: 10,
-                    ),
-                  ),
-                  child: Slider(
-                    value: provider.scale,
-                    min: provider.min,
-                    max: provider.max,
-                    divisions: 11,
-                    onChanged: (v) async {
-                      await provider.setScale(v);
-                      setSheet(() {});
-                    },
-                  ),
-                ),
-                // Size presets
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     for (final entry in [
                       ('Small', 0.85),
-                      ('Normal', 1.0),
-                      ('Large', 1.2),
-                      ('XL', 1.4),
+                      ('Default', 1.0),
+                      ('Large', 1.15),
+                      ('XL', 1.3),
                     ])
                       GestureDetector(
-                        onTap: () async {
-                          await provider.setScale(entry.$2);
+                        onTap: () {
+                          provider.setScale(entry.$2);
                           setSheet(() {});
                         },
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
+                            horizontal: 14,
+                            vertical: 10,
                           ),
                           decoration: BoxDecoration(
                             color: (provider.scale - entry.$2).abs() < 0.05
                                 ? NuruColors.sailingBlue.withOpacity(0.3)
-                                : Colors.white.withOpacity(0.06),
-                            borderRadius: BorderRadius.circular(10),
+                                : Colors.white.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                               color: (provider.scale - entry.$2).abs() < 0.05
                                   ? NuruColors.sailingBlue
@@ -1843,7 +1125,411 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  // ── Help & Support ────────────────────────────────────────
+  // Edit profile sheet
+
+  void _showEditProfileSheet() {
+    final nameCtrl = TextEditingController(text: _name);
+    final ageCtrl = TextEditingController(text: _age.toString());
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: const BoxDecoration(
+            color: Color(0xFF1F3F74),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Edit Profile',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 20),
+              _sheetField('Full Name', nameCtrl, TextInputType.name),
+              const SizedBox(height: 14),
+              _sheetField('Age', ageCtrl, TextInputType.number),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(color: Colors.white54),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: NuruColors.sailingBlue,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      onPressed: () async {
+                        final newName = nameCtrl.text.trim();
+                        final newAge =
+                            int.tryParse(ageCtrl.text.trim()) ?? _age;
+                        if (newName.isEmpty) return;
+                        Navigator.pop(context);
+                        setState(() {
+                          _name = newName;
+                          _age = newAge;
+                        });
+                        final uid = widget.userData?['uid'] as String? ?? '';
+                        if (uid.isNotEmpty) {
+                          await NuruFirebaseService.instance.updateUserProfile(
+                            uid: uid,
+                            fields: {'name': newName, 'age': newAge},
+                          );
+                          await NuruFirebaseService.instance.currentUser
+                              ?.updateDisplayName(newName);
+                        }
+                        _showSnack('Profile updated');
+                      },
+                      child: const Text(
+                        'Save',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  //  Add / edit caregiver sheet
+
+  void _showAddCaregiverSheet() {
+    final nameCtrl = TextEditingController(text: _caregiverName ?? '');
+    final emailCtrl = TextEditingController(text: _caregiverEmail ?? '');
+    final phoneCtrl = TextEditingController(text: _caregiverPhone ?? '');
+    String? selectedType = _caregiverType;
+
+    const types = [
+      'Parent',
+      'Guardian',
+      'Doctor',
+      'Therapist',
+      'Sibling',
+      'Nanny',
+      'Teacher',
+      'Other',
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setSheetState) => Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: const BoxDecoration(
+              color: Color(0xFF1F3F74),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Caregiver Details',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  _sheetField('Caregiver Name', nameCtrl, TextInputType.name),
+                  const SizedBox(height: 14),
+                  DropdownButtonFormField<String>(
+                    value: selectedType,
+                    dropdownColor: const Color(0xFF1F3F74),
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                    decoration: InputDecoration(
+                      hintText: 'Type (Parent, Doctor…)',
+                      hintStyle: const TextStyle(
+                        color: Colors.white38,
+                        fontSize: 14,
+                      ),
+                      filled: true,
+                      fillColor: Colors.white.withOpacity(0.05),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: NuruColors.sailingBlue.withOpacity(0.3),
+                        ),
+                      ),
+                    ),
+                    items: types
+                        .map(
+                          (t) => DropdownMenuItem(
+                            value: t.toLowerCase(),
+                            child: Text(t),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (v) => setSheetState(() => selectedType = v),
+                  ),
+                  const SizedBox(height: 14),
+                  _sheetField(
+                    'Email (optional)',
+                    emailCtrl,
+                    TextInputType.emailAddress,
+                  ),
+                  const SizedBox(height: 14),
+                  _sheetField(
+                    'Phone (optional)',
+                    phoneCtrl,
+                    TextInputType.phone,
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text(
+                            'Cancel',
+                            style: TextStyle(color: Colors.white54),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: NuruColors.sailingBlue,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          onPressed: () async {
+                            if (nameCtrl.text.trim().isEmpty ||
+                                selectedType == null) {
+                              _showSnack('Please enter name and type');
+                              return;
+                            }
+                            Navigator.pop(context);
+                            setState(() {
+                              _caregiverName = nameCtrl.text.trim();
+                              _caregiverType = selectedType;
+                              _caregiverEmail = emailCtrl.text.trim().isEmpty
+                                  ? null
+                                  : emailCtrl.text.trim();
+                              _caregiverPhone = phoneCtrl.text.trim().isEmpty
+                                  ? null
+                                  : phoneCtrl.text.trim();
+                            });
+                            final uid =
+                                widget.userData?['uid'] as String? ?? '';
+                            if (uid.isNotEmpty) {
+                              await NuruFirebaseService.instance
+                                  .updateUserProfile(
+                                    uid: uid,
+                                    fields: {
+                                      'caregiverName': _caregiverName,
+                                      'caregiverType': _caregiverType,
+                                      if (_caregiverEmail != null)
+                                        'caregiverEmail': _caregiverEmail,
+                                      if (_caregiverPhone != null)
+                                        'caregiverPhone': _caregiverPhone,
+                                    },
+                                  );
+                            }
+                            _showSnack('Caregiver saved');
+                          },
+                          child: const Text(
+                            'Save',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Privacy & Security
+
+  void _showPrivacyAndSecurity() {
+    final currentCtrl = TextEditingController();
+    final newCtrl = TextEditingController();
+    final confirmCtrl = TextEditingController();
+    bool obscureCurrent = true;
+    bool obscureNew = true;
+    bool obscureConfirm = true;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setSheetState) => Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: const BoxDecoration(
+              color: Color(0xFF1F3F74),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Privacy & Security',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Change your password below',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.5),
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  _passwordField(
+                    'Current Password',
+                    currentCtrl,
+                    obscureCurrent,
+                    () => setSheetState(() => obscureCurrent = !obscureCurrent),
+                  ),
+                  const SizedBox(height: 14),
+                  _passwordField(
+                    'New Password',
+                    newCtrl,
+                    obscureNew,
+                    () => setSheetState(() => obscureNew = !obscureNew),
+                  ),
+                  const SizedBox(height: 14),
+                  _passwordField(
+                    'Confirm New Password',
+                    confirmCtrl,
+                    obscureConfirm,
+                    () => setSheetState(() => obscureConfirm = !obscureConfirm),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text(
+                            'Cancel',
+                            style: TextStyle(color: Colors.white54),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: NuruColors.sailingBlue,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          onPressed: () async {
+                            if (newCtrl.text != confirmCtrl.text) {
+                              _showSnack('Passwords do not match');
+                              return;
+                            }
+                            if (newCtrl.text.length < 6) {
+                              _showSnack(
+                                'Password must be at least 6 characters',
+                              );
+                              return;
+                            }
+                            try {
+                              final user =
+                                  NuruFirebaseService.instance.currentUser;
+                              final cred = EmailAuthProvider.credential(
+                                email: _email,
+                                password: currentCtrl.text,
+                              );
+                              await user?.reauthenticateWithCredential(cred);
+                              await user?.updatePassword(newCtrl.text);
+                              if (mounted) Navigator.pop(context);
+                              _showSnack('Password updated');
+                            } catch (e) {
+                              _showSnack('Error: ${e.toString()}');
+                            }
+                          },
+                          child: const Text(
+                            'Update',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Help & Support
 
   void _showHelpAndSupport() {
     final faqs = [
@@ -1887,8 +1573,8 @@ class _ProfileScreenState extends State<ProfileScreen>
       ),
       builder: (_) => DraggableScrollableSheet(
         expand: false,
-        initialChildSize: 0.75,
-        maxChildSize: 0.95,
+        initialChildSize: 0.65,
+        maxChildSize: 0.92,
         builder: (ctx, controller) => Column(
           children: [
             const SizedBox(height: 12),
@@ -1903,117 +1589,56 @@ class _ProfileScreenState extends State<ProfileScreen>
               ),
             ),
             const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: NuruColors.sailingBlue.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.help_outline_rounded,
-                      color: NuruColors.sailingBlue,
-                      size: 22,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'Help & Support',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24),
+              child: Text(
+                'Help & Support',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             const SizedBox(height: 8),
             Expanded(
               child: ListView(
                 controller: controller,
-                padding: const EdgeInsets.fromLTRB(24, 8, 24, 40),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
                 children: [
-                  // Contact card
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          NuruColors.sailingBlue.withOpacity(0.25),
-                          NuruColors.dive.withOpacity(0.2),
+                  for (final faq in faqs) ...[
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.04),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: Colors.white12),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            faq['q']!,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            faq['a']!,
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.6),
+                              fontSize: 13,
+                              height: 1.4,
+                            ),
+                          ),
                         ],
                       ),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: NuruColors.sailingBlue.withOpacity(0.4),
-                      ),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Contact Us',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.email_outlined,
-                              color: NuruColors.solidBlue,
-                              size: 16,
-                            ),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'support@nuruai.app',
-                              style: TextStyle(
-                                color: Colors.white70,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.access_time_rounded,
-                              color: NuruColors.solidBlue,
-                              size: 16,
-                            ),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'Response within 24 hours',
-                              style: TextStyle(
-                                color: Colors.white70,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Frequently Asked Questions',
-                    style: TextStyle(
-                      color: NuruColors.nightTextMuted,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.8,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  ...faqs.map((faq) => _faqTile(faq['q']!, faq['a']!)),
+                  ],
                 ],
               ),
             ),
@@ -2023,45 +1648,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  Widget _faqTile(String question, String answer) {
-    return Theme(
-      data: ThemeData.dark(),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.04),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white.withOpacity(0.08)),
-        ),
-        child: ExpansionTile(
-          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-          title: Text(
-            question,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          iconColor: NuruColors.solidBlue,
-          collapsedIconColor: Colors.white38,
-          children: [
-            Text(
-              answer,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 13,
-                height: 1.5,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ── About dialog ──────────────────────────────────────────
+  // About dialog
 
   void _showAboutDialog() {
     showDialog(
@@ -2081,16 +1668,11 @@ class _ProfileScreenState extends State<ProfileScreen>
           children: [
             Text(
               'Version 1.0.0',
-              style: TextStyle(color: NuruColors.nightTextSecondary),
+              style: TextStyle(color: NuruColors.sailingBlue, fontSize: 13),
             ),
-            SizedBox(height: 6),
+            SizedBox(height: 10),
             Text(
-              'AI-Powered Autism Care for ASD Level 1',
-              style: TextStyle(color: NuruColors.nightTextSecondary),
-            ),
-            SizedBox(height: 6),
-            Text(
-              'Built with care for autistic individuals aged 13–25.',
+              'NuruAI is a mental wellness companion designed for people with autism and ADHD. We help you track your mood, journal your thoughts, and access calming tools — all in one place.',
               style: TextStyle(
                 color: NuruColors.nightTextSecondary,
                 height: 1.5,
@@ -2116,7 +1698,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  // ── Logout dialog ─────────────────────────────────────────
+  //  Logout dialog
 
   void _showLogoutDialog() {
     showDialog(
@@ -2132,28 +1714,28 @@ class _ProfileScreenState extends State<ProfileScreen>
         ),
         content: Text(
           'You will be taken back to the login screen.',
-          style: TextStyle(color: NuruColors.nightTextSecondary, height: 1.5),
+          style: TextStyle(color: Colors.white.withOpacity(0.65)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text(
+            child: const Text(
               'Cancel',
-              style: TextStyle(color: NuruColors.nightTextMuted),
+              style: TextStyle(color: Colors.white54),
             ),
           ),
           TextButton(
-            onPressed: () {
-              NuruNotificationService.instance.cancelAll();
+            onPressed: () async {
               Navigator.pop(context);
-              Navigator.pushNamedAndRemoveUntil(
-                context,
-                '/login',
-                (_) => false,
-              );
+              await NuruFirebaseService.instance.logout();
+              if (mounted) {
+                Navigator.of(
+                  context,
+                ).pushNamedAndRemoveUntil('/login', (_) => false);
+              }
             },
-            child: const Text(
-              'Log out',
+            child: Text(
+              'Log Out',
               style: TextStyle(
                 color: NuruColors.error,
                 fontWeight: FontWeight.w700,
@@ -2165,8 +1747,81 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
+  // Edit name dialog
+
+  void _editName() {
+    final ctrl = TextEditingController(text: _name);
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF1F3F74),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Edit Name',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          style: const TextStyle(color: Colors.white),
+          cursorColor: NuruColors.sailingBlue,
+          decoration: InputDecoration(
+            hintText: 'Your name',
+            hintStyle: const TextStyle(color: Colors.white38),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: NuruColors.sailingBlue.withOpacity(0.4),
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: NuruColors.sailingBlue),
+            ),
+            filled: true,
+            fillColor: Colors.white.withOpacity(0.05),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Colors.white54),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              final newName = ctrl.text.trim();
+              if (newName.isEmpty) return;
+              Navigator.pop(context);
+              setState(() => _name = newName);
+              final uid = widget.userData?['uid'] as String? ?? '';
+              if (uid.isNotEmpty) {
+                await NuruFirebaseService.instance.updateUserProfile(
+                  uid: uid,
+                  fields: {'name': newName},
+                );
+                await NuruFirebaseService.instance.currentUser
+                    ?.updateDisplayName(newName);
+              }
+              _showSnack('Name updated');
+            },
+            child: const Text(
+              'Save',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ══════════════════════════════════════════════════════════
-  // SHARED TILE WIDGETS
+  // TILE HELPERS
   // ══════════════════════════════════════════════════════════
 
   Widget _infoTile(IconData icon, String label, String value) {
@@ -2217,17 +1872,78 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
+  Widget _editableTile(
+    IconData icon,
+    String label,
+    String value,
+    VoidCallback onEdit,
+  ) {
+    return GestureDetector(
+      onTap: onEdit,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: NuruTheme.spacingL,
+          vertical: 14,
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: NuruColors.sailingBlue.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: NuruColors.solidBlue, size: 18),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: NuruColors.nightTextMuted,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    value,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: NuruColors.nightTextPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.edit_outlined,
+              size: 16,
+              color: NuruColors.sailingBlue.withOpacity(0.6),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _switchTile(
     IconData icon,
     String title,
     String sub,
     bool value,
-    ValueChanged<bool> onChanged,
+    Future<void> Function(bool) onChanged,
   ) {
     return Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: NuruTheme.spacingL,
-        vertical: 10,
+        vertical: 14,
       ),
       child: Row(
         children: [
@@ -2266,10 +1982,8 @@ class _ProfileScreenState extends State<ProfileScreen>
           Switch(
             value: value,
             onChanged: onChanged,
-            activeColor: Colors.white,
-            activeTrackColor: NuruColors.sailingBlue,
-            inactiveThumbColor: Colors.white38,
-            inactiveTrackColor: Colors.white12,
+            activeColor: NuruColors.sailingBlue,
+            activeTrackColor: NuruColors.sailingBlue.withOpacity(0.3),
           ),
         ],
       ),
@@ -2375,6 +2089,91 @@ class _ProfileScreenState extends State<ProfileScreen>
     ),
   );
 
+  // Sheet helpers
+
+  Widget _sheetField(
+    String hint,
+    TextEditingController ctrl,
+    TextInputType type,
+  ) {
+    return TextField(
+      controller: ctrl,
+      keyboardType: type,
+      style: const TextStyle(color: Colors.white, fontSize: 14),
+      cursorColor: NuruColors.sailingBlue,
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(color: Colors.white38, fontSize: 14),
+        filled: true,
+        fillColor: Colors.white.withOpacity(0.05),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(
+            color: NuruColors.sailingBlue.withOpacity(0.3),
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: NuruColors.sailingBlue),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
+      ),
+    );
+  }
+
+  Widget _passwordField(
+    String hint,
+    TextEditingController ctrl,
+    bool obscure,
+    VoidCallback toggle,
+  ) {
+    return TextField(
+      controller: ctrl,
+      obscureText: obscure,
+      style: const TextStyle(color: Colors.white, fontSize: 14),
+      cursorColor: NuruColors.sailingBlue,
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(color: Colors.white38, fontSize: 14),
+        filled: true,
+        fillColor: Colors.white.withOpacity(0.05),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(
+            color: NuruColors.sailingBlue.withOpacity(0.3),
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: NuruColors.sailingBlue),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
+        suffixIcon: IconButton(
+          icon: Icon(
+            obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+            color: Colors.white38,
+            size: 20,
+          ),
+          onPressed: toggle,
+        ),
+      ),
+    );
+  }
+
   void _showSnack(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -2387,11 +2186,413 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 }
 
-// ── Stars painter ─────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+// THEME PICKER SHEET — full palette grid + brightness toggle
+// ══════════════════════════════════════════════════════════════
+
+class _ThemePickerSheet extends StatelessWidget {
+  final VoidCallback onDone;
+  const _ThemePickerSheet({required this.onDone});
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<NuruThemeProvider>();
+    final selectedId = provider.selectedPalette.id;
+    final isDark = provider.isDark;
+
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.75,
+      maxChildSize: 0.95,
+      builder: (ctx, controller) => Column(
+        children: [
+          // Handle
+          const SizedBox(height: 12),
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Title
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 24),
+            child: Text(
+              'Choose Theme',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Text(
+              'Pick a colour palette, then choose light or dark',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.45),
+                fontSize: 12,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Scrollable content
+          Expanded(
+            child: ListView(
+              controller: controller,
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+              children: [
+                // Brightness row
+                _sheetSectionLabel('BRIGHTNESS'),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _BrightnessTile(
+                        label: 'Light',
+                        subtitle: 'Original style',
+                        icon: Icons.wb_sunny_rounded,
+                        isSelected: !isDark,
+                        accentColor: provider.activeTheme.accentColor,
+                        gradientColors: provider.selectedPalette.lightGradient,
+                        onTap: () => provider.setTheme('nuru_light'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _BrightnessTile(
+                        label: 'Dark',
+                        subtitle: 'Deeper tones',
+                        icon: Icons.nightlight_round,
+                        isSelected: isDark,
+                        accentColor: provider.activeTheme.accentColor,
+                        gradientColors: provider.selectedPalette.darkGradient,
+                        onTap: () => provider.setTheme('nuru_dark'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // Palette grid
+                _sheetSectionLabel('COLOR PALETTE'),
+                const SizedBox(height: 10),
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
+                    childAspectRatio: 0.82,
+                  ),
+                  itemCount: allColorPalettes.length,
+                  itemBuilder: (_, i) {
+                    final palette = allColorPalettes[i];
+                    final isSelected = palette.id == selectedId;
+                    return GestureDetector(
+                      onTap: () => provider.setColorPalette(palette.id),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 260),
+                        curve: Curves.easeOut,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(
+                            isSelected ? 0.10 : 0.04,
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: isSelected
+                                ? palette.accentColor.withOpacity(0.75)
+                                : Colors.white.withOpacity(0.08),
+                            width: isSelected ? 2 : 1,
+                          ),
+                          boxShadow: isSelected
+                              ? [
+                                  BoxShadow(
+                                    color: palette.accentColor.withOpacity(
+                                      0.28,
+                                    ),
+                                    blurRadius: 10,
+                                    spreadRadius: 1,
+                                  ),
+                                ]
+                              : [],
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              height: 48,
+                              margin: const EdgeInsets.fromLTRB(10, 12, 10, 0),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: palette.lightGradient,
+                                ),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: isSelected
+                                  ? const Center(
+                                      child: Icon(
+                                        Icons.check_circle_rounded,
+                                        color: Colors.white,
+                                        size: 20,
+                                      ),
+                                    )
+                                  : null,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              palette.emoji,
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                            const SizedBox(height: 3),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                              ),
+                              child: Text(
+                                palette.name,
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                style: TextStyle(
+                                  fontSize: 9.5,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                  color: Colors.white.withOpacity(
+                                    isSelected ? 1.0 : 0.6,
+                                  ),
+                                  height: 1.3,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+
+                // Reset button
+                if (selectedId != 'nuru_default' || isDark) ...[
+                  const SizedBox(height: 20),
+                  GestureDetector(
+                    onTap: () => provider.resetToDefault(),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.10),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.refresh_rounded,
+                            color: Colors.white.withOpacity(0.6),
+                            size: 16,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Reset to Nuru Default',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white.withOpacity(0.6),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 16),
+
+                // Done button
+                GestureDetector(
+                  onTap: () {
+                    Navigator.pop(context);
+                    onDone();
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          provider.activeTheme.accentColor,
+                          provider.activeTheme.accentColor.withOpacity(0.75),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: provider.activeTheme.accentColor.withOpacity(
+                            0.30,
+                          ),
+                          blurRadius: 12,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
+                    ),
+                    child: const Center(
+                      child: Text(
+                        'Done',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sheetSectionLabel(String text) => Padding(
+    padding: const EdgeInsets.only(bottom: 2),
+    child: Text(
+      text,
+      style: TextStyle(
+        fontSize: 10.5,
+        fontWeight: FontWeight.w700,
+        color: Colors.white.withOpacity(0.45),
+        letterSpacing: 1.1,
+      ),
+    ),
+  );
+}
+
+// Brightness tile
+
+class _BrightnessTile extends StatelessWidget {
+  final String label;
+  final String subtitle;
+  final IconData icon;
+  final bool isSelected;
+  final Color accentColor;
+  final List<Color> gradientColors;
+  final VoidCallback onTap;
+
+  const _BrightnessTile({
+    required this.label,
+    required this.subtitle,
+    required this.icon,
+    required this.isSelected,
+    required this.accentColor,
+    required this.gradientColors,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 260),
+        height: 90,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: gradientColors,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected
+                ? accentColor.withOpacity(0.7)
+                : Colors.white.withOpacity(0.10),
+            width: isSelected ? 2 : 1,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: accentColor.withOpacity(0.3),
+                    blurRadius: 12,
+                    spreadRadius: 1,
+                  ),
+                ]
+              : [],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 0, 14, 0),
+          child: Row(
+            children: [
+              Icon(icon, color: Colors.white.withOpacity(0.85), size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.white.withOpacity(0.5),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (isSelected)
+                Container(
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    color: accentColor,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.check_rounded,
+                    color: Colors.white,
+                    size: 13,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Stars painter
 
 class _ProfileStarsPainter extends CustomPainter {
   final double t;
   const _ProfileStarsPainter({required this.t});
+
   @override
   void paint(Canvas canvas, Size size) {
     final p = Paint()..style = PaintingStyle.fill;

@@ -5,15 +5,7 @@ import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/nuru_theme_extension.dart';
 
-// ══════════════════════════════════════════════════════════════
 // SOCIAL SCRIPTS SCREEN
-//
-// Pre-written scripts for difficult social situations.
-// ASD Level 1 individuals often know WHAT they want to say
-// but struggle with HOW to say it in the moment.
-// These scripts reduce the cognitive load of social interaction.
-// ══════════════════════════════════════════════════════════════
-
 class _Script {
   final String situation;
   final String emoji;
@@ -148,9 +140,12 @@ class _SocialScriptsScreenState extends State<SocialScriptsScreen>
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Color(0xFF081F44),
         statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+        systemNavigationBarColor: Color(0xFF081F44),
+        systemNavigationBarIconBrightness: Brightness.light,
       ),
       child: Scaffold(
         backgroundColor: context.nuruTheme.backgroundStart,
@@ -161,10 +156,7 @@ class _SocialScriptsScreenState extends State<SocialScriptsScreen>
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [
-                    context.nuruTheme.accentColor,
-                    context.nuruTheme.backgroundEnd,
-                  ],
+                  colors: context.nuruTheme.gradientColors,
                 ),
               ),
             ),
@@ -178,6 +170,7 @@ class _SocialScriptsScreenState extends State<SocialScriptsScreen>
               ),
             ),
             SafeArea(
+              top: false,
               child: Column(
                 children: [
                   _buildAppBar(),
@@ -463,16 +456,14 @@ class _SocialScriptsScreenState extends State<SocialScriptsScreen>
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Container(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
+          padding: EdgeInsets.fromLTRB(
+            20,
+            MediaQuery.of(context).padding.top + 12,
+            20,
+            18,
+          ),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                context.nuruTheme.backgroundMid.withOpacity(0.75),
-                context.nuruTheme.backgroundStart.withOpacity(0.80),
-              ],
-            ),
+            color: const Color(0xFF081F44),
             border: Border(
               bottom: BorderSide(
                 color: context.nuruTheme.accentColor.withOpacity(0.4),
@@ -487,14 +478,14 @@ class _SocialScriptsScreenState extends State<SocialScriptsScreen>
                   width: 42,
                   height: 42,
                   decoration: BoxDecoration(
-                    color: context.nuruTheme.backgroundStart.withOpacity(0.5),
+                    color: const Color(0xFF081F44),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                       color: context.nuruTheme.accentColor.withOpacity(0.5),
                       width: 1.2,
                     ),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.arrow_back_ios_new_rounded,
                     color: Colors.white,
                     size: 18,

@@ -6,12 +6,7 @@ import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/nuru_theme_extension.dart';
 
-// ══════════════════════════════════════════════════════════════
 // RESOURCES SCREEN
-// All data fetching is delegated to ResourceService.
-// This screen is purely presentation.
-// ══════════════════════════════════════════════════════════════
-
 class _Category {
   final String id;
   final String label;
@@ -92,7 +87,7 @@ class _ResourcesScreenState extends State<ResourcesScreen>
     super.dispose();
   }
 
-  // ── Data ──────────────────────────────────────────────────
+  //  Data
 
   Future<void> _loadCategory(String id, {bool forceRefresh = false}) async {
     setState(() {
@@ -126,15 +121,17 @@ class _ResourcesScreenState extends State<ResourcesScreen>
     }
   }
 
-  // ── Build ─────────────────────────────────────────────────
+  //  Build
 
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
-        statusBarColor: Color(0xFF1F3F74),
+        statusBarColor: Color(0xFF081F44),
         statusBarIconBrightness: Brightness.light,
         statusBarBrightness: Brightness.dark,
+        systemNavigationBarColor: Color(0xFF081F44),
+        systemNavigationBarIconBrightness: Brightness.light,
       ),
       child: Scaffold(
         backgroundColor: context.nuruTheme.backgroundMid,
@@ -180,7 +177,7 @@ class _ResourcesScreenState extends State<ResourcesScreen>
     );
   }
 
-  // ── App bar ───────────────────────────────────────────────
+  // App bar
 
   Widget _buildAppBar() {
     return ClipRRect(
@@ -193,17 +190,10 @@ class _ResourcesScreenState extends State<ResourcesScreen>
         child: Container(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                const Color(0xFF1F3F74).withOpacity(0.6),
-                const Color(0xFF081F44).withOpacity(0.5),
-              ],
-            ),
+            color: const Color(0xFF081F44),
             border: Border(
               bottom: BorderSide(
-                color: const Color(0xFF4569AD).withOpacity(0.3),
+                color: context.nuruTheme.accentColor.withOpacity(0.3),
               ),
             ),
           ),
@@ -216,14 +206,14 @@ class _ResourcesScreenState extends State<ResourcesScreen>
                   width: 42,
                   height: 42,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF081F44).withOpacity(0.5),
+                    color: const Color(0xFF081F44),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: const Color(0xFF4569AD).withOpacity(0.5),
+                      color: context.nuruTheme.accentColor.withOpacity(0.5),
                       width: 1.2,
                     ),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.arrow_back_ios_new_rounded,
                     color: Colors.white,
                     size: 18,
@@ -264,14 +254,14 @@ class _ResourcesScreenState extends State<ResourcesScreen>
                   width: 42,
                   height: 42,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF081F44).withOpacity(0.5),
+                    color: const Color(0xFF081F44),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: const Color(0xFF4569AD).withOpacity(0.5),
+                      color: context.nuruTheme.accentColor.withOpacity(0.5),
                       width: 1.2,
                     ),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.refresh_rounded,
                     color: Colors.white,
                     size: 20,
@@ -285,7 +275,7 @@ class _ResourcesScreenState extends State<ResourcesScreen>
     );
   }
 
-  // ── Category tabs ─────────────────────────────────────────
+  // Category tabs
 
   Widget _buildCategoryTabs() {
     return SizedBox(
@@ -314,18 +304,18 @@ class _ResourcesScreenState extends State<ResourcesScreen>
                     colors: selected
                         ? [
                             cat.color.withOpacity(0.5),
-                            const Color(0xFF081F44).withOpacity(0.7),
+                            context.nuruTheme.backgroundStart.withOpacity(0.7),
                           ]
                         : [
-                            const Color(0xFF1F3F74).withOpacity(0.6),
-                            const Color(0xFF081F44).withOpacity(0.7),
+                            context.nuruTheme.backgroundMid.withOpacity(0.6),
+                            context.nuruTheme.backgroundStart.withOpacity(0.7),
                           ],
                   ),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: selected
                         ? cat.color.withOpacity(0.7)
-                        : const Color(0xFF4569AD).withOpacity(0.3),
+                        : context.nuruTheme.accentColor.withOpacity(0.3),
                     width: selected ? 1.5 : 1,
                   ),
                   boxShadow: selected
@@ -364,7 +354,7 @@ class _ResourcesScreenState extends State<ResourcesScreen>
     );
   }
 
-  // ── Body ──────────────────────────────────────────────────
+  // Body
 
   Widget _buildBody() {
     if (_isLoading) return _buildLoading();
@@ -459,7 +449,7 @@ class _ResourcesScreenState extends State<ResourcesScreen>
         gradient: LinearGradient(
           colors: [
             color.withOpacity(0.18),
-            const Color(0xFF081F44).withOpacity(0.3),
+            context.nuruTheme.backgroundStart.withOpacity(0.3),
           ],
         ),
         borderRadius: BorderRadius.circular(18),
@@ -499,7 +489,7 @@ class _ResourcesScreenState extends State<ResourcesScreen>
     );
   }
 
-  // ── Guide card — richer layout for NuruAI curated guides ──
+  //  Guide card
 
   Widget _buildGuideCard(ResourceItem item) {
     final cat = _current;
@@ -524,8 +514,8 @@ class _ResourcesScreenState extends State<ResourcesScreen>
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  accentColor.withOpacity(0.12),
-                  const Color(0xFF081F44).withOpacity(0.85),
+                  accentColor.withOpacity(0.28),
+                  context.nuruTheme.backgroundStart.withOpacity(0.85),
                 ],
               ),
               borderRadius: BorderRadius.circular(20),
@@ -535,7 +525,7 @@ class _ResourcesScreenState extends State<ResourcesScreen>
               ),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF081F44).withOpacity(0.4),
+                  color: const Color(0xFF081F44),
                   blurRadius: 14,
                   offset: const Offset(0, 5),
                 ),
@@ -579,7 +569,7 @@ class _ResourcesScreenState extends State<ResourcesScreen>
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: accentColor.withOpacity(0.12),
+                              color: accentColor.withOpacity(0.28),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
@@ -693,10 +683,10 @@ class _ResourcesScreenState extends State<ResourcesScreen>
                   vertical: 12,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF4569AD).withOpacity(0.35),
+                  color: context.nuruTheme.accentColor.withOpacity(0.35),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: const Color(0xFF4569AD).withOpacity(0.55),
+                    color: context.nuruTheme.accentColor.withOpacity(0.55),
                   ),
                 ),
                 child: const Text(
@@ -723,7 +713,7 @@ class _ResourcesScreenState extends State<ResourcesScreen>
     );
   }
 
-  // ── Resource card ─────────────────────────────────────────
+  //  Resource card
 
   Widget _buildCard(ResourceItem item) {
     final cat = _current;
@@ -737,21 +727,14 @@ class _ResourcesScreenState extends State<ResourcesScreen>
             margin: const EdgeInsets.only(bottom: 14),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  const Color(0xFF1F3F74).withOpacity(0.75),
-                  const Color(0xFF081F44).withOpacity(0.85),
-                ],
-              ),
+              color: const Color(0xFF081F44),
               borderRadius: BorderRadius.circular(22),
               border: Border.all(
-                color: const Color(0xFF4569AD).withOpacity(0.38),
+                color: context.nuruTheme.accentColor.withOpacity(0.38),
               ),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF081F44).withOpacity(0.4),
+                  color: const Color(0xFF081F44),
                   blurRadius: 14,
                   offset: const Offset(0, 5),
                 ),
@@ -861,7 +844,7 @@ class _ResourcesScreenState extends State<ResourcesScreen>
     );
   }
 
-  // ── Detail sheet ──────────────────────────────────────────
+  //  Detail sheet
 
   void _showDetail(ResourceItem item) {
     final cat = _current;
@@ -879,20 +862,13 @@ class _ResourcesScreenState extends State<ResourcesScreen>
             filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
             child: Container(
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    const Color(0xFF1F3F74).withOpacity(0.96),
-                    const Color(0xFF081F44).withOpacity(0.98),
-                  ],
-                ),
+                color: const Color(0xFF081F44),
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(32),
                 ),
                 border: Border(
                   top: BorderSide(
-                    color: const Color(0xFF4569AD).withOpacity(0.4),
+                    color: context.nuruTheme.accentColor.withOpacity(0.4),
                   ),
                 ),
               ),
@@ -991,10 +967,12 @@ class _ResourcesScreenState extends State<ResourcesScreen>
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF081F44).withOpacity(0.4),
+                          color: const Color(0xFF081F44),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: const Color(0xFF4569AD).withOpacity(0.28),
+                            color: context.nuruTheme.accentColor.withOpacity(
+                              0.28,
+                            ),
                           ),
                         ),
                         child: Text(
@@ -1025,7 +1003,9 @@ class _ResourcesScreenState extends State<ResourcesScreen>
                             gradient: LinearGradient(
                               colors: [
                                 cat.color.withOpacity(0.5),
-                                const Color(0xFF081F44).withOpacity(0.6),
+                                context.nuruTheme.backgroundStart.withOpacity(
+                                  0.6,
+                                ),
                               ],
                             ),
                             borderRadius: BorderRadius.circular(16),
@@ -1036,7 +1016,7 @@ class _ResourcesScreenState extends State<ResourcesScreen>
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.open_in_new_rounded,
                                 color: Colors.white,
                                 size: 17,
@@ -1069,7 +1049,7 @@ class _ResourcesScreenState extends State<ResourcesScreen>
   }
 }
 
-// ── Stars painter ─────────────────────────────────────────────
+// Stars painter
 
 class _StarsPainter extends CustomPainter {
   final double twinkle;

@@ -6,18 +6,7 @@ import '../providers/theme_provider.dart';
 import '../providers/nuru_theme_extension.dart';
 import '../services/firebase_service.dart';
 
-// ══════════════════════════════════════════════════════════════
 // SPECIAL INTEREST SCREEN
-//
-// Special interests are one of the most powerful sources of
-// regulation, joy and calm for autistic individuals.
-// This is a personal calm space where the user can:
-//   • Record what their special interests are
-//   • See why their interests matter (validation)
-//   • Use their interest as a mindfulness anchor
-//   • Access content related to their interests
-// ══════════════════════════════════════════════════════════════
-
 class SpecialInterestScreen extends StatefulWidget {
   final Map<String, dynamic>? userData;
   const SpecialInterestScreen({Key? key, this.userData}) : super(key: key);
@@ -31,7 +20,7 @@ class _SpecialInterestScreenState extends State<SpecialInterestScreen>
 
   static const Color _gold = Color(0xFFFFD32A);
 
-  // User's special interests — stored in memory for this session
+  // User's special interests
   final List<String> _interests = [];
   final TextEditingController _interestCtrl = TextEditingController();
 
@@ -123,9 +112,12 @@ class _SpecialInterestScreenState extends State<SpecialInterestScreen>
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Color(0xFF081F44),
         statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+        systemNavigationBarColor: Color(0xFF081F44),
+        systemNavigationBarIconBrightness: Brightness.light,
       ),
       child: Scaffold(
         backgroundColor: context.nuruTheme.backgroundStart,
@@ -137,10 +129,7 @@ class _SpecialInterestScreenState extends State<SpecialInterestScreen>
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [
-                    context.nuruTheme.accentColor,
-                    context.nuruTheme.backgroundEnd,
-                  ],
+                  colors: context.nuruTheme.gradientColors,
                 ),
               ),
             ),
@@ -154,6 +143,7 @@ class _SpecialInterestScreenState extends State<SpecialInterestScreen>
               ),
             ),
             SafeArea(
+              top: false,
               child: Column(
                 children: [
                   _buildAppBar(),
@@ -364,7 +354,7 @@ class _SpecialInterestScreenState extends State<SpecialInterestScreen>
                                       color: _gold.withOpacity(0.5),
                                     ),
                                   ),
-                                  child: const Icon(
+                                  child: Icon(
                                     Icons.add_rounded,
                                     color: Color(0xFFFFD32A),
                                     size: 24,
@@ -579,16 +569,14 @@ class _SpecialInterestScreenState extends State<SpecialInterestScreen>
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Container(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
+          padding: EdgeInsets.fromLTRB(
+            20,
+            MediaQuery.of(context).padding.top + 12,
+            20,
+            18,
+          ),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                context.nuruTheme.backgroundMid.withOpacity(0.75),
-                context.nuruTheme.backgroundStart.withOpacity(0.80),
-              ],
-            ),
+            color: const Color(0xFF081F44),
             border: Border(
               bottom: BorderSide(
                 color: context.nuruTheme.accentColor.withOpacity(0.4),
@@ -603,14 +591,14 @@ class _SpecialInterestScreenState extends State<SpecialInterestScreen>
                   width: 42,
                   height: 42,
                   decoration: BoxDecoration(
-                    color: context.nuruTheme.backgroundStart.withOpacity(0.5),
+                    color: const Color(0xFF081F44),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                       color: context.nuruTheme.accentColor.withOpacity(0.5),
                       width: 1.2,
                     ),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.arrow_back_ios_new_rounded,
                     color: Colors.white,
                     size: 18,

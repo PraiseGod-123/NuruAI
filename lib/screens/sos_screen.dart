@@ -6,14 +6,7 @@ import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/nuru_theme_extension.dart';
 
-// ══════════════════════════════════════════════════════════════
-// SOS SCREEN — Immediate Calm
-//
-// Minimal. No reading required. No decisions.
-// One breathing animation. One comforting message.
-// Option to play a recorded voice or access quick tools.
-// ══════════════════════════════════════════════════════════════
-
+// SOS SCREEN
 class SOSScreen extends StatefulWidget {
   final Map<String, dynamic>? userData;
   const SOSScreen({Key? key, this.userData}) : super(key: key);
@@ -186,13 +179,11 @@ class _SOSScreenState extends State<SOSScreen> with TickerProviderStateMixin {
                       final t = _breatheCtrl.value;
                       double scale;
                       if (t < 0.4)
-                        scale = 0.6 + (t / 0.4) * 0.5; // inhale: 0.6 → 1.1
+                        scale = 0.6 + (t / 0.4) * 0.5;
                       else if (t < 0.55)
                         scale = 1.1; // hold
                       else
-                        scale =
-                            1.1 -
-                            ((t - 0.55) / 0.45) * 0.5; // exhale: 1.1 → 0.6
+                        scale = 1.1 - ((t - 0.55) / 0.45) * 0.5;
 
                       final glow = 0.2 + scale * 0.2 + _pulseCtrl.value * 0.05;
                       final col = _phaseColor;
@@ -346,7 +337,7 @@ class _SOSScreenState extends State<SOSScreen> with TickerProviderStateMixin {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: context.nuruTheme.backgroundMid.withOpacity(0.55),
+          color: const Color(0xFF081F44),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: context.nuruTheme.accentColor.withOpacity(0.4),

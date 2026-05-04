@@ -5,16 +5,7 @@ import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/nuru_theme_extension.dart';
 
-// ══════════════════════════════════════════════════════════════
 // SENSORY TOOLKIT SCREEN
-//
-// For ASD Level 1, sensory overload is one of the primary
-// sources of distress. This screen lets the user:
-//   1. Identify what is overwhelming them right now
-//   2. Get immediate sensory relief suggestions
-//   3. Build their personal sensory profile over time
-// ══════════════════════════════════════════════════════════════
-
 class SensoryToolkitScreen extends StatefulWidget {
   final Map<String, dynamic>? userData;
   const SensoryToolkitScreen({Key? key, this.userData}) : super(key: key);
@@ -203,8 +194,8 @@ class _SensoryToolkitScreenState extends State<SensoryToolkitScreen>
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
-        statusBarColor: Color(0xFF1F3F74),
+      value: SystemUiOverlayStyle(
+        statusBarColor: context.nuruTheme.backgroundMid,
         statusBarIconBrightness: Brightness.light,
       ),
       child: Scaffold(
@@ -276,7 +267,7 @@ class _SensoryToolkitScreenState extends State<SensoryToolkitScreen>
                             ),
                           ),
 
-                          // Trigger grid — mixed shapes: circles for sensory, pills for cognitive
+                          // Trigger grid
                           Wrap(
                             spacing: 10,
                             runSpacing: 10,
@@ -482,14 +473,7 @@ class _SensoryToolkitScreenState extends State<SensoryToolkitScreen>
         child: Container(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                context.nuruTheme.backgroundMid.withOpacity(0.75),
-                context.nuruTheme.backgroundStart.withOpacity(0.80),
-              ],
-            ),
+            color: const Color(0xFF081F44),
             border: Border(
               bottom: BorderSide(
                 color: context.nuruTheme.accentColor.withOpacity(0.4),
@@ -504,14 +488,14 @@ class _SensoryToolkitScreenState extends State<SensoryToolkitScreen>
                   width: 42,
                   height: 42,
                   decoration: BoxDecoration(
-                    color: context.nuruTheme.backgroundStart.withOpacity(0.5),
+                    color: const Color(0xFF081F44),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                       color: context.nuruTheme.accentColor.withOpacity(0.5),
                       width: 1.2,
                     ),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.arrow_back_ios_new_rounded,
                     color: Colors.white,
                     size: 18,
