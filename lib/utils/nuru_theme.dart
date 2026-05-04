@@ -1,16 +1,7 @@
 import 'package:flutter/material.dart';
 import 'nuru_colors.dart';
 
-// ══════════════════════════════════════════════════════════════
-// NURUAI THEME SYSTEM
-// Theme helpers, card styles, text styles, spacing
-// ══════════════════════════════════════════════════════════════
-
 class NuruTheme {
-  // ══════════════════════════════════════════════════════════════
-  // SPACING (Generous spacing for clean UI)
-  // ══════════════════════════════════════════════════════════════
-
   static const double spacingXS = 4.0;
   static const double spacingS = 8.0;
   static const double spacingM = 16.0;
@@ -18,21 +9,14 @@ class NuruTheme {
   static const double spacingXL = 32.0;
   static const double spacingXXL = 48.0;
 
-  // ══════════════════════════════════════════════════════════════
-  // BORDER RADIUS (Everything rounded)
-  // ══════════════════════════════════════════════════════════════
-
+  // BORDER RADIUS
   static const double radiusS = 12.0;
   static const double radiusM = 16.0;
   static const double radiusL = 20.0;
   static const double radiusXL = 24.0;
   static const double radiusXXL = 32.0;
 
-  // ══════════════════════════════════════════════════════════════
   // CARD DECORATIONS
-  // ══════════════════════════════════════════════════════════════
-
-  /// Beautiful floating card for dark theme
   static BoxDecoration darkCard({Color? backgroundColor, Gradient? gradient}) {
     return BoxDecoration(
       color: backgroundColor ?? NuruColors.nightCard,
@@ -54,7 +38,7 @@ class NuruTheme {
     );
   }
 
-  /// Beautiful floating card for light theme
+  //floating card for light theme
   static BoxDecoration lightCard({Color? backgroundColor, Gradient? gradient}) {
     return BoxDecoration(
       color: backgroundColor ?? NuruColors.morningCard,
@@ -75,7 +59,7 @@ class NuruTheme {
     );
   }
 
-  /// Glass morphism card for dark theme
+  //Glass morphism card for dark theme
   static BoxDecoration darkGlassCard({Color? tintColor}) {
     return BoxDecoration(
       gradient: LinearGradient(
@@ -98,7 +82,7 @@ class NuruTheme {
     );
   }
 
-  /// Glass morphism card for light theme
+  // Glass morphism card for light theme
   static BoxDecoration lightGlassCard({Color? tintColor}) {
     return BoxDecoration(
       gradient: LinearGradient(
@@ -118,10 +102,7 @@ class NuruTheme {
     );
   }
 
-  // ══════════════════════════════════════════════════════════════
   // BUTTON DECORATIONS
-  // ══════════════════════════════════════════════════════════════
-
   static BoxDecoration button({
     Color? color,
     Gradient? gradient,
@@ -141,10 +122,7 @@ class NuruTheme {
     );
   }
 
-  // ══════════════════════════════════════════════════════════════
-  // TEXT STYLES - DARK THEME
-  // ══════════════════════════════════════════════════════════════
-
+  // TEXT STYLES (DARK THEME)
   static const darkH1 = TextStyle(
     fontSize: 32,
     fontWeight: FontWeight.bold,
@@ -187,10 +165,7 @@ class NuruTheme {
     height: 1.4,
   );
 
-  // ══════════════════════════════════════════════════════════════
-  // TEXT STYLES - LIGHT THEME
-  // ══════════════════════════════════════════════════════════════
-
+  // TEXT STYLES (LIGHT THEME)
   static const lightH1 = TextStyle(
     fontSize: 32,
     fontWeight: FontWeight.bold,

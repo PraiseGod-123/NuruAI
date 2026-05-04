@@ -1,27 +1,72 @@
 import 'package:flutter/material.dart';
 
 class NuruColors {
-  // Primary Color Palette
-  static const Color sailingBlue = Color(0xFF4569AD); // Main CTAs, buttons
+  // PRIMARY COLOUR PALETTE
+  static const Color lilacBlue = Color(0xFFB7C3E8); // Lightest
   static const Color solidBlue = Color(0xFF8EA2D7); // Secondary elements
-  static const Color lilacBlue = Color(0xFFB7C3E8); // Backgrounds, cards
+  static const Color sailingBlue = Color(0xFF4569AD); // Main CTAs, buttons
   static const Color dive = Color(0xFF1F3F74); // Headers, bold text
   static const Color deepSea = Color(0xFF14366D); // Body text
-  static const Color nightTime = Color(0xFF081F44); // Dark text, emphasis
+  static const Color nightTime = Color(0xFF081F44); // Darkest emphasis
 
-  // Neutral Colors
+  // NEUTRAL COLORS
   static const Color white = Color(0xFFFFFFFF);
   static const Color lightGray = Color(0xFFF5F7FA);
   static const Color mediumGray = Color(0xFFE0E6ED);
   static const Color darkGray = Color(0xFF8B95A5);
 
-  // Semantic Colors
+  // SEMANTIC COLORS
   static const Color success = Color(0xFF34C759);
   static const Color warning = Color(0xFFFF9500);
   static const Color error = Color(0xFFFF3B30);
   static const Color info = Color(0xFF007AFF);
 
-  // Gradients
+  // DARK NIGHT THEME COLORS
+  static const Color nightBackground = Color(0xFF0A1628);
+  static const Color nightCard = Color(
+    0xFF081F44,
+  ); // lighter navy for glassmorphism cards
+  static const Color nightElevated = Color(0xFF1F2D44);
+  static const Color nightAccent = Color(0xFF060D16);
+
+  static const Color nightTextPrimary = Color(0xFFFFFFFF);
+  static const Color nightTextSecondary = Color(0xFFB4C5E0);
+  static const Color nightTextMuted = Color(0xFF6E7D95);
+  static const Color nightTextDisabled = Color(0xFF4A5566);
+
+  // LIGHT MORNING THEME COLORS
+  static const Color morningBackground = Color(0xFFF5F8FF);
+  static const Color morningCard = Color(0xFFFFFFFF);
+  static const Color morningElevated = Color(0xFFF0F4FF);
+  static const Color morningAccent = Color(0xFFE8F0FF);
+
+  static const Color morningTextPrimary = Color(0xFF1A2332);
+  static const Color morningTextSecondary = Color(0xFF4A5A70);
+  static const Color morningTextMuted = Color(0xFF7E8EA5);
+  static const Color morningTextDisabled = Color(0xFFB4C5E0);
+
+  // SOFT PASTELS
+  static const Color softBlue = Color(0xFF5B9FFF);
+  static const Color softCyan = Color(0xFF7EDCFF);
+  static const Color softTeal = Color(0xFF82E0D4);
+  static const Color softGreen = Color(0xFF82E0AA);
+  static const Color softYellow = Color(0xFFFED98B);
+  static const Color softOrange = Color(0xFFFFB380);
+  static const Color softPink = Color(0xFFFFB3D9);
+  static const Color softRed = Color(0xFFFF9999);
+  static const Color softPurple = Color(0xFFA89FED);
+
+  // MOOD COLORS
+  static const Map<String, Color> moodColors = {
+    'happy': softYellow,
+    'sad': softCyan,
+    'angry': softRed,
+    'anxious': softOrange,
+    'calm': softTeal,
+    'tired': softPurple,
+  };
+
+  // GRADIENTS
   static const LinearGradient primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
@@ -46,65 +91,6 @@ class NuruColors {
     colors: [sailingBlue, solidBlue],
   );
 
-  // Dark Mode Colors
-  static const Color darkBackground = Color(0xFF0F1419);
-  static const Color darkSurface = Color(0xFF1C2532);
-  static const Color darkCard = Color(0xFF2D3748);
-
-  // NEW DARK NIGHT THEME COLORS
-  // Dark Theme Backgrounds
-  static const Color nightBackground = Color(0xFF0A1628); // Deep navy
-  static const Color nightCard = Color(0xFF162036); // Card background
-  static const Color nightElevated = Color(0xFF1F2D44); // Elevated elements
-  static const Color nightAccent = Color(0xFF060D16); // Darkest navy
-
-  // Dark Theme Text
-  static const Color nightTextPrimary = Color(0xFFFFFFFF);
-  static const Color nightTextSecondary = Color(0xFFB4C5E0);
-  static const Color nightTextMuted = Color(0xFF6E7D95);
-  static const Color nightTextDisabled = Color(0xFF4A5566);
-
-  // LIGHT MORNING THEME COLORS
-  // Light Theme Backgrounds
-  static const Color morningBackground = Color(0xFFF5F8FF); // Sky blue tint
-  static const Color morningCard = Color(0xFFFFFFFF); // White cards
-  static const Color morningElevated = Color(0xFFF0F4FF); // Subtle blue
-  static const Color morningAccent = Color(0xFFE8F0FF); // Light blue accent
-
-  // Light Theme Text
-  static const Color morningTextPrimary = Color(0xFF1A2332);
-  static const Color morningTextSecondary = Color(0xFF4A5A70);
-  static const Color morningTextMuted = Color(0xFF7E8EA5);
-  static const Color morningTextDisabled = Color(0xFFB4C5E0);
-
-  // ══════════════════════════════════════════════════════════════
-  // SOFT PASTELS (Work in both themes)
-  // ══════════════════════════════════════════════════════════════
-
-  static const Color softBlue = Color(0xFF5B9FFF); // Primary NuruAI
-  static const Color softCyan = Color(0xFF7EDCFF); // Secondary
-  static const Color softTeal = Color(0xFF82E0D4); // Calm
-  static const Color softGreen = Color(0xFF82E0AA); // Success
-  static const Color softYellow = Color(0xFFFED98B); // Happy
-  static const Color softOrange = Color(0xFFFFB380); // Anxious
-  static const Color softPink = Color(0xFFFFB3D9); // Energetic
-  static const Color softRed = Color(0xFFFF9999); // Angry
-  static const Color softPurple = Color(0xFFA89FED); // Creative
-
-  // ══════════════════════════════════════════════════════════════
-  // MOOD COLORS
-  // ══════════════════════════════════════════════════════════════
-
-  static const Map<String, Color> moodColors = {
-    'happy': softYellow,
-    'sad': softCyan,
-    'angry': softRed,
-    'anxious': softOrange,
-    'calm': softTeal,
-    'tired': softPurple,
-  };
-
-  // NEW GRADIENTS
   static const LinearGradient nightBackgroundGradient = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
@@ -135,13 +121,10 @@ class NuruColors {
     colors: [softTeal, Color(0xFF5FC4B8)],
   );
 
-  // EXISTING HELPERS (Keep these)
-  // Opacity Helpers
-  static Color withOpacity(Color color, double opacity) {
-    return color.withOpacity(opacity);
-  }
+  // HELPERS
+  static Color withOpacity(Color color, double opacity) =>
+      color.withOpacity(opacity);
 
-  // Glassmorphism Helper
   static BoxDecoration glassCard({
     double blur = 10,
     double opacity = 0.3,
@@ -161,12 +144,11 @@ class NuruColors {
     );
   }
 
-  // Shadow Helpers
   static List<BoxShadow> softShadow = [
     BoxShadow(
       color: sailingBlue.withOpacity(0.1),
       blurRadius: 20,
-      offset: Offset(0, 10),
+      offset: const Offset(0, 10),
     ),
   ];
 
@@ -174,7 +156,7 @@ class NuruColors {
     BoxShadow(
       color: lilacBlue.withOpacity(0.3),
       blurRadius: 15,
-      offset: Offset(0, 5),
+      offset: const Offset(0, 5),
     ),
   ];
 
@@ -182,7 +164,12 @@ class NuruColors {
     BoxShadow(
       color: sailingBlue.withOpacity(0.4),
       blurRadius: 20,
-      offset: Offset(0, 10),
+      offset: const Offset(0, 10),
     ),
   ];
+
+  // Legacy
+  static const Color darkBackground = Color(0xFF0F1419);
+  static const Color darkSurface = Color(0xFF1C2532);
+  static const Color darkCard = Color(0xFF2D3748);
 }
